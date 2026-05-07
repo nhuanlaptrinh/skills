@@ -1,0 +1,238 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "9router/ModeFree",
+        "fallbacks": [
+          "google/gemini-3.1-pro-preview",
+          "kr/claude-haiku-4.5",
+          "kr/claude-sonnet-4.5",
+          "kr/deepseek-3.2",
+          "kr/qwen3-coder-next",
+          "kr/glm-5",
+          "kr/MiniMax-M2.5",
+          "qw/qwen3-coder-plus",
+          "qw/qwen3-coder-flash",
+          "qw/vision-model",
+          "qw/coder-model",
+          "gc/gemini-3-flash-preview",
+          "gc/gemini-3-pro-preview",
+          "oc/minimax-m2.5-free",
+          "oc/trinity-large-preview-free",
+          "oc/nemotron-3-super-free"
+        ]
+      },
+      "models": {
+        "google/gemini-3.1-pro-preview": {
+          "alias": "gemini-pro"
+        },
+        "google/gemini-2.5-flash": {
+          "alias": "gemini-flash"
+        },
+        "9router/ModeFree": {}
+      },
+      "workspace": "C:\\Users\\84936\\.openclaw\\workspace",
+      "compaction": {
+        "mode": "default"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "workspace": "C:\\Users\\84936\\.openclaw\\workspace",
+        "identity": {
+          "name": "Trợ Lý Tổng Hợp"
+        }
+      },
+      {
+        "id": "lisa",
+        "workspace": "C:\\Users\\84936\\.openclaw\\workspace-lisa",
+        "identity": {
+          "name": "Trợ Lý Lisa"
+        }
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "main"
+      }
+    },
+    {
+      "agentId": "lisa",
+      "match": {
+        "channel": "telegram",
+        "accountId": "lisa"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "open",
+      "streaming": {
+        "mode": "off"
+      },
+      "accounts": {
+        "lisa": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "main": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "default": {
+          "dmPolicy": "pairing",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "trustedProxies": [
+      "0.0.0.0/0"
+    ],
+    "controlUi": {
+      "allowInsecureAuth": true,
+      "allowedOrigins": [
+        "*"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "YOUR_AUTH_TOKEN_HERE"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "contacts.add",
+        "calendar.add",
+        "reminders.add",
+        "sms.send",
+        "sms.search"
+      ]
+    }
+  },
+  "tools": {
+    "profile": "coding"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "custom-localhost-2012811": {
+        "baseUrl": "http://localhost:20128/v1",
+        "api": "openai-completions",
+        "apiKey": "YOUR_API_KEY_HERE",
+        "models": [
+          {
+            "id": "kr/claude-haiku-4.5",
+            "name": "kr/claude-haiku-4.5 (Custom Provider)",
+            "contextWindow": 128000,
+            "maxTokens": 8192,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "reasoning": false
+          }
+        ]
+      },
+      "9router": {
+        "baseUrl": "http://localhost:20128/v1",
+        "api": "openai-completions",
+        "apiKey": "YOUR_API_KEY_HERE",
+        "models": [
+          {
+            "id": "ModeFree",
+            "name": "ModeFree (Custom Provider)",
+            "contextWindow": 128000,
+            "maxTokens": 8192,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "reasoning": false
+          }
+        ]
+      }
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-04-21T06:55:30.885Z",
+    "lastRunVersion": "2026.4.15",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.4.15",
+    "lastTouchedAt": "2026-04-21T06:55:31.283Z"
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "google": {
+        "enabled": true
+      }
+    }
+  }
+}

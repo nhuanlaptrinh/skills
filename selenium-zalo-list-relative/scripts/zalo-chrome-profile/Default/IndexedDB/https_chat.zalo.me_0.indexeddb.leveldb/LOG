@@ -1,0 +1,14 @@
+2026/04/25-16:14:47.407 1ee4 Reusing MANIFEST D:\100.Skills\00.Skills\SELENIUM_ZALO_LIST-main\SELENIUM_ZALO_LIST-main\.agent\skills\selenium-zalo-list-relative\scripts\zalo-chrome-profile\Default\IndexedDB\https_chat.zalo.me_0.indexeddb.leveldb/MANIFEST-000001
+2026/04/25-16:14:47.408 1ee4 Recovering log #6
+2026/04/25-16:14:47.489 1ee4 Reusing old log D:\100.Skills\00.Skills\SELENIUM_ZALO_LIST-main\SELENIUM_ZALO_LIST-main\.agent\skills\selenium-zalo-list-relative\scripts\zalo-chrome-profile\Default\IndexedDB\https_chat.zalo.me_0.indexeddb.leveldb/000006.log 
+2026/04/25-16:15:01.929 1ee4 Level-0 table #12: started
+2026/04/25-16:15:02.004 1ee4 Level-0 table #12: 1489777 bytes OK
+2026/04/25-16:15:02.010 1ee4 Delete type=0 #6
+2026/04/25-16:15:02.018 1ee4 Compacting 1@1 + 2@2 files
+2026/04/25-16:15:02.168 1ee4 Generated table #13@1: 14059 keys, 2150791 bytes
+2026/04/25-16:15:02.239 1ee4 Generated table #14@1: 10859 keys, 1089028 bytes
+2026/04/25-16:15:02.239 1ee4 Compacted 1@1 + 2@2 files => 3239819 bytes
+2026/04/25-16:15:02.241 1ee4 compacted to: files[ 0 0 2 0 0 0 0 ]
+2026/04/25-16:15:02.243 1ee4 Delete type=2 #8
+2026/04/25-16:15:02.243 1ee4 Delete type=2 #9
+2026/04/25-16:15:02.243 1ee4 Delete type=2 #12

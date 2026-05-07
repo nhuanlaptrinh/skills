@@ -1,0 +1,170 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "C:\\Users\\nhuan\\.openclaw\\workspace",
+      "model": {
+        "primary": "google/gemini-3-flash-preview",
+        "fallbacks": [
+          "google/gemini-3.1-pro-preview",
+          "gemini-2.5-flash"
+        ]
+      },
+      "models": {
+        "google/gemini-3.1-pro-preview": {},
+        "google/gemini-3-flash-preview": {},
+        "gemini-2.5-flash": {}
+      }
+    },
+    "list": [
+      {
+        "id": "trolyai",
+        "workspace": "C:\\Users\\nhuan\\.openclaw\\workspace_trolyai",
+        "identity": {
+          "name": "Trợ Lý AI"
+        }
+      },
+      {
+        "id": "laptrinh121",
+        "workspace": "C:\\Users\\nhuan\\.openclaw\\workspace_laptrinh121",
+        "identity": {
+          "name": "laptrinh121"
+        }
+      },
+      {
+        "id": "trolydulieu",
+        "workspace": "C:\\Users\\nhuan\\.openclaw\\workspace_ltrolydulieu",
+        "identity": {
+          "name": "trolydulieu"
+        }
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "trolyai",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyai"
+      }
+    },
+    {
+      "agentId": "laptrinh121",
+      "match": {
+        "channel": "telegram",
+        "accountId": "laptrinh121"
+      }
+    },
+    {
+      "agentId": "trolydulieu",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolydulieu"
+      }
+    }
+  ],
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "chatbot"
+    },
+    "port": 18789,
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "controlUi": {
+      "allowInsecureAuth": true
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "contacts.add",
+        "calendar.add",
+        "reminders.add",
+        "sms.send",
+        "sms.search"
+      ]
+    }
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.4.15",
+    "lastTouchedAt": "2026-04-22T08:15:15.665Z"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "tools": {
+    "profile": "coding"
+  },
+  "auth": {
+    "profiles": {
+      "google:default": {
+        "provider": "google",
+        "mode": "api_key"
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "open",
+      "streaming": {
+        "mode": "off"
+      },
+      "accounts": {
+        "trolyai": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_AUTH_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "laptrinh121": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_AUTH_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolydulieu": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_AUTH_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "default": {
+          "dmPolicy": "pairing",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        }
+      }
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-04-22T08:13:35.282Z",
+    "lastRunVersion": "2026.4.15",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "google": {
+        "enabled": true
+      }
+    }
+  }
+}

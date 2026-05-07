@@ -1,0 +1,350 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.4.15",
+    "lastTouchedAt": "2026-04-20T09:26:22.140Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-03T04:04:18.007Z",
+    "lastRunVersion": "2026.3.1",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "google:default": {
+        "provider": "google",
+        "mode": "api_key"
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "google/google/gemini-3-flash-preview",
+        "fallbacks": [
+          "google/gemini-3-flash-preview",
+          "google/gemini-3.1-pro-preview"
+        ]
+      },
+      "models": {
+        "google/google/gemini-3-flash-preview": {
+          "alias": "gemini-flash"
+        },
+        "google/gemini-3-flash-preview": {
+          "alias": "gemini-flash"
+        }
+      },
+      "workspace": "/root/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    },
+    "list": [
+      {
+        "id": "trolyalt",
+        "workspace": "/root/.openclaw/workspace",
+        "identity": {
+          "name": "Trợ Lý ALT"
+        }
+      },
+      {
+        "id": "trolyalt_web",
+        "workspace": "/root/.openclaw/workspace_trolyalt_web",
+        "identity": {
+          "name": "Trợ Lý Tạo Web ALT"
+        }
+      },
+      {
+        "id": "trolycontenttdhpythonvps",
+        "workspace": "/root/.openclaw/workspace_trolycontenttdhpythonvps",
+        "identity": {
+          "name": "Trợ Lý Content TDH Python VPS"
+        }
+      },
+      {
+        "id": "contentfbcn",
+        "workspace": "/root/.openclaw/workspace_contentfbcnvps",
+        "identity": {
+          "name": "Trợ Lý Content Facebook Cá nhân"
+        }
+      },
+      {
+        "id": "tuvanpython",
+        "workspace": "/root/.openclaw/workspace_tuvanpythonvps",
+        "identity": {
+          "name": "Trợ Lý Tư Vấn KH Python VPS"
+        }
+      },
+      {
+        "id": "tuvantrolyai",
+        "workspace": "/root/.openclaw/workspace_tuvantrolyai",
+        "identity": {
+          "name": "Trợ Lý Tư Vấn KH Trợ Lý A.I"
+        }
+      },
+      {
+        "id": "contenttrolyai",
+        "workspace": "/root/.openclaw/workspace_contenttrolyai",
+        "identity": {
+          "name": "Trợ Lý Content Trợ Lý A.I"
+        }
+      },
+      {
+        "id": "dkkhoahocalt",
+        "workspace": "/root/.openclaw/workspace_dkkhoahocalt",
+        "identity": {
+          "name": "Đăng Ký Khóa Học ALT"
+        }
+      },
+      {
+        "id": "trolyphanhoikhachhang",
+        "workspace": "/root/.openclaw/workspace_trolyphanhoikhachhang",
+        "identity": {
+          "name": "Phản Hồi Đăng Ký Khóa Học ALT"
+        }
+      },
+      {
+        "id": "trolyghinhaucaunoikh",
+        "workspace": "/root/.openclaw/workspace_trolyghinhaucaunoikh",
+        "identity": {
+          "name": "Ghi Nhớ CV Của KH"
+        }
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "trolyalt",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyalt"
+      }
+    },
+    {
+      "agentId": "trolyalt_web",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyalt_web"
+      }
+    },
+    {
+      "agentId": "trolycontenttdhpythonvps",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolycontenttdhpythonvps"
+      }
+    },
+    {
+      "agentId": "contentfbcn",
+      "match": {
+        "channel": "telegram",
+        "accountId": "contentfbcn"
+      }
+    },
+    {
+      "agentId": "tuvanpython",
+      "match": {
+        "channel": "telegram",
+        "accountId": "tuvanpythonvps"
+      }
+    },
+    {
+      "agentId": "tuvantrolyai",
+      "match": {
+        "channel": "telegram",
+        "accountId": "tuvantrolyai"
+      }
+    },
+    {
+      "agentId": "contenttrolyai",
+      "match": {
+        "channel": "telegram",
+        "accountId": "contenttrolyai"
+      }
+    },
+    {
+      "agentId": "dkkhoahocalt",
+      "match": {
+        "channel": "telegram",
+        "accountId": "dkkhoahocalt"
+      }
+    },
+    {
+      "agentId": "trolyphanhoikhachhang",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyphanhoikhachhang"
+      }
+    },
+    {
+      "agentId": "trolyghinhaucaunoikh",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyghinhaucaunoikh"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "open",
+      "streaming": {
+        "mode": "off"
+      },
+      "accounts": {
+        "trolyalt": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolyalt_web": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolycontenttdhpythonvps": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "contentfbcn": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "tuvanpythonvps": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "tuvantrolyai": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "contenttrolyai": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "dkkhoahocalt": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolyphanhoikhachhang": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolyghinhaucaunoikh": {
+          "dmPolicy": "pairing",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "default": {
+          "dmPolicy": "pairing",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "trustedProxies": [
+      "0.0.0.0/0"
+    ],
+    "controlUi": {
+      "allowedOrigins": [
+        "*"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "YOUR_AUTH_TOKEN_HERE"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add"
+      ]
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "google": {
+        "enabled": true
+      }
+    }
+  }
+}
