@@ -1,0 +1,4 @@
+interface:
+  display_name: "Anh Lap Trinh Multichannel Post"
+  short_description: "Draft Facebook and Zalo personal posts"
+  default_prompt: "Use $anh-lap-trinh-multichannel-post to turn this idea into a Facebook personal post and a Zalo post under 2000 words."

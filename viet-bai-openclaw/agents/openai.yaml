@@ -1,0 +1,4 @@
+interface:
+  display_name: "Viet Bai OpenClaw"
+  short_description: "Viet bai quang cao OpenClaw"
+  default_prompt: "Use $viet-bai-openclaw to draft a story-driven Vietnamese Facebook post for the OpenClaw program."
