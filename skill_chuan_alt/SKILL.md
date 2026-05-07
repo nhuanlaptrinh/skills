@@ -43,6 +43,7 @@ Khi tiến hành kiểm tra một dự án/skill, hãy lần lượt quét qua c
   ```
 
 ### 4. Khử Token/API/Secret Trước Khi Đưa Lên GitHub - Bắt Buộc
+- **Skill chuyên trách**: Nếu skill `khu-token-api-secret` có sẵn, phải dùng skill đó cho toàn bộ bước quét/khử secret khi tạo, cập nhật, chuẩn hóa hoặc chuẩn bị đưa bất kỳ skill/dự án nào lên GitHub.
 - **Nguyên tắc**: Trước khi hoàn tất bất kỳ skill/dự án nào, AI phải tự quét và thay toàn bộ thông tin nhạy cảm bằng placeholder, không chờ người dùng nhắc.
 - **Placeholder chuẩn**:
   - API key, bot token, auth token, access token, refresh token, secret: `Nhap_API_Cua_Ban`

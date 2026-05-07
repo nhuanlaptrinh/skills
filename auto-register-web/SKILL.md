@@ -36,7 +36,7 @@ Trước khi thực thi, **phải thu thập đủ 4 thông tin** sau. Nếu thi
 | `URL` | Link trang đăng ký | `https://tl1.anhlaptrinh.vn/` |
 | `COUPON` | Mã coupon giảm giá | `DAMUATL` |
 | `FULL_NAME` | Họ tên đầy đủ | `Nguyễn Văn Nhuần` |
-| `EMAIL` | Địa chỉ email | `example@gmail.com` |
+| `EMAIL` | Địa chỉ email | `email_cua_ban@example.com` |
 
 ---
 

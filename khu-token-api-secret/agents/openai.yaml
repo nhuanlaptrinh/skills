@@ -1,0 +1,4 @@
+interface:
+  display_name: "Khu Token API Secret"
+  short_description: "Scan and sanitize secrets before GitHub"
+  default_prompt: "Use $khu-token-api-secret to scan and sanitize a skill before committing or pushing to GitHub."

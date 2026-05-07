@@ -7,7 +7,7 @@
 > - URL: https://tl1.anhlaptrinh.vn/
 > - Coupon: DAMUATL
 > - Tên: Nguyễn Văn A
-> - Email: nguyenvana@gmail.com
+> - Email: email_cua_ban@example.com
 
 **AI thực hiện:**
 
@@ -15,7 +15,7 @@
    - `{{URL}}` → `https://tl1.anhlaptrinh.vn/`
    - `{{COUPON}}` → `DAMUATL`
    - `{{FULL_NAME}}` → `Nguyễn Văn A`
-   - `{{EMAIL}}` → `nguyenvana@gmail.com`
+   - `{{EMAIL}}` → `email_cua_ban@example.com`
 
 2. Chạy: `python temp_register.py`
 
@@ -26,7 +26,7 @@
 • Trạng thái: ✅ Thành công
 • Website: https://tl1.anhlaptrinh.vn/
 • Tên: Nguyễn Văn A
-• Email: nguyenvana@gmail.com
+• Email: email_cua_ban@example.com
 • Coupon: DAMUATL
 • URL sau đăng ký: https://tl1.anhlaptrinh.vn/thank-you
 ```
@@ -38,7 +38,7 @@
 ## Ví dụ 2 — Người dùng cung cấp thiếu thông tin
 
 **Người dùng nói:**
-> Đăng ký Voomly cho tôi, email là test@gmail.com
+> Đăng ký Voomly cho tôi, email là email_cua_ban@example.com
 
 **AI phản hồi:**
 > Để đăng ký tài khoản, tôi cần thêm các thông tin sau:
@@ -73,8 +73,8 @@
 > Đăng ký 3 tài khoản Voomly cho tôi:
 > - URL: https://tl1.anhlaptrinh.vn/
 > - Coupon: DAMUATL
-> - Tài khoản 1: Nguyễn Văn A / a@gmail.com
-> - Tài khoản 2: Trần Văn B / b@gmail.com
-> - Tài khoản 3: Lê Thị C / c@gmail.com
+> - Tài khoản 1: Nguyễn Văn A / email_1@example.com
+> - Tài khoản 2: Trần Văn B / email_2@example.com
+> - Tài khoản 3: Lê Thị C / email_3@example.com
 
 **AI thực hiện:** Lặp quy trình 3 lần, mỗi lần thay thông tin tương ứng, báo cáo kết quả tổng hợp sau khi hoàn tất tất cả.
