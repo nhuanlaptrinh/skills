@@ -42,7 +42,37 @@ Khi tiến hành kiểm tra một dự án/skill, hãy lần lượt quét qua c
   WORKSHEET_NAME = os.getenv('WORKSHEET_NAME')
   ```
 
-### 4. Môi Trường Ảo Python (venv) - Bắt Buộc
+### 4. Khử Token/API/Secret Trước Khi Đưa Lên GitHub - Bắt Buộc
+- **Nguyên tắc**: Trước khi hoàn tất bất kỳ skill/dự án nào, AI phải tự quét và thay toàn bộ thông tin nhạy cảm bằng placeholder, không chờ người dùng nhắc.
+- **Placeholder chuẩn**:
+  - API key, bot token, auth token, access token, refresh token, secret: `Nhap_API_Cua_Ban`
+  - Email cá nhân trong ví dụ/log: `email_cua_ban@example.com`
+  - Password/mật khẩu mẫu: `Nhap_Mat_Khau_Cua_Ban`
+  - ID/cấu hình riêng tư nếu không cần công khai: `Nhap_Gia_Tri_Cua_Ban`
+- **Các giá trị phải thay**:
+  - OpenAI/API key dạng `sk-...`, `sk-proj-...`
+  - Telegram bot token dạng `123456789:ABC...`
+  - Google API key dạng `AIza...`
+  - GitHub token dạng `ghp_...`, `github_pat_...`
+  - Slack/Discord/Zalo/webhook token, bearer token, cookie/session, client secret
+  - Email, số điện thoại, URL quản trị, account đăng nhập xuất hiện trong file mẫu hoặc log
+- **Các file/thư mục nhạy cảm phải chặn bằng `.gitignore`**:
+  - `.env`, `.env.*` (trừ `.env.example` nếu đã dùng placeholder)
+  - `credentials.json`, `client_secret*.json`, service account JSON thật
+  - `*token*`, `*secret*`, `*credential*` nếu là dữ liệu thật
+  - Chrome/browser profile: `**/zalo-chrome-profile/`, `**/chrome-profile/`, `**/user-data-dir/`
+  - Browser data: `Cookies`, `Login Data`, `Local Storage`, `IndexedDB`, `Session Storage`, `Secure Preferences`
+  - Log chạy thật: `*.log`, `auto_register_log.txt` nếu chứa email/token/session
+  - Cache/build local: `__pycache__/`, `*.pyc`, `venv/`
+- **Nếu file nhạy cảm đã bị Git track**: dùng `git rm --cached` để gỡ khỏi Git index nhưng giữ file local. Không xóa file local của người dùng nếu không được yêu cầu.
+- **Quét bắt buộc trước khi báo xong**:
+  ```powershell
+  rg -uuu -n --glob '!**/.git/**' --glob '!**/zalo-chrome-profile/**' "(sk-proj-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{25,}|gh[pousr]_[0-9A-Za-z_]{20,}|github_pat_[A-Za-z0-9_]+|xox[baprs]-[0-9A-Za-z-]{10,}|[0-9]{7,}:[A-Za-z0-9_-]{25,})" .
+  git ls-files | rg -i "zalo-chrome-profile|chrome-profile|user-data-dir|cookies|login data|local storage|indexeddb|session storage|secure preferences|__pycache__|\.pyc$|\.env$"
+  ```
+- **Kiểm tra history nếu chuẩn bị push GitHub**: Nếu repo đã có commit cũ, phải nhắc người dùng rằng secret có thể còn trong lịch sử Git. Khi cần sạch tuyệt đối, tạo repo mới sạch hoặc rewrite history trước khi push.
+
+### 5. Môi Trường Ảo Python (venv) - Bắt Buộc
 - **Nguyên tắc**: Mỗi dự án phải có môi trường ảo riêng để tránh xung đột thư viện giữa các project.
 - **Tạo venv** (chỉ làm 1 lần trên mỗi máy):
   ```powershell
@@ -70,11 +100,17 @@ Khi người dùng gọi skill này để kiểm tra một thư mục dự án, 
 1. **Kiểm tra `SKILL.md`**: Đọc file này (thường nằm ở root hoặc thư mục `.agents/skills/...`), phân tích phần frontmatter (yaml) xem `name` và `description` đã chuẩn chưa.
 2. **Tìm kiếm lỗi Hardcode**: Dùng công cụ (như `grep_search`) quét các file `.py` tìm `C:\`, `D:\`, `SPREADSHEET_ID = "..."` (hardcode string).
 3. **Kiểm tra `.env`**: Xác nhận sự tồn tại của file `.env` và các biến môi trường cần thiết có được khai báo ở đó không.
-4. **Kiểm tra venv**:
+4. **Khử token/API/secret trước khi GitHub**:
+   - Quét toàn bộ file text/code/config bằng `rg` để tìm API key, bot token, auth token, secret, bearer token, webhook, email/log thật.
+   - Thay giá trị thật bằng placeholder chuẩn: `Nhap_API_Cua_Ban`, `email_cua_ban@example.com`, `Nhap_Mat_Khau_Cua_Ban`.
+   - Kiểm tra `.gitignore` và bổ sung các dòng chặn `.env`, log thật, credentials thật, browser profile, cache, `venv/`, `__pycache__/`.
+   - Nếu thấy Chrome/browser profile, cookie, `Login Data`, `Local Storage`, `IndexedDB`, `Session Storage` đang được Git track → dùng `git rm --cached` để gỡ khỏi index và giữ file local.
+   - Quét lại staged/current tree. Nếu repo đã có commit cũ chứa secret, báo rõ rủi ro history trước khi push GitHub.
+5. **Kiểm tra venv**:
    - Thư mục `venv/` có tồn tại ở thư mục gốc dự án không? Nếu chưa → chạy `python -m venv venv` ngay.
    - Lệnh chạy trong `SKILL.md` có dùng `.\venv\Scripts\python.exe` không? Nếu không → cập nhật.
    - File `.gitignore` có dòng `venv/` không? Nếu không → bổ sung.
-5. **Báo cáo và Đề xuất**: Liệt kê các lỗi vi phạm và đề xuất cách sửa (hoặc trực tiếp sửa bằng tool code edit nếu người dùng cho phép).
+6. **Báo cáo và Đề xuất**: Liệt kê các lỗi vi phạm và đề xuất cách sửa (hoặc trực tiếp sửa bằng tool code edit nếu người dùng cho phép).
 
 ---
 *Ghi chú: Chuẩn này được xây dựng dựa trên sự thống nhất cấu trúc của các dự án:*

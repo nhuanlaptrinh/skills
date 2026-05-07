@@ -18,7 +18,7 @@ d:\10.Da_Tro_Ly_Openclaw\validate-openclaw-json\examples\
 
 User có thể bổ sung thêm file mẫu vào thư mục `examples/` bất cứ lúc nào. Không giới hạn số lượng file mẫu. Luôn đọc TẤT CẢ file có trong folder này để có cái nhìn toàn diện nhất về các kiểu cấu hình hợp lệ.
 
-> **Lưu ý:** Các token/key trong file mẫu đã được thay bằng placeholder (`YOUR_BOT_TOKEN_HERE`, `YOUR_API_KEY_HERE`, `YOUR_AUTH_TOKEN_HERE`). File thực tế của user sẽ có token thật — không báo lỗi nếu token có giá trị thực.
+> **Lưu ý:** Các token/key trong file mẫu đã được thay bằng placeholder (`Nhap_API_Cua_Ban`, `Nhap_API_Cua_Ban`, `Nhap_API_Cua_Ban`). File thực tế của user sẽ có token thật — không báo lỗi nếu token có giá trị thực.
 
 ## Quy trình kiểm tra
 
@@ -119,7 +119,7 @@ openclaw.json
 - Với mỗi binding, `match.accountId` phải tồn tại trong `channels.telegram.accounts`.
 
 #### Quy tắc 4: Mỗi account Telegram (trừ "default") phải có botToken
-- `botToken` phải có format: `số:chuỗi` (VD: `8757290804:AAEkdsw3bwQJT-A_o6Uwsj8HXUVaX2phkm4`)
+- `botToken` phải có format: `số:chuỗi` (VD: `Nhap_API_Cua_Ban`)
 - Account `default` KHÔNG cần botToken.
 
 #### Quy tắc 5: Không có account mồ côi
@@ -184,7 +184,7 @@ Khi user muốn thêm agent mới, cần sửa **3 chỗ đồng thời**:
 ```json
 "agent_id_moi": {
   "dmPolicy": "pairing",
-  "botToken": "BOT_TOKEN_TỪ_BOTFATHER",
+  "botToken": "Nhap_API_Cua_Ban",
   "groupPolicy": "open",
   "streaming": {
     "mode": "off"

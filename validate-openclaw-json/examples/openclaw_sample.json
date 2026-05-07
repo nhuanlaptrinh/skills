@@ -211,7 +211,7 @@
       "accounts": {
         "trolyalt": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -219,7 +219,7 @@
         },
         "trolyalt_web": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -227,7 +227,7 @@
         },
         "trolycontenttdhpythonvps": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -235,7 +235,7 @@
         },
         "contentfbcn": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -243,7 +243,7 @@
         },
         "tuvanpythonvps": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -251,7 +251,7 @@
         },
         "tuvantrolyai": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -259,7 +259,7 @@
         },
         "contenttrolyai": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -267,7 +267,7 @@
         },
         "dkkhoahocalt": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -275,7 +275,7 @@
         },
         "trolyphanhoikhachhang": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -283,7 +283,7 @@
         },
         "trolyghinhaucaunoikh": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -313,7 +313,7 @@
     },
     "auth": {
       "mode": "token",
-      "token": "YOUR_AUTH_TOKEN_HERE"
+      "token": "Nhap_API_Cua_Ban"
     },
     "tailscale": {
       "mode": "off",

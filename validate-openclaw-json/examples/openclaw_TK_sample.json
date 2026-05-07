@@ -96,7 +96,7 @@
       "accounts": {
         "lisa": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -104,7 +104,7 @@
         },
         "main": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -135,7 +135,7 @@
     },
     "auth": {
       "mode": "token",
-      "token": "YOUR_AUTH_TOKEN_HERE"
+      "token": "Nhap_API_Cua_Ban"
     },
     "tailscale": {
       "mode": "off",
@@ -170,7 +170,7 @@
       "custom-localhost-2012811": {
         "baseUrl": "http://localhost:20128/v1",
         "api": "openai-completions",
-        "apiKey": "YOUR_API_KEY_HERE",
+        "apiKey": "Nhap_API_Cua_Ban",
         "models": [
           {
             "id": "kr/claude-haiku-4.5",
@@ -193,7 +193,7 @@
       "9router": {
         "baseUrl": "http://localhost:20128/v1",
         "api": "openai-completions",
-        "apiKey": "YOUR_API_KEY_HERE",
+        "apiKey": "Nhap_API_Cua_Ban",
         "models": [
           {
             "id": "ModeFree",

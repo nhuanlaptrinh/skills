@@ -1,0 +1,7 @@
+**/zalo-chrome-profile/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Local run logs may contain emails, URLs, or session details.
+auto-register-web/scripts/auto_register_log.txt

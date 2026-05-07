@@ -63,7 +63,7 @@ EMAIL     = "{{EMAIL}}"
 URL       = "https://tdhcvp1.anhlaptrinh.vn/"
 COUPON    = "DAMUANC"
 FULL_NAME = "Nguyễn Văn Nhuần"
-EMAIL     = "nguyenvannhuan2231232@gmail.com"
+EMAIL     = "email_cua_ban@example.com"
 ```
 
 > ⚠️ **Lưu ý:** Chỉ thay 4 dòng biến cấu hình, KHÔNG sửa bất kỳ phần nào khác của script.

@@ -119,7 +119,7 @@
       "accounts": {
         "trolyai": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_AUTH_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -127,7 +127,7 @@
         },
         "laptrinh121": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_AUTH_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
@@ -135,7 +135,7 @@
         },
         "trolydulieu": {
           "dmPolicy": "pairing",
-          "botToken": "YOUR_AUTH_TOKEN_HERE",
+          "botToken": "Nhap_API_Cua_Ban",
           "groupPolicy": "open",
           "streaming": {
             "mode": "off"
