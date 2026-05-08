@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate Facebook Autopost To Linux"
+  short_description: "Migrate Windows Facebook auto-post projects to Linux cron."
+  default_prompt: "Use this skill to migrate my Windows Facebook personal auto-poster project to Linux and schedule it safely with cron."
