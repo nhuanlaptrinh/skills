@@ -17,7 +17,7 @@ description: Write Vietnamese advertising content for the OpenClaw program by An
    - Older or low-tech learner who thinks AI automation is only for technical people.
    - Perfectionist who keeps tweaking prompts and tools but never gets a working assistant.
 4. Draft from a lived work scene first, then introduce the method: create personal AI assistants with OpenClaw, each assistant has a job, then train and improve them by using them on real work.
-5. End with one direct action: register for OpenClaw, message for advice, or send the reader's workflow so it can be mapped into assistants.
+5. End with one direct action: register for OpenClaw (Link: `https://oplw.anhlaptrinh.vn/`), message for advice, or send the reader's workflow so it can be mapped into assistants.
 
 ## Writing Rules
 
