@@ -85,7 +85,7 @@ Các dạng mở đầu thường dùng:
 
 ### 3. Cách xưng hô
 
-- **Xưng:** "mình", "tui", "tôi" (tùy ngữ cảnh, bài nghiêm túc dùng "mình/tôi", bài thoải mái dùng "tui")
+- **Xưng:** ưu tiên "mình" cho Facebook cá nhân; có thể dùng "tui" khi bài cần đời hơn. Tránh xưng "tôi" trừ khi người dùng yêu cầu giọng nghiêm túc/trang trọng.
 - **Gọi người đọc:** "anh em", "các ông", "bạn", "mọi người"
 - **Với bạn thân:** "mày/tao", "ku" (rất thân mật)
 - **Với người lớn tuổi hơn:** "anh/chị", "thầy", "bác"
@@ -128,7 +128,7 @@ Các dạng mở đầu thường dùng:
 - **Ngắn gọn, chia nhỏ ý:** Mỗi ý 1-3 câu, xuống dòng nhiều
 - **Dùng dấu xuống dòng (line break) thay vì viết đoạn dài**
 - **Ít dùng bullet points** trong bài cá nhân (chỉ dùng khi liệt kê rõ ràng)
-- **Hashtag:** Tất cả bài viết đều phải có hashtag: #anhlaptrinh #antigravity #ai #nguyenvannhuan #pyan #python #openclaw #Obsidian #antigravity
+- **Hashtag:** Tất cả content Facebook/Zalo đều phải có đúng bộ hashtag cuối bài: #anhlaptrinh #aiautomation #nguyenvannhuan #obsidian #antigravity #ai #python #openclaw #claude #codex
 - **Emoji:** Dùng vừa phải, chủ yếu 😆, 😂, 😁, 👍, ♥️
 - **Không dùng:** Ngôn ngữ hoa mỹ, câu văn dài lê thê, giọng "guru/coach"
 - **PS/Ps:** Hay thêm dòng "Ps:" ở cuối bài để bổ sung ý nhẹ nhàng
@@ -215,7 +215,7 @@ Phụ nữ khó hiểu thật, trước đó toàn chê mình s.ấu mà.
 ```
 "Em có nên mua nhà trả góp hay không?"
 
-Cậu ấy sinh năm 94, là học viên của khóa lập trình mà tôi từng giảng dạy...
+Cậu ấy sinh năm 94, là học viên của khóa lập trình mà mình từng giảng dạy...
 
 [Kể chi tiết hoàn cảnh]
 

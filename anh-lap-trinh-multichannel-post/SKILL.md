@@ -43,14 +43,15 @@ If the `personal-brand-voice` skill is available in the session, use it together
 ## Voice Checklist
 
 - Xưng hô mặc định: `mình`, có thể dùng `tui` khi bài cần đời hơn.
+- Với Facebook cá nhân, tránh xưng `tôi` trừ khi người dùng yêu cầu giọng nghiêm túc/trang trọng; ưu tiên đổi `tôi` thành `mình` để bài thân thiết hơn.
 - Gọi người đọc: `anh em`, `các ông`, hoặc `bạn`.
 - Giọng: thẳng, thật, thực dụng, có chút tự giễu, không làm màu.
 - Không viết như coach/guru, không sáo rỗng, không lên lớp đạo lý.
 - Ưu tiên câu ngắn, xuống dòng nhiều, mỗi ý 1-3 câu.
 - Giữ trải nghiệm cá nhân làm gốc, rồi mới rút ra bài học.
 - Có thể dùng `kaka`, `hồi đó`, `xin thưa`, `nghe cũng hơi ngứa`, `vướng đâu gỡ đó` khi hợp ngữ cảnh.
-- Với Facebook, thêm hashtag cuối bài nếu phù hợp: `#anhlaptrinh #antigravity #ai #nguyenvannhuan #pyan #python #openclaw #Obsidian #antigravity`
-- Với Zalo, không bắt buộc hashtag; chỉ thêm nếu người dùng yêu cầu.
+- Với mọi content Facebook/Zalo, luôn thêm đúng bộ hashtag cuối bài: `#anhlaptrinh #aiautomation #nguyenvannhuan #obsidian #antigravity #ai #python #openclaw #claude #codex`
+- Không dùng biến thể khác của bộ hashtag mặc định, trừ khi người dùng yêu cầu rõ.
 
 ## Facebook Version
 
@@ -71,7 +72,7 @@ Recommended shape:
 
 [Kết lại bằng một câu đúc kết hoặc Ps]
 
-[Hashtag nếu phù hợp]
+[Bộ hashtag mặc định]
 ```
 
 ## Zalo Version
@@ -83,7 +84,7 @@ Make the Zalo version:
 - Ngắn hơn Facebook khoảng 30-50%.
 - Ít nhánh phụ hơn, tập trung vào một bài học chính.
 - Vẫn giữ câu mở đầu mạnh nếu có.
-- Không quá nhiều hashtag.
+- Luôn giữ bộ hashtag mặc định ở cuối bài: `#anhlaptrinh #aiautomation #nguyenvannhuan #obsidian #antigravity #ai #python #openclaw #claude #codex`
 - Dễ đọc khi copy vào Zalo, nhiều dòng ngắn.
 
 ## File Saving Conventions

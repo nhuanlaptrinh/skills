@@ -1,0 +1,4 @@
+interface:
+  display_name: "Viet Chia Se App Social"
+  short_description: "Chia se app tren Facebook/Zalo"
+  default_prompt: "Viet mot bai chia se ve loi ich hoac trai nghiem su dung mot ung dung de dang Facebook ca nhan hoac Zalo theo phong cach Anh Lap Trinh."
