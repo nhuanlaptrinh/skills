@@ -1,0 +1,4 @@
+interface:
+  display_name: "Demo Data Anh Lap Trinh"
+  short_description: "Tao du lieu demo thuc hanh automation"
+  default_prompt: "Use $demo-data-anh-lap-trinh to create clean demo data files for an Anh Lap Trinh automation lesson."
