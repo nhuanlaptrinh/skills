@@ -73,7 +73,7 @@ Khi tiến hành kiểm tra một dự án/skill, hãy lần lượt quét qua c
   ```
 - **Kiểm tra history nếu chuẩn bị push GitHub**: Nếu repo đã có commit cũ, phải nhắc người dùng rằng secret có thể còn trong lịch sử Git. Khi cần sạch tuyệt đối, tạo repo mới sạch hoặc rewrite history trước khi push.
 
-### 5. Môi Trường Ảo Python (venv) - Bắt Buộc
+### 5. Môi Trường Ảo Python (venv) - Không Bắt Buộc.
 - **Nguyên tắc**: Mỗi dự án phải có môi trường ảo riêng để tránh xung đột thư viện giữa các project.
 - **Tạo venv** (chỉ làm 1 lần trên mỗi máy):
   ```powershell
