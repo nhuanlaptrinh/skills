@@ -1,7 +1,26 @@
 **/zalo-chrome-profile/
+**/chrome-profile/
+**/user-data-dir/
 **/__pycache__/
 *.pyc
 *.pyo
+venv/
+.env
+.env.*
+!.env.example
+credentials.json
+client_secret*.json
+*token*
+*secret*
+*credential*
+**/Cookies
+**/Login Data
+**/Local Storage/
+**/IndexedDB/
+**/Session Storage/
+**/Secure Preferences
+**/Preferences
+**/Web Data
 
 # Local run logs may contain emails, URLs, or session details.
 auto-register-web/scripts/auto_register_log.txt
