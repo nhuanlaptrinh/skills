@@ -93,47 +93,47 @@ Khi người dùng yêu cầu tạo một website/chương trình mới theo chu
 
 Luôn tạo folder:
 
-`/root/Second_Brain/01Chuong_Trinh_Dao_Tao/01 - Chương trình đào tạo/[PROJECT_CODE]`
+`/root/Second_Brain/01_chuong_trinh_dao_tao/[PROJECT_CODE]`
 
 Tạo cấu trúc chuẩn tương tự các chương trình hiện có:
 
 ```text
 [PROJECT_CODE]/
 ├── 00 - MOC - [COURSE_TITLE].md
-├── 01 - Tổng quan chương trình/
-│   └── 00 - Tổng hợp - Tổng quan chương trình.md
-├── 02 - Lộ trình đào tạo/
-│   ├── 00 - Tổng hợp - Kích hoạt và onboarding.md
-│   └── 00 - Tổng hợp - Lộ trình đào tạo.md
-├── 03 - Q&A và xử lý phản đối/
-│   └── 00 - Tổng hợp - Q&A và xử lý phản đối.md
-├── 05 - Bài quảng cáo và content/
-│   ├── 00 - Tổng hợp - Bài quảng cáo và content.md
+├── 01_tong_quan_chuong_trinh/
+│   └── 00_tong_hop_tong_quan_chuong_trinh.md
+├── 02_lo_trinh_dao_tao/
+│   ├── 00_tong_hop_kich_hoat_va_onboarding.md
+│   └── 00_tong_hop_lo_trinh_dao_tao.md
+├── 03_q_a_va_xu_ly_phan_doi/
+│   └── 00_tong_hop_q_a_va_xu_ly_phan_doi.md
+├── 05_bai_quang_cao_va_content/
+│   ├── 00_tong_hop_bai_quang_cao_va_content.md
 │   └── Noi_Dung_Trang_Website_Ban_Hang.md
-├── 06 - Prompt và workflow mẫu/
-│   └── 00 - Tổng hợp - Prompt và workflow mẫu.md
-├── 07 - Case study và ví dụ/
-│   └── 00 - Tổng hợp - Case study và ví dụ.md
-├── 08 - Tài liệu kỹ thuật/
-│   └── 00 - Tổng hợp - Tài liệu kỹ thuật.md
-├── 10 - Post trang cá nhân quảng cáo/
-│   └── 00 - Tổng hợp - Post trang cá nhân quảng cáo.md
-├── 11 - Đối tượng khách hàng hướng tới/
-│   └── 00 - Tổng hợp - Đối tượng khách hàng hướng tới.md
-├── 12 - Dữ liệu làm website [PROJECT_DOMAIN]/
-│   └── 00 - Thông tin website và link đăng ký.md
-├── 13 - Dữ liệu đào tạo Business AI Fanpage Facebook/
+├── 06_prompt_va_workflow_mau/
+│   └── 00_tong_hop_prompt_va_workflow_mau.md
+├── 07_case_study_va_vi_du/
+│   └── 00_tong_hop_case_study_va_vi_du.md
+├── 08_tai_lieu_ky_thuat/
+│   └── 00_tong_hop_tai_lieu_ky_thuat.md
+├── 10_post_trang_ca_nhan_quang_cao/
+│   └── 00_tong_hop_post_trang_ca_nhan_quang_cao.md
+├── 11_doi_tuong_khach_hang_huong_toi/
+│   └── 00_tong_hop_doi_tuong_khach_hang_huong_toi.md
+├── 12_du_lieu_lam_website [PROJECT_DOMAIN]/
+│   └── 00_thong_tin_website_va_link_dang_ky.md
+├── 13_du_lieu_dao_tao_business_ai_fanpage_facebook/
 │   ├── 00 - Hướng dẫn sử dụng dữ liệu.md
 │   ├── 01 - Thông tin công ty và chương trình.md
 │   └── 03 - FAQ đào tạo AI Fanpage.md
-└── 99 - Ghi chú tổng hợp/
-    └── 00 - Tổng hợp - Ghi chú tổng hợp.md
+└── 99_ghi_chu_tong_hop/
+    └── 00_tong_hop_ghi_chu_tong_hop.md
 ```
 
 Yêu cầu nội dung tối thiểu:
 
 - MOC có frontmatter, định vị ngắn, link wiki tới từng nhóm.
-- `12 - Dữ liệu làm website.../00 - Thông tin website và link đăng ký.md` phải có `Mã chương trình`, `Tên chương trình`, `Website đăng ký chính thức`, `Link tư vấn/đăng ký`, học phí nếu có, và nội dung public đã biên tập/trích xuất từ website.
+- `12_du_lieu_lam_website.../00_thong_tin_website_va_link_dang_ky.md` phải có `Mã chương trình`, `Tên chương trình`, `Website đăng ký chính thức`, `Link tư vấn/đăng ký`, học phí nếu có, và nội dung public đã biên tập/trích xuất từ website.
 - Các file tổng hợp phải đủ thông tin để chatbot tư vấn đọc được qua `course_advisor`: tổng quan, lộ trình, onboarding, Q&A, đối tượng khách hàng, dữ liệu website.
 
 ### Bước E - Đưa chương trình vào dự án ALT portal

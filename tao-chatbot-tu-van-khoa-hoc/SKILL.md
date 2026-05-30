@@ -1,6 +1,6 @@
 ---
 name: tao-chatbot-tu-van-khoa-hoc
-description: Create or adapt a course-advisor chatbot for Anh Lap Trinh websites, including multi-course portals and single-course landing pages. Use when Codex needs to add a chatbot before a registration form, connect it to DeepSeek, read course knowledge from /root/Second_Brain/01Chuong_Trinh_Dao_Tao/01 - Chương trình đào tạo, optionally notify Telegram when requested, or reuse the preferred advisor UI pattern from /root/10Web_BH/05_domain_vibepython, /root/10Web_BH/19_domain_ancl, /root/10Web_BH/28_domain_alt, or an existing course site.
+description: Create or adapt a course-advisor chatbot for Anh Lap Trinh websites, including multi-course portals and single-course landing pages. Use when Codex needs to add a chatbot before a registration form, connect it to DeepSeek, read course knowledge from /root/Second_Brain/01_chuong_trinh_dao_tao, optionally notify Telegram when requested, or reuse the preferred advisor UI pattern from /root/10Web_BH/05_domain_vibepython, /root/10Web_BH/19_domain_ancl, /root/10Web_BH/28_domain_alt, or an existing course site.
 ---
 
 # Tao Chatbot Tu Van Khoa Hoc
@@ -14,9 +14,9 @@ Build a reusable website chatbot for Anh Lập Trình course sites:
 
 The backend answers from markdown knowledge in:
 
-`/root/Second_Brain/01Chuong_Trinh_Dao_Tao/01 - Chương trình đào tạo`
+`/root/Second_Brain/01_chuong_trinh_dao_tao`
 
-The chatbot must not hardcode API keys or invent course links. It should read website/register links from markdown in each course folder, especially `12 - Dữ liệu làm website...`.
+The chatbot must not hardcode API keys or invent course links. It should read website/register links from markdown in each course folder, especially `12_du_lieu_lam_website...`.
 
 ## Default Architecture
 
@@ -77,22 +77,22 @@ If the target is not Django, keep the same frontend/backend contract:
    - Match `code` to a folder under the training root, e.g. `02_domain_tlai` or `20_domain_anob`.
 
 3. Put link knowledge in markdown.
-   - For each course, ensure a folder like `12 - Dữ liệu làm website <domain>` exists.
-   - Add or update `00 - Thông tin website và link đăng ký.md`.
+   - For each course, ensure a folder like `12_du_lieu_lam_website <domain>` exists.
+   - Add or update `00_thong_tin_website_va_link_dang_ky.md`.
    - Include the official website/register link there.
-   - If the markdown link conflicts with the live domain in Docker/Traefik, update the `12 - Dữ liệu làm website...` file so link questions return the real website.
+   - If the markdown link conflicts with the live domain in Docker/Traefik, update the `12_du_lieu_lam_website...` file so link questions return the real website.
    - Do not depend on backend hardcoded URL maps for links.
 
 4. Build the backend endpoint.
    - Read `DEEPSEEK_API_KEY` and optional `DEEPSEEK_MODEL` from environment.
    - Validate `course_code` against allowed course folders.
    - Read course markdown context in this order:
-     1. all `*.md` files in `12 - Dữ liệu làm website*`
-     2. `01 - Tổng quan chương trình/00 - Tổng hợp - Tổng quan chương trình.md`
-     3. `02 - Lộ trình đào tạo/00 - Tổng hợp - Kích hoạt và onboarding.md`
-     4. `02 - Lộ trình đào tạo/00 - Tổng hợp - Lộ trình đào tạo.md`
-     5. `03 - Q&A và xử lý phản đối/00 - Tổng hợp - Q&A và xử lý phản đối.md`
-     6. `11 - Đối tượng khách hàng hướng tới/00 - Tổng hợp - Đối tượng khách hàng hướng tới.md`
+     1. all `*.md` files in `12_du_lieu_lam_website*`
+     2. `01_tong_quan_chuong_trinh/00_tong_hop_tong_quan_chuong_trinh.md`
+     3. `02_lo_trinh_dao_tao/00_tong_hop_kich_hoat_va_onboarding.md`
+     4. `02_lo_trinh_dao_tao/00_tong_hop_lo_trinh_dao_tao.md`
+     5. `03_q_a_va_xu_ly_phan_doi/00_tong_hop_q_a_va_xu_ly_phan_doi.md`
+     6. `11_doi_tuong_khach_hang_huong_toi/00_tong_hop_doi_tuong_khach_hang_huong_toi.md`
    - Tell the model: only use supplied program data; if asked for website/link/register, find the URL in the program data.
    - Tell the model not to use Markdown formatting such as `**bold**`, backticks, or heading `#`.
    - Add a small backend cleanup step that strips common Markdown markers from AI answers before returning JSON or sending Telegram, so raw `**` never appears to customers.

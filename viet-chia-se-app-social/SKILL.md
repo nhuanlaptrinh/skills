@@ -14,10 +14,10 @@ Save each requested post as a `.md` file by default. Only skip saving when the u
 When working in the training vault, save Facebook personal and Zalo post files to:
 
 ```text
-C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01Chuong_Trinh_Dao_Tao\02 - Facebook Cá Nhân
+C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01_chuong_trinh_dao_tao\02_facebook_ca_nhan
 ```
 
-If that exact folder is not visible because of environment encoding, use the existing `02 - Facebook Cá Nhân` folder under the current training vault. Use ASCII filenames:
+If that exact folder is not visible because of environment encoding, use the existing `02_facebook_ca_nhan` folder under the current training vault. Use ASCII filenames:
 
 ```text
 <NN> - <Topic Title> - Facebook.md

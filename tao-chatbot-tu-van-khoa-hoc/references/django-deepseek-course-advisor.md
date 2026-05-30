@@ -6,7 +6,7 @@ Use this reference when implementing the chatbot in a Django website.
 
 - **Single-course landing page:** keep `COURSE_FOLDERS` to the current course only, insert the advisor immediately before the registration form, and render chat + a compact course info panel. Do not add a broad course search UI unless requested.
 - **Multi-course portal:** include all owner-approved courses, selected-course state, and searchable course cards.
-- For both modes, the official registration URL must come from `12 - Dữ liệu làm website.../00 - Thông tin website và link đăng ký.md`; do not rely on a hardcoded URL map for link questions.
+- For both modes, the official registration URL must come from `12_du_lieu_lam_website.../00_thong_tin_website_va_link_dang_ky.md`; do not rely on a hardcoded URL map for link questions.
 
 ## Backend Shape
 
@@ -33,7 +33,7 @@ from django.views.decorators.csrf import csrf_exempt
 Use this context-reading pattern. For a single-course page, keep only the current course in `COURSE_FOLDERS`; for a portal, include the approved course list:
 
 ```python
-TRAINING_ROOT = Path('/root/Second_Brain/01Chuong_Trinh_Dao_Tao/01 - Chương trình đào tạo')
+TRAINING_ROOT = Path('/root/Second_Brain/01_chuong_trinh_dao_tao')
 
 COURSE_FOLDERS = {
     '02_domain_tlai': '02_domain_tlai',
@@ -56,16 +56,16 @@ def _read_course_context(course_code):
         return ''
 
     website_files = []
-    for website_dir in sorted(course_dir.glob('12 - Dữ liệu làm website*')):
+    for website_dir in sorted(course_dir.glob('12_du_lieu_lam_website*')):
         if website_dir.is_dir():
             website_files.extend(sorted(website_dir.glob('*.md')))
 
     preferred_files = website_files + [
-        course_dir / '01 - Tổng quan chương trình' / '00 - Tổng hợp - Tổng quan chương trình.md',
-        course_dir / '02 - Lộ trình đào tạo' / '00 - Tổng hợp - Kích hoạt và onboarding.md',
-        course_dir / '02 - Lộ trình đào tạo' / '00 - Tổng hợp - Lộ trình đào tạo.md',
-        course_dir / '03 - Q&A và xử lý phản đối' / '00 - Tổng hợp - Q&A và xử lý phản đối.md',
-        course_dir / '11 - Đối tượng khách hàng hướng tới' / '00 - Tổng hợp - Đối tượng khách hàng hướng tới.md',
+        course_dir / '01_tong_quan_chuong_trinh' / '00_tong_hop_tong_quan_chuong_trinh.md',
+        course_dir / '02_lo_trinh_dao_tao' / '00_tong_hop_kich_hoat_va_onboarding.md',
+        course_dir / '02_lo_trinh_dao_tao' / '00_tong_hop_lo_trinh_dao_tao.md',
+        course_dir / '03_q_a_va_xu_ly_phan_doi' / '00_tong_hop_q_a_va_xu_ly_phan_doi.md',
+        course_dir / '11_doi_tuong_khach_hang_huong_toi' / '00_tong_hop_doi_tuong_khach_hang_huong_toi.md',
     ]
 
     chunks = []
@@ -121,7 +121,7 @@ If the project already uses `requests`, it is fine to call DeepSeek with `reques
 
 For each course, create:
 
-`12 - Dữ liệu làm website <domain>/00 - Thông tin website và link đăng ký.md`
+`12_du_lieu_lam_website <domain>/00_thong_tin_website_va_link_dang_ky.md`
 
 Template:
 
@@ -206,7 +206,7 @@ env_file:
   - .env
 volumes:
   - .:/app
-  - "/root/Second_Brain/01Chuong_Trinh_Dao_Tao/01 - Chương trình đào tạo:/root/Second_Brain/01Chuong_Trinh_Dao_Tao/01 - Chương trình đào tạo:ro"
+  - "/root/Second_Brain/01_chuong_trinh_dao_tao:/root/Second_Brain/01_chuong_trinh_dao_tao:ro"
 ```
 
 Use `.env.example`:

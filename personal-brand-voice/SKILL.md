@@ -11,7 +11,7 @@ Skill này giúp AI viết nội dung đăng lên trang cá nhân Facebook của
 ## DEFAULT SAVE RULE
 
 - Khi người dùng yêu cầu tạo/viết một bài post, mặc định lưu bài viết thành file `.md` trong thư mục làm việc hiện tại hoặc folder tương ứng.
-- Nếu là bài Facebook cá nhân, mặc định lưu vào `C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01Chuong_Trinh_Dao_Tao\02 - Facebook Cá Nhân`.
+- Nếu là bài Facebook cá nhân, mặc định lưu vào `C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01_chuong_trinh_dao_tao\02_facebook_ca_nhan`.
 - Nếu bài viết ngắn dưới 2000 từ, chỉ tạo và lưu 1 phiên bản Facebook, không tạo phiên bản Zalo trừ khi người dùng yêu cầu rõ.
 - Mỗi bài viết nên có file riêng. Dùng tên file ASCII, có số thứ tự tiếp theo nếu thư mục đang dùng quy ước `<NN> - <Topic Title> - Facebook.md`.
 - Chỉ không lưu file khi người dùng nói rõ là chỉ cần nháp/preview/trả nội dung trong chat.

@@ -1,6 +1,6 @@
 ---
 name: anh-lap-trinh-multichannel-post
-description: Create and save Vietnamese personal-brand content in the "Anh Lập Trình" voice for Nguyễn Văn Nhuần. Use when the user asks to write, rewrite, polish, summarize, or save a personal Facebook post, especially from raw notes, story drafts, career lessons, AI/automation observations, or đời sống cá nhân; by default save every post as Markdown. Facebook personal posts must be saved to the dedicated "02 - Facebook Cá Nhân" folder when working in the training vault. For short posts under 2000 words, create and save only one Facebook version unless the user asks for Zalo.
+description: Create and save Vietnamese personal-brand content in the "Anh Lập Trình" voice for Nguyễn Văn Nhuần. Use when the user asks to write, rewrite, polish, summarize, or save a personal Facebook post, especially from raw notes, story drafts, career lessons, AI/automation observations, or đời sống cá nhân; by default save every post as Markdown. Facebook personal posts must be saved to the dedicated "02_facebook_ca_nhan" folder when working in the training vault. For short posts under 2000 words, create and save only one Facebook version unless the user asks for Zalo.
 ---
 
 # Anh Lập Trình Multichannel Post
@@ -12,7 +12,7 @@ Always save each requested post as a `.md` file by default. Only skip saving whe
 For **Facebook cá nhân** posts, save to this dedicated folder by default when available:
 
 ```text
-C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01Chuong_Trinh_Dao_Tao\02 - Facebook Cá Nhân
+C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01_chuong_trinh_dao_tao\02_facebook_ca_nhan
 ```
 
 If that folder is not available in the current environment, save to the most relevant/current working directory and mention the fallback.
@@ -96,10 +96,10 @@ When saving `.md` files:
 - For short posts under 2000 words, save only the Facebook file unless the user asks for Zalo.
 - When saving both Facebook and Zalo, keep the filenames clearly paired.
 - Use the same numeric prefix for paired files so they sort next to each other.
-- For Facebook personal posts, choose `<NN>` as the next available 2-digit number in the dedicated `02 - Facebook Cá Nhân` folder. Inspect existing filenames matching `^\d\d - ` and increment the highest number.
+- For Facebook personal posts, choose `<NN>` as the next available 2-digit number in the dedicated `02_facebook_ca_nhan` folder. Inspect existing filenames matching `^\d\d - ` and increment the highest number.
 - Use title case without Vietnamese accents for `<Topic Title>`, with spaces between words, not hyphen slugs.
 - Use the exact suffix `- Facebook.md` for Facebook files, and `- Zalo.md` only when a Zalo version is created.
-- Save Facebook personal posts in `C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01Chuong_Trinh_Dao_Tao\02 - Facebook Cá Nhân`, not in the skill folder.
+- Save Facebook personal posts in `C:\Users\nhuan\OneDrive\Ứng dụng\remotely-save\Anhlaptrinh_Vault\01_chuong_trinh_dao_tao\02_facebook_ca_nhan`, not in the skill folder.
 - Do not overwrite existing files unless the user asks for it. If a filename exists, choose a short variant such as `-2` or a more specific slug.
 
 Example:
