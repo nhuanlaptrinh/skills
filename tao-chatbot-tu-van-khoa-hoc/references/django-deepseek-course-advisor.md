@@ -6,7 +6,7 @@ Use this reference when implementing the chatbot in a Django website.
 
 - **Single-course landing page:** keep `COURSE_FOLDERS` to the current course only, insert the advisor immediately before the registration form, and render chat + a compact course info panel. Do not add a broad course search UI unless requested.
 - **Multi-course portal:** include all owner-approved courses, selected-course state, and searchable course cards.
-- For both modes, the official registration URL must come from `12_du_lieu_lam_website.../00_thong_tin_website_va_link_dang_ky.md`; do not rely on a hardcoded URL map for link questions.
+- For both modes, the official registration URL must come from `01_du_lieu_website_chatbot.../03_du_lieu_chatbot_tu_van.md` and/or `04_du_lieu_lam_website.md`; do not rely on a hardcoded URL map for link questions.
 
 ## Backend Shape
 
@@ -56,9 +56,9 @@ def _read_course_context(course_code):
         return ''
 
     website_files = []
-    for website_dir in sorted(course_dir.glob('12_du_lieu_lam_website*')):
+    for website_dir in sorted(course_dir.glob('01_du_lieu_website_chatbot*')):
         if website_dir.is_dir():
-            website_files.extend(sorted(website_dir.glob('*.md')))
+            website_files.extend(sorted(website_dir.rglob('*.md')))
 
     preferred_files = website_files + [
         course_dir / '01_tong_quan_chuong_trinh' / '00_tong_hop_tong_quan_chuong_trinh.md',
@@ -121,7 +121,7 @@ If the project already uses `requests`, it is fine to call DeepSeek with `reques
 
 For each course, create:
 
-`12_du_lieu_lam_website <domain>/00_thong_tin_website_va_link_dang_ky.md`
+`01_du_lieu_website_chatbot_<domain>/03_du_lieu_chatbot_tu_van.md`
 
 Template:
 

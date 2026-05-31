@@ -120,12 +120,11 @@ Tạo cấu trúc chuẩn tương tự các chương trình hiện có:
 │   └── 00_tong_hop_post_trang_ca_nhan_quang_cao.md
 ├── 11_doi_tuong_khach_hang_huong_toi/
 │   └── 00_tong_hop_doi_tuong_khach_hang_huong_toi.md
-├── 12_du_lieu_lam_website [PROJECT_DOMAIN]/
-│   └── 00_thong_tin_website_va_link_dang_ky.md
-├── 13_du_lieu_dao_tao_business_ai_fanpage_facebook/
-│   ├── 00 - Hướng dẫn sử dụng dữ liệu.md
-│   ├── 01 - Thông tin công ty và chương trình.md
-│   └── 03 - FAQ đào tạo AI Fanpage.md
+├── 01_du_lieu_website_chatbot_[PROJECT_DOMAIN]/
+│   ├── 01_du_lieu_nap_ai_fanpage.csv
+│   ├── 02_du_lieu_nap_ai_fanpage.xlsx
+│   ├── 03_du_lieu_chatbot_tu_van.md
+│   └── 04_du_lieu_lam_website.md
 └── 99_ghi_chu_tong_hop/
     └── 00_tong_hop_ghi_chu_tong_hop.md
 ```
@@ -133,7 +132,11 @@ Tạo cấu trúc chuẩn tương tự các chương trình hiện có:
 Yêu cầu nội dung tối thiểu:
 
 - MOC có frontmatter, định vị ngắn, link wiki tới từng nhóm.
-- `12_du_lieu_lam_website.../00_thong_tin_website_va_link_dang_ky.md` phải có `Mã chương trình`, `Tên chương trình`, `Website đăng ký chính thức`, `Link tư vấn/đăng ký`, học phí nếu có, và nội dung public đã biên tập/trích xuất từ website.
+- `01_du_lieu_website_chatbot.../01_du_lieu_nap_ai_fanpage.csv` là dữ liệu hỏi đáp để nạp cho AI/Fanpage.
+- `01_du_lieu_website_chatbot.../02_du_lieu_nap_ai_fanpage.xlsx` là bản Excel cùng nội dung với CSV để người vận hành đọc/sửa dễ hơn.
+- `01_du_lieu_website_chatbot.../03_du_lieu_chatbot_tu_van.md` phải có thông tin công ty, chương trình, học phí, link đăng ký, FAQ, quy tắc trả lời và giọng tư vấn để chatbot đọc.
+- `01_du_lieu_website_chatbot.../04_du_lieu_lam_website.md` phải có dữ liệu dựng website: tên chương trình, headline, offer, học phí, CTA, lợi ích, đối tượng phù hợp và nội dung public đã biên tập/trích xuất từ website.
+- Không tạo thêm thư mục `13_du_lieu_dao_tao_business_ai_fanpage_facebook` nữa.
 - Các file tổng hợp phải đủ thông tin để chatbot tư vấn đọc được qua `course_advisor`: tổng quan, lộ trình, onboarding, Q&A, đối tượng khách hàng, dữ liệu website.
 
 ### Bước E - Đưa chương trình vào dự án ALT portal

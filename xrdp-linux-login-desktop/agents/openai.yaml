@@ -1,0 +1,4 @@
+interface:
+  display_name: "XRDP Linux Login Desktop"
+  short_description: "Set up xrdp access for browser login."
+  default_prompt: "Set up or repair Remote Desktop (xrdp) access so I can log in to a Linux VPS GUI and open the correct Chrome/Selenium profile."

@@ -16,7 +16,7 @@ The backend answers from markdown knowledge in:
 
 `/root/Second_Brain/01_chuong_trinh_dao_tao`
 
-The chatbot must not hardcode API keys or invent course links. It should read website/register links from markdown in each course folder, especially `12_du_lieu_lam_website...`.
+The chatbot must not hardcode API keys or invent course links. It should read website/register links from markdown in each course folder, especially `01_du_lieu_website_chatbot...`.
 
 ## Default Architecture
 
@@ -76,18 +76,19 @@ If the target is not Django, keep the same frontend/backend contract:
    - Each course object needs `code`, `title`, `tag`, `level`, `tools`, `url`, `short`, `fit`, `outcome`, and `keywords`.
    - Match `code` to a folder under the training root, e.g. `02_domain_tlai` or `20_domain_anob`.
 
-3. Put link knowledge in markdown.
-   - For each course, ensure a folder like `12_du_lieu_lam_website <domain>` exists.
-   - Add or update `00_thong_tin_website_va_link_dang_ky.md`.
-   - Include the official website/register link there.
-   - If the markdown link conflicts with the live domain in Docker/Traefik, update the `12_du_lieu_lam_website...` file so link questions return the real website.
+3. Put website, registration, and fanpage-training knowledge in one markdown folder.
+   - For each course, ensure a single canonical folder like `01_du_lieu_website_chatbot_<domain>` exists.
+   - Add or update `03_du_lieu_chatbot_tu_van.md`; include company/program details, FAQ, voice rules, handoff rules, and the official website/register link there.
+   - Add or update `04_du_lieu_lam_website.md`; include website/register link, offer, price, CTA, benefits, audience, and public website copy there.
+   - If the markdown link conflicts with the live domain in Docker/Traefik, update both `03_du_lieu_chatbot_tu_van.md` and `04_du_lieu_lam_website.md` so link questions return the real website.
+   - If Fanpage AI import data is needed, keep `01_du_lieu_nap_ai_fanpage.csv` and a matching readable `02_du_lieu_nap_ai_fanpage.xlsx` in the same folder.
    - Do not depend on backend hardcoded URL maps for links.
 
 4. Build the backend endpoint.
    - Read `DEEPSEEK_API_KEY` and optional `DEEPSEEK_MODEL` from environment.
    - Validate `course_code` against allowed course folders.
    - Read course markdown context in this order:
-     1. all `*.md` files in `12_du_lieu_lam_website*`
+     1. all `*.md` files recursively inside `01_du_lieu_website_chatbot*`
      2. `01_tong_quan_chuong_trinh/00_tong_hop_tong_quan_chuong_trinh.md`
      3. `02_lo_trinh_dao_tao/00_tong_hop_kich_hoat_va_onboarding.md`
      4. `02_lo_trinh_dao_tao/00_tong_hop_lo_trinh_dao_tao.md`
