@@ -1,0 +1,3 @@
+display_name: Tạo ảnh Anh Lập Trình
+short_description: Tạo ảnh vuông ít chữ, tiếng Việt đúng dấu, có gắn logo.
+default_prompt: Tạo một ảnh vuông phong cách Anh Lập Trình cho nội dung sau, text trên ảnh dưới 50 từ, tiếng Việt đúng dấu và có gắn logo.
