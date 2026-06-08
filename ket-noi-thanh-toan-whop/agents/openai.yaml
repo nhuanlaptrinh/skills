@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kết Nối Thanh Toán Whop"
+  short_description: "Kết nối chuyển khoản hoặc kích hoạt thủ công với Whop"
+  default_prompt: "Use $ket-noi-thanh-toan-whop to connect successful bank-transfer payments or manual email-based activation links on this course website to Whop access activation. Use Be Vietnam Pro for Vietnamese payment/activation interfaces."

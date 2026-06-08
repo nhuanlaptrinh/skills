@@ -11,6 +11,40 @@ Skill này được thiết kế để bạn (AI) sử dụng khi người dùng
 
 Khi tiến hành kiểm tra một dự án/skill, hãy lần lượt quét qua các tiêu chí sau:
 
+### 0. Chuẩn Website ALT - Mặc Định Dùng Python Django
+- Khi người dùng yêu cầu tạo website, tạo domain/subdomain, tạo landing page, brochure, website khóa học hoặc website chương trình đào tạo trong `/root/10Web_BH`, **mặc định phải triển khai bằng Python Django**, không dùng HTML tĩnh/Nginx tĩnh trừ khi người dùng yêu cầu rõ.
+- Mẫu kỹ thuật mặc định để tham khảo/copy cấu trúc là `/root/10Web_BH/03_domain_oplw`:
+  - Có `manage.py`, `mysite/`, app Django, `templates/`, `static/`, `requirements.txt`, `Dockerfile`, `docker-compose.yml`.
+  - `docker-compose.yml` chạy service Django bằng `python manage.py runserver 0.0.0.0:8000`, gắn Traefik `Host(\`PROJECT_DOMAIN\`)`, service/container/router/middleware theo subdomain.
+  - `mysite/settings.py` phải có domain mới trong `CSRF_TRUSTED_ORIGINS`, `ALLOWED_HOSTS`, `STATIC_URL`, timezone/language phù hợp.
+  - Template chính đặt trong app Django, ví dụ `app/templates/app/index.html`; CSS/JS/ảnh đặt trong `app/static/app/...` và template phải dùng `{% load static %}`.
+- Font chữ mặc định cho website tiếng Việt là `Be Vietnam Pro`:
+  - Import trong template/base HTML bằng Google Fonts:
+    ```html
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap&subset=vietnamese" rel="stylesheet">
+    ```
+  - CSS nền tảng:
+    ```css
+    body {
+      font-family: "Be Vietnam Pro", Inter, Arial, sans-serif;
+    }
+    h1, h2, h3, .page-title, .main-title {
+      font-family: "Be Vietnam Pro", Inter, Arial, sans-serif;
+    }
+    ```
+  - Không dùng `Montserrat` làm font mặc định cho website tiếng Việt mới, trừ khi người dùng yêu cầu rõ hoặc dự án cũ đã có nhận diện riêng.
+- Mẫu dữ liệu Second Brain mặc định để tham khảo là `/root/Second_Brain/01_chuong_trinh_dao_tao/03_domain_oplw`:
+  - Tạo folder cùng mã dự án trong `/root/Second_Brain/01_chuong_trinh_dao_tao/[PROJECT_CODE]`.
+  - Ưu tiên cấu trúc có `00_moc_...md`, `00_tong_quan_chuong_trinh/`, `02_lo_trinh_dao_tao/`, `03_q_a_va_xu_ly_phan_doi/`, `05_bai_quang_cao_va_content/`, `06_prompt_va_workflow_mau/`, `07_case_study_va_vi_du/`, `08_tai_lieu_ky_thuat/`, `10_post_trang_ca_nhan_quang_cao/`, `11_doi_tuong_khach_hang_huong_toi/`, `01_du_lieu_website_chatbot_[domain]/`, `99_ghi_chu_tong_hop/`.
+  - Folder `01_du_lieu_website_chatbot_[domain]/` phải có tối thiểu dữ liệu chatbot/website tương tự mẫu `03_domain_oplw`.
+- Sau khi tạo website Django, bắt buộc kiểm tra:
+  - `python manage.py check`
+  - `python manage.py test` nếu đã có test hoặc logic mới
+  - `docker compose up -d --build`
+  - `curl -I http://localhost:[PORT]`
+  - `curl -I -H 'Host: PROJECT_DOMAIN' http://127.0.0.1`
+  - `curl -k -I https://PROJECT_DOMAIN` khi đã gắn Traefik/SSL.
+
 ### 1. Metadata của Skill (File `SKILL.md`)
 - **`name`**: Bắt buộc viết liền không dấu, không có khoảng trắng. Nên dùng dấu gạch nối (`-`) hoặc gạch dưới (`_`). VD: `skill_post_fanpage`, `zalo-auto-message`.
 - **`description`**: Phải mô tả đầy đủ chức năng và tác dụng của skill, không được ngắn cộc lốc.

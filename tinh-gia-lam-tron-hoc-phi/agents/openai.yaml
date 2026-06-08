@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tính giá làm tròn học phí"
+  short_description: "Tính VAT 8% và làm tròn học phí lên hàng nghìn."
+  default_prompt: "Tính học phí gồm VAT 8% và làm tròn lên hàng nghìn cho các khóa học."
