@@ -1,0 +1,16 @@
+# PyInstaller
+build/
+dist/
+*.spec
+*.exe
+
+# Keys & Auth (Tuyệt đối không đẩy lên repo public!)
+*.json
+.env
+.env.*
+
+# Virtual Environment
+venv/
+__pycache__/
+*.pyc
+logs/

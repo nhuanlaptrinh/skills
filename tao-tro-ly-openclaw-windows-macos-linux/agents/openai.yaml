@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Windows, macOS, Linux"
+  short_description: "Cài/vận hành OpenClaw và sửa Telegram group im lặng."
+  default_prompt: "Dùng skill này để tạo, vận hành hoặc sửa OpenClaw. Bắt buộc cài OpenClaw pin đúng version bằng root/Administrator, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ folder skill trực tiếp vào workspace/skills, chạy kiểm tra đủ skill rồi mới start Gateway. Trên Linux và member Docker mới dùng HOME=/root và /root/.openclaw; khi xử lý production legacy phải kiểm tra HOME hiệu lực của process trước khi sửa. Nếu Telegram group không phản hồi, kiểm tra đồng thời group allowlist, binding account/group vào agent main, cách restart Gateway, polling connected và log inbound/session/outbound. Không được dừng ở container nền hoặc dùng --skip-skills. Với Token Codex dùng https://codex.anhlaptrinh.vn/v1, openai-completions và ba model GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna qua TOKEN_CODEX_API_KEY."

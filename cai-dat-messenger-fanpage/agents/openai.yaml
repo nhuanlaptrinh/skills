@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cài đặt Messenger Fanpage"
+  short_description: "Thiết lập bot trả lời Messenger Fanpage an toàn"
+  default_prompt: "Use $cai-dat-messenger-fanpage để thiết lập hoặc kiểm tra bot tự động trả lời Facebook Messenger Fanpage theo kiến trúc chuẩn trên VPS, ưu tiên dry-run và không gửi tin thật khi chưa được duyệt."
