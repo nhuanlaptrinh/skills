@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Member Config Guard"
+  short_description: "Prevent stale OpenClaw tool-policy failures."
+  default_prompt: "Install, verify, repair, or operate the OpenClaw member config guard with safe backups and Gateway-only restarts."

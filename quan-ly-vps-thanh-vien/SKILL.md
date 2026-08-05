@@ -90,6 +90,36 @@ Có thể override lúc chạy script bằng các biến:
 
 Script hiện không có chế độ dry-run. Trước thay đổi hàng loạt phải dùng `docker inspect` và `docker stats --no-stream` để audit, sau đó snapshot cấu hình vào `/root/_Backups`.
 
+## OpenClaw Trong Member VPS
+
+- Dữ liệu OpenClaw persistent thường nằm tại `/root/Apps/member_vps/docker-users/data/<username>/.openclaw`, tương ứng `/home/<username>/.openclaw` trong container.
+- Gateway mặc định lắng nghe loopback tại cổng `18789`; Telegram polling chỉ hoạt động khi tiến trình `openclaw-gateway` đang chạy.
+- Kiểm tra read-only trước khi sửa:
+  ```bash
+  docker top user-<username> -eo pid,ppid,user,etimes,stat,args
+  docker exec user-<username> sh -lc "ss -lntp | grep ':18789 ' || true"
+  docker exec user-<username> sh -lc 'HOME=/home/<username> openclaw gateway status'
+  docker exec user-<username> sh -lc 'HOME=/home/<username> openclaw channels status --probe'
+  ```
+- Một số image tạo lại `/etc/supervisor/conf.d/member-vps.conf` từ `/usr/local/bin/member-vps-entrypoint.sh` mỗi lần container khởi động. Nếu chỉ sửa file supervisor đã sinh, thay đổi sẽ mất sau `docker restart`.
+- Muốn OpenClaw tự lên bền vững, backup entrypoint root-only vào `/root/_Backups`, sau đó thêm chương trình sau vào heredoc supervisor bên trong entrypoint của đúng container:
+  ```ini
+  [program:openclaw-gateway]
+  command=/usr/bin/openclaw gateway run
+  environment=HOME="/home/<username>"
+  autorestart=true
+  startsecs=5
+  startretries=20
+  stdout_logfile=/tmp/openclaw-supervisor.log
+  stderr_logfile=/tmp/openclaw-supervisor.log
+  ```
+- Kiểm tra cú pháp bản entrypoint đã sửa bằng `bash -n`, copy lại đúng container, rồi `docker restart user-<username>` để entrypoint sinh supervisor config mới.
+- Xác minh sau sửa: container không OOM, `openclaw-gateway` là child của `supervisord`, cổng `18789` đang listen, `gateway health` báo `OK`, và account Telegram báo `running`, `connected`, `works`, `audit ok`.
+- Nếu Telegram vẫn `connected` nhưng trả thông báo chung `Something went wrong while processing your request`, kiểm tra log agent. Lỗi `No callable tools remain after resolving explicit tool allowlist` kèm `tools.allow: group:messaging` nghĩa là allowlist không khớp tool đã đăng ký; backup `openclaw.json`, gỡ riêng `tools.allow`, giữ nguyên `tools.profile`/media/channels và chạy `openclaw config validate`. Sau đó phải restart đúng tiến trình Gateway do Telegram connector có thể giữ snapshot policy cũ dù config hot-reload; chờ polling về `connected`, rồi xác minh trên đúng session DM bằng `openclaw agent` không có `--deliver` trước khi yêu cầu người dùng nhắn lại.
+- Để phòng lỗi này tái diễn, dùng global skill `/root/.agents/skills/openclaw-member-config-guard/SKILL.md`; guard chỉ tự gỡ `group:messaging`, backup config, validate và restart riêng Gateway khi tool policy đổi.
+- Rollback: copy entrypoint backup trở lại container, đặt owner `root:root`, mode `0755`, rồi restart đúng container. Không recreate container vì dữ liệu ngoài bind mount có thể mất.
+- Không in nội dung token, credential, cookie, `.env` hoặc toàn bộ log plugin có thể chứa session/cookie. Chỉ dùng Telegram `getMe`/`getWebhookInfo` với output đã lọc khi cần xác minh token và hàng đợi; không tự gửi tin thật.
+
 ## Quy Trình Tạo Mới Thành Viên (Bắt buộc)
 
 Khi người dùng yêu cầu tạo một thành viên mới, AI phải thực hiện đầy đủ các bước sau:

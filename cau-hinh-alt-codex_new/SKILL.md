@@ -1,6 +1,6 @@
 ---
 name: cau-hinh-alt-codex
-description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config của Codex, đổi model mặc định hoặc model ghim theo agent trong OpenClaw, kiểm tra /v1/models, backup config, hoặc xử lý lỗi provider/model mà không làm lộ API key.
+description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config của Codex, khắc phục lỗi "Codex could not start - The extension couldn't load its resources" trên Antigravity IDE/VS Code Server, xử lý CSP/crossorigin block, đổi model mặc định hoặc model ghim theo agent trong OpenClaw, kiểm tra /v1/models, backup config, hoặc xử lý lỗi provider/model mà không làm lộ API key.
 ---
 
 # Cấu Hình Codex Qua ALT Gateway Đa Nền Tảng
@@ -564,3 +564,77 @@ openclaw gateway status
 - Backup `openclaw.json`, catalog riêng của agent và session metadata nếu chuẩn bị sửa production.
 - Không ghi API key thật vào skill. Khi đọc config để chẩn đoán, chỉ in provider, model, runtime và trạng thái `set/missing` của credential.
 - Sau thay đổi quan trọng, ghi backup, lệnh validate, kết quả log request và tình trạng restart vào nhật ký VPS.
+
+## Khắc Phục Lỗi "Codex could not start - The extension couldn't load its resources" Trên Antigravity IDE
+
+### Khi Nào Dùng
+Áp dụng trường hợp Codex Extension trong Antigravity IDE (hoặc VS Code Remote Server trên Linux VPS) không thể mở Webview Sidebar / Panel, báo lỗi:
+`Codex could not start - The extension couldn't load its resources`
+Hoặc trong log `/root/.antigravity-ide-server/data/logs/<SESSION>/exthost*/openai.chatgpt/Codex.log` xuất hiện dòng:
+`[error] [CodexWebviewProvider] Webview did not finish starting extensionVersion=... role=sidebar`
+
+### Nguyên Nhân Kỹ Thuật
+1. **`crossorigin` Attribute & Polyfill Fetch Block:**
+   Bản cập nhật extension pre-release (`openai.chatgpt-*.linux-x64`) chứa thuộc tính `crossorigin` trong `<script type="module" crossorigin>` và `<link rel="modulepreload" crossorigin>` tại file `webview/index.html`.
+   Trong file `webview/assets/index-*.js`, hàm Polyfill đọc thẻ `modulepreload` và gọi `fetch(e.href)`.
+2. **Xung Đột CSP (`connect-src`):**
+   Trong môi trường Antigravity Webview, chính sách Content-Security-Policy (CSP) cấu hình `connect-src` ngăn cản lệnh `fetch()` truy cập tài nguyên local scheme của webview. Lệnh `fetch()` bắn ra ngoại lệ CSP unhandled exception làm crash script khởi chạy giao diện -> React UI không mount được -> không gửi được tin nhắn `ready` về Extension Host trong 30s -> nổ lỗi đếm lùi Watchdog Timeout.
+3. **Zombie Process Spawns:**
+   Khi extension tự động update, tiến trình `codex app-server` thuộc bản extension cũ bị xóa thư mục vẫn tiếp tục chạy ngầm chiếm socket `/root/.codex/ipc/ipc.sock`.
+
+### Quy Trình Khắc Phục Chuẩn
+
+#### 1. Kiểm tra log nhận diện lỗi
+```bash
+find /root/.antigravity-ide-server/data/logs/ -name "Codex.log" | xargs ls -lt 2>/dev/null | head -n 3
+```
+Xác nhận có dòng `[error] [CodexWebviewProvider] Webview did not finish starting`.
+
+#### 2. Sửa file `webview/index.html` của Extension
+Xác định vị trí thư mục extension hiện tại:
+```bash
+ext_dir=$(ls -d /root/.antigravity-ide-server/extensions/openai.chatgpt-*-linux-x64 2>/dev/null | tail -n 1)
+index_html="$ext_dir/webview/index.html"
+```
+Loại bỏ thuộc tính `crossorigin` và các thẻ `<link rel="modulepreload">` trong `$index_html`:
+- Thay `<script type="module" crossorigin src="...">` thành `<script type="module" src="...">`.
+- Xóa các thẻ `<link rel="modulepreload" ...>`.
+
+#### 3. Bọc try-catch hàm `fetch` trong `webview/assets/index-*.js`
+Tìm file script khởi chạy chính trong `$ext_dir/webview/assets/index-*.js`:
+```bash
+index_js=$(ls "$ext_dir/webview/assets/index-"*.js 2>/dev/null | head -n 1)
+```
+Thay thế đoạn lệnh `fetch(e.href,n)` thành `try{fetch(e.href,n).catch(()=>{})}catch(_){}` để tránh crash khi vi phạm CSP `connect-src`.
+
+#### 4. Dọn dẹp tiến trình `codex` ngầm
+```bash
+pkill -f codex 2>/dev/null || true
+```
+
+#### 5. Kiểm tra & đảm bảo config `.codex`
+Xác nhận file `${CODEX_HOME:-$HOME/.codex}/config.toml` và `auth.json` đầy đủ thông tin xác thực (dùng provider `router` hoặc `alt` theo thiết lập người dùng):
+```toml
+model_provider = "router"
+model = "GPT-5.6-sol"
+model_reasoning_effort = "xhigh"
+preferred_auth_method = "apikey"
+
+[model_providers.router]
+name = "router"
+base_url = "https://codex.anhlaptrinh.vn/v1"
+wire_api = "responses"
+
+[projects."/root"]
+trust_level = "trusted"
+```
+
+#### 6. Thao tác trên IDE
+Yêu cầu người dùng mở Command Palette (`Ctrl+Shift+P` hoặc `F1`) và chạy:
+`Developer: Reload Window`
+
+### Quy Tắc An Toàn
+- Tuyệt đối không ghi API key, token, cookie, password thật vào skill, log hay câu trả lời.
+- Luôn tạo backup `.bak` cho file `index.html` và `index-*.js` trước khi chỉnh sửa.
+- Sau khi thực hiện, ghi lại nhật ký thay đổi tại `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.
+
