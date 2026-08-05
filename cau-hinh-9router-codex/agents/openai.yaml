@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cấu hình 9Router cho Codex"
+  short_description: "Cấu hình Codex qua 9Router trên Windows, Linux và macOS"
+  default_prompt: "Hãy cấu hình Codex Extension trong Antigravity hoặc Codex CLI trên máy này dùng 9Router, giữ an toàn API key và kiểm tra kết nối."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cài Trả Lời Audio OpenClaw"
+  short_description: "Bật phản hồi text và voice cho Telegram OpenClaw"
+  default_prompt: "Use $cai-dat-tra-loi-audio-openclaw to enable safe Telegram text plus voice replies for a selected OpenClaw agent."

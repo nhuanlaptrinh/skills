@@ -1,0 +1,4 @@
+interface:
+  display_name: "Secure SSH DEV Workspace"
+  short_description: "Share VPS projects safely with SSH developers"
+  default_prompt: "Use $secure-ssh-dev-workspace to create an isolated SSH development workspace for this VPS project and return the complete developer handoff details."

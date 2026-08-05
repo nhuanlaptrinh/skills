@@ -1,0 +1,4 @@
+interface:
+  display_name: "Viet Transcript Video ALT"
+  short_description: "Vietnamese ALT-style video transcripts"
+  default_prompt: "Use $viet-transcript-video-alt to write a 30-second Vietnamese video transcript from my raw idea."

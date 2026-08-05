@@ -1,0 +1,3 @@
+display_name: Google Drive VPS Sync
+short_description: Đồng bộ Google Drive My Drive về VPS bằng rclone và cron.
+default_prompt: Hướng dẫn tôi đồng bộ một thư mục Google Drive về VPS Ubuntu bằng rclone, xác thực OAuth và chạy cron mỗi phút.

@@ -1,0 +1,3 @@
+display_name: Xuất PDF Ebook Sách
+short_description: Xuất Markdown chương sách thành PDF ebook dễ đọc, có logo.
+default_prompt: Xuất file Markdown chương sách này thành PDF ebook chuyên nghiệp, dễ đọc, có logo nếu có.

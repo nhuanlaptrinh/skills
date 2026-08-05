@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tạo Video Lợi Ích ALT"
+  short_description: "Tạo video lợi ích kèm ebook ALT"
+  default_prompt: "Use $tao-video-chia-se-loi-ich-alt to create a benefit-focused video and ALT ebook from my provided content."

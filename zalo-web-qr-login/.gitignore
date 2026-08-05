@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+*token*
+*secret*
+*credential*
+**/zalo-login-profile/
+**/zalo-chrome-profile/
+**/chrome-profile/
+**/user-data-dir/
+**/__pycache__/
+*.pyc
+*.log
+*.out
+*.err

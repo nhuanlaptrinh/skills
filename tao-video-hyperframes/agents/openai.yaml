@@ -1,0 +1,4 @@
+interface:
+display_name: "Tạo Video HyperFrames"
+short_description: "Tạo video thật, render và kiểm tra HyperFrames"
+default_prompt: "Dùng $tao-video-hyperframes để tạo video thật từ transcript và audio có sẵn trong project HyperFrames."

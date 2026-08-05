@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tạo Ebook Chia Sẻ ALT"
+  short_description: "Tạo ebook PDF thực chiến Anh Lập Trình"
+  default_prompt: "Use $tao-ebook-chia-se-alt to create a practical Vietnamese ebook with source Markdown, illustrations, rounded logo, and exported PDF."

@@ -1,0 +1,5 @@
+# This directory is a Syncthing folder marker.
+# Do not delete.
+
+folderID: teyns-ezgnk
+created: 2026-06-20T10:52:53Z

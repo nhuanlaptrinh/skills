@@ -1,0 +1,4 @@
+interface:
+  display_name: "Viet hoa thong bao"
+  short_description: "Chuyen thong bao tho sang tieng Viet gon, ro, de dung."
+  default_prompt: "Viet hoa thong bao sau cho gon, ro va than thien: <noi dung>"

@@ -1,0 +1,501 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "9r/codex"
+      },
+      "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard",
+        "reserveTokensFloor": 35000
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
+      "imageModel": {
+        "primary": "9r/codex"
+      },
+      "models": {
+        "9r/codex": {}
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace",
+        "identity": {
+          "name": "Trợ Lý Anh Lập Trình Thu"
+        }
+      },
+      {
+        "id": "trolyalt",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_trolyalt",
+        "identity": {
+          "name": "Trợ Lý ALT"
+        }
+      },
+      {
+        "id": "trolyalt_web",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_trolyalt_web",
+        "identity": {
+          "name": "Trợ Lý Tạo Web ALT"
+        }
+      },
+      {
+        "id": "trolycontenttdhpythonvps",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_trolycontenttdhpythonvps",
+        "identity": {
+          "name": "Trợ Lý Content TDH Python VPS"
+        }
+      },
+      {
+        "id": "tuvantrolyai",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_tuvantrolyai",
+        "identity": {
+          "name": "Trợ Lý Tư Vấn KH Trợ Lý A.I"
+        }
+      },
+      {
+        "id": "contenttrolyai",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_contenttrolyai",
+        "identity": {
+          "name": "Trợ Lý Content Trợ Lý A.I"
+        }
+      },
+      {
+        "id": "dkkhoahocalt",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_dkkhoahocalt",
+        "identity": {
+          "name": "Đăng Ký Khóa Học ALT"
+        }
+      },
+      {
+        "id": "trolyphanhoikhachhang",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_trolyphanhoikhachhang",
+        "identity": {
+          "name": "Phản Hồi Đăng Ký Khóa Học ALT"
+        }
+      },
+      {
+        "id": "Troly_secondbrain_ALT_bot",
+        "workspace": "/root/AI_Runtime/openclaw/.openclaw/workspace_Troly_secondbrain_ALT_bot",
+        "identity": {
+          "name": "Troly Second Brain_ALT"
+        }
+      },
+      {
+        "id": "quanlychitieugd",
+        "workspace": "/root/.openclaw/workspace_quanlychitieugd",
+        "identity": {
+          "name": "Quản Lý Chi Tiêu GĐ"
+        }
+      },
+      {
+        "id": "quanlytaikhoancongnghe",
+        "workspace": "/root/.openclaw/workspace_quanlytaikhoancongnghe",
+        "identity": {
+          "name": "Quản Lý Tài Khoản Công Nghệ"
+        }
+      }
+    ]
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "Nhap_API_Cua_Ban"
+    },
+    "port": 18789,
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "controlUi": {
+      "allowInsecureAuth": true,
+      "allowedOrigins": [
+        "*"
+      ]
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
+    "trustedProxies": [
+      "0.0.0.0/0"
+    ],
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add"
+      ]
+    }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "tools": {
+    "profile": "coding",
+    "media": {
+      "audio": {
+        "enabled": true,
+        "language": "vi",
+        "timeoutSeconds": 60,
+        "echoTranscript": true,
+        "echoFormat": "📝 \"{transcript}\"",
+        "models": [
+          {
+            "provider": "openai",
+            "model": "openai/gpt-4o-mini-transcribe",
+            "baseUrl": "http://localhost:20128/v1",
+            "timeoutSeconds": 60
+          }
+        ]
+      }
+    }
+  },
+  "skills": {
+    "install": {
+      "nodeManager": "npm"
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-06-29T09:12:28.135Z",
+    "lastRunVersion": "2026.6.10",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.6.10",
+    "lastTouchedAt": "2026-07-08T03:44:42.062Z",
+    "sampleNote": "Sanitized sample generated from /root/.openclaw/openclaw.json; replace placeholders before use."
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "9r": {
+        "baseUrl": "https://codex.anhlaptrinh.vn/v1",
+        "api": "openai-completions",
+        "apiKey": "Nhap_API_Cua_Ban",
+        "models": [
+          {
+            "id": "codex",
+            "name": "codex (Custom Provider)",
+            "contextWindow": 128000,
+            "maxTokens": 4096,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "reasoning": false
+          }
+        ]
+      },
+      "openai": {
+        "baseUrl": "http://localhost:20128/v1",
+        "apiKey": "Nhap_API_Cua_Ban",
+        "request": {
+          "allowPrivateNetwork": true
+        },
+        "models": [
+          {
+            "id": "openai/gpt-4o-mini-transcribe",
+            "name": "GPT-4o Mini Transcribe via local 9Router",
+            "input": [
+              "audio"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "google": {
+        "enabled": true
+      },
+      "deepseek": {
+        "enabled": true
+      },
+      "zalo": {
+        "enabled": true
+      },
+      "zalouser": {
+        "enabled": true
+      },
+      "openclaw-zaloclawbot": {
+        "enabled": true
+      },
+      "openai": {
+        "enabled": true
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "open",
+      "streaming": {
+        "mode": "off"
+      },
+      "accounts": {
+        "trolyalt": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolyalt_web": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolycontenttdhpythonvps": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "tuvantrolyai": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "contenttrolyai": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "dkkhoahocalt": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "trolyphanhoikhachhang": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "Troly_secondbrain_ALT_bot": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "default": {
+          "dmPolicy": "pairing",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "main": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "quanlychitieugd": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        },
+        "quanlytaikhoancongnghe": {
+          "dmPolicy": "pairing",
+          "botToken": "Nhap_API_Cua_Ban",
+          "groupPolicy": "open",
+          "streaming": {
+            "mode": "off"
+          }
+        }
+      },
+      "proxy": "http://127.0.0.1:40000",
+      "groups": {
+        "*": {
+          "requireMention": true
+        },
+        "Nhap_Group_ID_Khong_Can_Mention_1": {
+          "requireMention": false
+        },
+        "Nhap_Group_ID_Khong_Can_Mention_2": {
+          "requireMention": false
+        },
+        "Nhap_Group_ID_Khong_Can_Mention_3": {
+          "requireMention": false
+        }
+      }
+    },
+    "zalo": {
+      "enabled": true,
+      "botToken": "Nhap_API_Cua_Ban"
+    },
+    "zalouser": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "open",
+      "groups": {
+        "Nhap_Group_ID_Khong_Can_Mention_1": {
+          "requireMention": false
+        },
+        "Nhap_Group_ID_Khong_Can_Mention_2": {
+          "requireMention": false
+        },
+        "Nhap_Group_ID_Khong_Can_Mention_3": {
+          "requireMention": false
+        }
+      }
+    },
+    "openclaw-zaloclawbot": {
+      "enabled": true
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw",
+    "ownerAllowFrom": [
+      "telegram:Nhap_User_ID_Cua_Ban"
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "main"
+      }
+    },
+    {
+      "agentId": "trolyalt",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyalt"
+      }
+    },
+    {
+      "agentId": "trolyalt_web",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyalt_web"
+      }
+    },
+    {
+      "agentId": "trolycontenttdhpythonvps",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolycontenttdhpythonvps"
+      }
+    },
+    {
+      "agentId": "tuvantrolyai",
+      "match": {
+        "channel": "telegram",
+        "accountId": "tuvantrolyai"
+      }
+    },
+    {
+      "agentId": "contenttrolyai",
+      "match": {
+        "channel": "telegram",
+        "accountId": "contenttrolyai"
+      }
+    },
+    {
+      "agentId": "dkkhoahocalt",
+      "match": {
+        "channel": "telegram",
+        "accountId": "dkkhoahocalt"
+      }
+    },
+    {
+      "agentId": "trolyphanhoikhachhang",
+      "match": {
+        "channel": "telegram",
+        "accountId": "trolyphanhoikhachhang"
+      }
+    },
+    {
+      "agentId": "Troly_secondbrain_ALT_bot",
+      "match": {
+        "channel": "telegram",
+        "accountId": "Troly_secondbrain_ALT_bot"
+      }
+    },
+    {
+      "agentId": "quanlychitieugd",
+      "match": {
+        "channel": "telegram",
+        "accountId": "quanlychitieugd"
+      }
+    },
+    {
+      "agentId": "quanlytaikhoancongnghe",
+      "match": {
+        "channel": "telegram",
+        "accountId": "quanlytaikhoancongnghe"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "auth": {
+    "profiles": {
+      "deepseek:default": {
+        "provider": "deepseek",
+        "mode": "api_key"
+      }
+    }
+  }
+}

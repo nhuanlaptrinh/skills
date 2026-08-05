@@ -1,0 +1,11 @@
+{
+  "example_project": {
+    "project_root": "/root/path/to/project",
+    "run_command": "/usr/bin/python3 -u main.py",
+    "script_to_fix": "main.py",
+    "log_file": "/root/path/shared_self_healing/logs/example_project.log",
+    "type": "python",
+    "lock_file": "/tmp/example_project.lock",
+    "telegram_label": "Example Project"
+  }
+}

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+CENTER_DIR="__CENTER_DIR__"
+CONFIG_FILE="$CENTER_DIR/project_config.json"
+PROJECT_NAME="${1:-}"
+
+if [ -z "$PROJECT_NAME" ]; then
+  echo "Usage: $0 <project_name>"
+  exit 2
+fi
+
+read_config() {
+  /usr/bin/python3 - "$CONFIG_FILE" "$PROJECT_NAME" "$1" <<'PY'
+import json, sys
+config_file, project_name, key = sys.argv[1:]
+with open(config_file, encoding='utf-8') as f:
+    data = json.load(f)
+if project_name not in data:
+    raise SystemExit(f"Unknown project: {project_name}")
+print(data[project_name].get(key, ""))
+PY
+}
+
+PROJECT_ROOT="$(read_config project_root)"
+RUN_COMMAND="$(read_config run_command)"
+LOG_FILE="$(read_config log_file)"
+LOCK_FILE="$(read_config lock_file)"
+TYPE="$(read_config type)"
+LABEL="$(read_config telegram_label)"
+
+mkdir -p "$(dirname "$LOG_FILE")" "$CENTER_DIR/state"
+
+{
+  echo "============================================================"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] Start $PROJECT_NAME - $LABEL"
+  echo "Project root: $PROJECT_ROOT"
+  cd "$PROJECT_ROOT" || exit 1
+  if [ "$TYPE" = "selenium" ]; then
+    find . -maxdepth 2 -type f \( -name 'SingletonCookie' -o -name 'SingletonLock' -o -name 'SingletonSocket' \) -delete 2>/dev/null || true
+  fi
+  /usr/bin/flock -n "$LOCK_FILE" bash -lc "$RUN_COMMAND"
+  status=$?
+  echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] Finished $PROJECT_NAME with exit code $status"
+} >> "$LOG_FILE" 2>&1
+
+if [ "${status:-1}" -ne 0 ]; then
+  /usr/bin/python3 "$CENTER_DIR/self_healing_runner.py" "$PROJECT_NAME" >> "$LOG_FILE" 2>&1
+fi
+
+exit "${status:-1}"

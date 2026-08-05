@@ -1,0 +1,4 @@
+interface:
+  display_name: "Second AI Brain VPS"
+  short_description: "Chuẩn hóa bộ não thứ hai cho VPS"
+  default_prompt: "Use $second-ai-brain-vps-structure to set up or audit the Second AI Brain structure on this VPS."

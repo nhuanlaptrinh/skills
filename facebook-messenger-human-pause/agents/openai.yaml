@@ -1,0 +1,4 @@
+interface:
+  display_name: "Facebook Messenger Human Pause"
+  short_description: "Apply human takeover auto-pause to Messenger Fanpage bots."
+  default_prompt: "Apply human takeover auto-pause to this Facebook Messenger Fanpage bot project."

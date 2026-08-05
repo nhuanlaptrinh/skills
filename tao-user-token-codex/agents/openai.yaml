@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tạo User Token Codex"
+  short_description: "Tạo tài khoản với credit mặc định an toàn"
+  default_prompt: "Use $tao-user-token-codex to create a Token Codex customer account from an email."

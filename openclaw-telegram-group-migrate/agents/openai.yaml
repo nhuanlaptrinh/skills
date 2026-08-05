@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Group Fix"
+  short_description: "Fix Telegram group mention issues"
+  default_prompt: "Kiểm tra và sửa lỗi OpenClaw Telegram group bắt mention sau khi group bị migrate."

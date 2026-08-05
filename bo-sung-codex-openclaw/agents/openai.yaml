@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bổ sung Codex OpenClaw"
+  short_description: "Thêm Codex fallback cho OpenClaw"
+  default_prompt: "Use $bo-sung-codex-openclaw to add Codex/OpenAI fallback to my OpenClaw config while keeping 9router primary, then test it."

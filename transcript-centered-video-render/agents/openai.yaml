@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transcript-Centered Video Render"
+  short_description: "Render videos with captions timed from transcript-derived audio."
+  default_prompt: "Use transcript-centered caption timing to render or rerender a video so captions match the generated voice audio."

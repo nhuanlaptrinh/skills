@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+CENTER_DIR = Path('__CENTER_DIR__')
+CONFIG_FILE = CENTER_DIR / 'project_config.json'
+STATE_DIR = CENTER_DIR / 'state'
+MAX_LOG_LINES = 140
+
+NON_CODE_PATTERNS = [
+    ('token_or_auth', r'(access token|OAuthException|token expired|invalid token|PAGE_ACCESS_TOKEN)'),
+    ('missing_media', r'(Không tìm thấy media|FileNotFoundError|No such file|media.*not found)'),
+    ('missing_env', r'(Thiếu .*\.env|Missing .* env|Thiếu .* trong file \.env)'),
+    ('credential', r'(googlesheetcn\.json|service account|Permission denied|invalid_grant)'),
+    ('login_checkpoint', r'(checkpoint|Chưa đăng nhập|login required|không nhận diện phiên đăng nhập)'),
+]
+
+CODE_FIX_PATTERNS = [
+    r'(Traceback|Exception|TimeoutException|NoSuchElementException|StaleElementReferenceException)',
+    r'(ChromeDriver|session not created|selector|không tìm thấy nút|không tìm thấy textbox)',
+    r'(Lỗi khi upload|upload.*lỗi|requests\.exceptions|API.*error)',
+]
+
+
+def load_config(project_name):
+    data = json.loads(CONFIG_FILE.read_text(encoding='utf-8'))
+    if project_name not in data:
+        raise SystemExit(f'Unknown project: {project_name}')
+    return data[project_name]
+
+
+def read_last_lines(path, n=MAX_LOG_LINES):
+    path = Path(path)
+    if not path.exists():
+        return ''
+    return ''.join(path.read_text(encoding='utf-8', errors='replace').splitlines(True)[-n:])
+
+
+def classify_error(log_text):
+    for label, pattern in NON_CODE_PATTERNS:
+        if re.search(pattern, log_text, re.IGNORECASE):
+            return label, False
+    for pattern in CODE_FIX_PATTERNS:
+        if re.search(pattern, log_text, re.IGNORECASE):
+            return 'code_fix', True
+    return 'unknown', True
+
+
+def notify_telegram(config, message):
+    env_path = Path(config['project_root']) / '.env'
+    env = {}
+    if env_path.exists():
+        for line in env_path.read_text(encoding='utf-8', errors='replace').splitlines():
+            if '=' in line and not line.lstrip().startswith('#'):
+                key, value = line.split('=', 1)
+                env[key.strip()] = value.strip()
+    token = env.get('TELEGRAM_BOT_TOKEN')
+    if not token:
+        return
+    targets = [env.get('TELEGRAM_CHAT_ID'), env.get('TELEGRAM_GROUP_ID')]
+    proxy = env.get('TELEGRAM_PROXY_URL', '').strip()
+    proxies = {'http': proxy, 'https': proxy} if proxy else None
+    try:
+        import requests
+        for chat_id in dict.fromkeys([target for target in targets if target]):
+            requests.post(
+                f'https://api.telegram.org/bot{token}/sendMessage',
+                data={'chat_id': chat_id, 'text': message},
+                proxies=proxies,
+                timeout=12,
+            ).raise_for_status()
+    except Exception as exc:
+        print(f'[watchdog] Telegram notify failed: {exc}')
+
+
+def main():
+    if len(sys.argv) != 2:
+        print('Usage: self_healing_runner.py <project_name>')
+        return 2
+    project_name = sys.argv[1]
+    config = load_config(project_name)
+    log_text = read_last_lines(config['log_file'])
+    if not log_text.strip():
+        print('[watchdog] No log content found.')
+        return 0
+
+    error_type, should_call_ai = classify_error(log_text)
+    error_hash = hashlib.sha256((error_type + '\n' + log_text).encode('utf-8', errors='replace')).hexdigest()
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    state_file = STATE_DIR / f'{project_name}.json'
+    state = {}
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text(encoding='utf-8'))
+        except Exception:
+            state = {}
+
+    if state.get('last_error_hash') == error_hash:
+        print('[watchdog] Duplicate error, skip OpenClaw.')
+        notify_telegram(config, f'⚠️ Watchdog {project_name}: lỗi lặp lại, không gọi OpenClaw. Log: {config["log_file"]}')
+        return 0
+
+    state_file.write_text(json.dumps({
+        'last_error_hash': error_hash,
+        'error_type': error_type,
+        'updated_at': datetime.utcnow().isoformat() + 'Z',
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
+
+    if not should_call_ai:
+        print(f'[watchdog] Manual/non-code error: {error_type}')
+        notify_telegram(config, f'⚠️ Watchdog {project_name}: lỗi cần xử lý thủ công ({error_type}). Log: {config["log_file"]}')
+        return 0
+
+    project_root = config['project_root']
+    script_to_fix = config['script_to_fix']
+    run_command = config['run_command']
+    project_type = config.get('type', 'unknown')
+    log_file = config['log_file']
+
+    prompt = f"""
+Dự án tự động vừa lỗi khi chạy qua Shared Watchdog Center.
+
+Tên dự án: {project_name}
+Loại dự án: {project_type}
+Project root: {project_root}
+Log file: {log_file}
+
+Log lỗi gần nhất:
+```text
+{log_text}
+```
+
+Yêu cầu:
+1. Phân tích lỗi.
+2. Chỉ sửa file được phép: {project_root}/{script_to_fix}
+3. Không sửa/in .env, credentials, token, cookie, Chrome profile.
+4. Tạo backup .bak.timestamp trước khi sửa.
+5. Chạy kiểm tra: cd {project_root} && {run_command}
+6. Nếu là token/login/media/permission thì không sửa code; báo thao tác thủ công cần làm.
+7. Báo cáo file đã sửa và kết quả test.
+""".strip()
+
+    print('[watchdog] Calling OpenClaw...')
+    try:
+        subprocess.Popen(['openclaw', 'agent', '--message', prompt], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        notify_telegram(config, f'🚨 Watchdog {project_name}: đã gọi OpenClaw tự sửa lỗi. Log: {log_file}')
+    except Exception as exc:
+        print(f'[watchdog] Failed to call OpenClaw: {exc}')
+        notify_telegram(config, f'❌ Watchdog {project_name}: không gọi được OpenClaw. Lỗi: {exc}')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

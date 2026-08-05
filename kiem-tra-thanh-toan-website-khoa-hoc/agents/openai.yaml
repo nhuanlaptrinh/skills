@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kiểm Tra Thanh Toán Website Khóa Học"
+  short_description: "Validate course payment pages"
+  default_prompt: "Use $kiem-tra-thanh-toan-website-khoa-hoc to validate this course payment page against the ANCL standard."

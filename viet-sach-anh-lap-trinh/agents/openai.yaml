@@ -1,0 +1,4 @@
+interface:
+  display_name: "Viet Sach Anh Lap Trinh"
+  short_description: "Viet va bien tap ebook theo giong Anh Lap Trinh."
+  default_prompt: "Viet hoac hoan thien mot chuong ebook theo giong Anh Lap Trinh, uu tien mach van lien mach, thuc te, de doc."

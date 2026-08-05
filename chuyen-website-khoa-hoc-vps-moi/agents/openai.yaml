@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chuyển Website VPS Mới"
+  short_description: "Di chuyển website Django/Docker sang VPS mới"
+  default_prompt: "Use $chuyen-website-khoa-hoc-vps-moi to move a course website to a new VPS and wire nginx, SSL, Docker, and n8n webhook URLs."

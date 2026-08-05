@@ -1,0 +1,4 @@
+interface:
+  display_name: "Quản lý công việc team ALT"
+  short_description: "Nhập, tra cứu, tổng hợp task hằng ngày của team ALT."
+  default_prompt: "Tra cứu hoặc cập nhật công việc team ALT trong kho dữ liệu Markdown."

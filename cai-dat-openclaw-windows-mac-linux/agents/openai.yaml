@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cai Dat OpenClaw"
+  short_description: "Cai OpenClaw voi Token Codex mac dinh"
+  default_prompt: "Use $cai-dat-openclaw-windows-mac-linux to install OpenClaw on this Windows, MacBook, or Linux computer with dashboard http://127.0.0.1:18789/, token chatbot, Python/pip, Token Codex at https://codex.anhlaptrinh.vn/v1 using GPT-5.6-sol when an API key is provided, optional DeepSeek, and no automatic Codex CLI install/login."

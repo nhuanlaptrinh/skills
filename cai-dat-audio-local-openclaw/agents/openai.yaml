@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cài Audio Local OpenClaw"
+  short_description: "Cài voice STT local cho OpenClaw, không tốn API"
+  default_prompt: "Use $cai-dat-audio-local-openclaw to install offline voice transcription for an OpenClaw member container or standalone VPS."

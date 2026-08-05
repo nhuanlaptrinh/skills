@@ -1,0 +1,4 @@
+interface:
+  display_name: "Viet Bai VibePython"
+  short_description: "Viet bai quang cao ke chuyen cho VibePython"
+  default_prompt: "Use $viet-bai-vibepython to write a Vietnamese storytelling ad for the Vibe Coding den tu dong hoa cong viec voi Python program."

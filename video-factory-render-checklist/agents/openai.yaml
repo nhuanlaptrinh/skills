@@ -1,0 +1,3 @@
+display_name: Video Factory Checklist
+short_description: Checklist render video ALT, giữ audio cũ, tên file cũ, Telegram và chống méo logo.
+default_prompt: Dùng checklist này khi tạo hoặc rerender video trong Nha May San Xuat Video.

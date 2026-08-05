@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gắn Domain OpenClaw Member VPS"
+  short_description: "Gắn Cloudflare domain và SSL cho OpenClaw member"
+  default_prompt: "Use $gan-domain-openclaw-member-vps to attach a Cloudflare subdomain with HTTPS to an OpenClaw member VPS."

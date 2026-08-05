@@ -1,0 +1,3 @@
+display_name: Tạo Chatbot Tư Vấn Khóa Học
+short_description: Gắn chatbot tư vấn vào website khóa học, có thể báo Telegram khi được yêu cầu.
+default_prompt: Tạo chatbot tư vấn khóa học cho website này, đặt trước form đăng ký nếu là landing page, dùng dữ liệu Second_Brain và DeepSeek qua biến môi trường. Nếu tôi yêu cầu, tích hợp thêm thông báo Telegram cho câu hỏi và câu trả lời của chatbot.

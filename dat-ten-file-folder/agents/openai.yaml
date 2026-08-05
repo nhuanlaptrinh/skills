@@ -1,0 +1,4 @@
+interface:
+  display_name: "Đặt tên file folder"
+  short_description: "Chuẩn hóa tên file và folder theo dạng số_ten_khong_dau."
+  default_prompt: "Chuẩn hóa tên file và folder trong thư mục này theo quy tắc số_ten_khong_dau và cập nhật link liên quan."

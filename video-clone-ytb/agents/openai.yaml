@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Clone YTB"
+  short_description: "Dựng reel YouTube bằng transcript API qua Tor và HyperFrames."
+  default_prompt: "Dùng $video-clone-ytb để đọc Google Sheet Status=Run hoặc YouTube URL, lấy transcript bằng youtube-transcript-api qua Tor, giữ narration.mp3 làm giọng chính, cập nhật template, validate và render MP4."
