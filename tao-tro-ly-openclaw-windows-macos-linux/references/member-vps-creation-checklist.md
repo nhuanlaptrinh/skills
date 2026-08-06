@@ -37,17 +37,24 @@
 
 ## Telegram DM
 - [ ] Global và account `dmPolicy` là `pairing`
-- [ ] Global allowFrom có `6980864856`, `8342048167`
-- [ ] Account allowFrom có `6980864856`, `8342048167`
+- [ ] Global allowFrom có `7919819873`, `6980864856`, `8342048167`
+- [ ] Account allowFrom có `7919819873`, `6980864856`, `8342048167`
 - [ ] `TELEGRAM_CHAT_ID` được merge thêm nếu có
 - [ ] Người ngoài allowFrom phải pairing
+
+## Command owner
+- [ ] `commands.ownerAllowFrom` có `telegram:7919819873`, `telegram:6980864856`, `telegram:8342048167`
+- [ ] `commands.ownerDisplay` là `raw`
+- [ ] Chỉ thay bộ owner mặc định khi người dùng chủ động yêu cầu rõ ID khác
 
 ## Plugin approval
 - [ ] `approvals.plugin.enabled` true
 - [ ] Mode `targets`
 - [ ] Agent filter chỉ `main`
+- [ ] Target Telegram `7919819873` qua đúng account member
 - [ ] Target Telegram `6980864856` qua đúng account member
 - [ ] Target Telegram `8342048167` qua đúng account member
+- [ ] Cả ba ID mặc định nhận và xử lý được approval
 - [ ] Hướng dẫn dùng Allow once hoặc `/approve <id> allow-once`
 - [ ] Không dùng proposal ID thay approval ID
 
@@ -102,7 +109,13 @@
 ## Hệ thống
 - [ ] Token Codex provider dùng `https://codex.anhlaptrinh.vn/v1`
 - [ ] Không thêm `/v1` lần thứ hai; API là `openai-completions`
+- [ ] Cả ba model provider khai báo `input: ["text", "image"]`
+- [ ] Cả ba model provider khai báo `maxTokens: 4096`
+- [ ] `agents.defaults.model.primary` và `agents.defaults.imageModel.primary` là `token-codex/GPT-5.6-sol`
 - [ ] API Token Codex đã cấu hình và cả ba model chat test thành công
+- [ ] Ảnh smoke test được `openclaw infer image describe` đọc đúng chữ/nội dung đã biết
+- [ ] Ảnh không nhạy cảm đi qua đúng Telegram/Zalo/dashboard được bot mô tả đúng nếu channel đó đã cấu hình
+- [ ] Không bàn giao nếu chỉ validate JSON đạt nhưng chưa xác nhận đọc ảnh
 - [ ] Không còn provider/model cũ trong config hoặc cache model của member
 - [ ] Gọi Token Codex `/models` không lộ secret và kiểm tra chính xác model `gpt-4o-mini-transcribe`
 - [ ] Chỉ bật audio/STT qua provider `token-codex` khi model được công bố; nếu không có hoặc kiểm tra lỗi, đặt `tools.media.audio.enabled=false`

@@ -136,6 +136,7 @@ Khi người dùng yêu cầu tạo một thành viên mới, AI phải thực h
 - **Giới hạn tài nguyên:** Không bỏ CPU/RAM/PID limit nếu chưa có yêu cầu rõ ràng và kiểm tra sức tải VPS chính.
 - **Thay đổi live:** Trước khi hạ RAM container đang chạy, kiểm tra mức dùng hiện tại để tránh OOM; theo dõi `memory.events`, dịch vụ và port sau cập nhật.
 - **Mật khẩu & Token:** Tuyệt đối không ghi mật khẩu thật hoặc token vào file nhật ký thay đổi (`/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`). Thay vào đó hãy dùng placeholder hoặc chỉ ghi nhận hành động.
+- **Đổi mật khẩu SSH:** Trước khi chạy `passwd`, kiểm tra entrypoint có gọi `chpasswd` mỗi lần container khởi động hay không. Nếu có, backup entrypoint root-only rồi thêm marker khởi tạo để lần restart sau không ghi đè mật khẩu mới; đặt mật khẩu qua TTY, không đưa mật khẩu vào command line, file skill hoặc nhật ký. Xác minh bằng một phiên SSH ép dùng `PreferredAuthentications=password` và không restart container chỉ để thử.
 - **Kiểm tra trùng cổng:** Script `manage-user.sh` tự động kiểm tra cổng port đã bị sử dụng chưa, nhưng AI nên chủ động kiểm tra bằng `ss -tlnp` hoặc `docker ps` trước để tư vấn cổng trống phù hợp cho người dùng.
 - **Tách dữ liệu:** Mỗi member phải dùng đúng `/root/Apps/member_vps/docker-users/data/<username>`; không mount chung folder giữa nhiều member.
 - **Khi vượt disk guard:** Điều tra và dọn đúng dữ liệu của member trước; không tự khởi động lại container liên tục khi chưa giảm xuống dưới giới hạn.

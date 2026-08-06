@@ -207,11 +207,13 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Phải báo link public tương ứng web port sau khi tạo và xác minh URL trả HTTP `200`. Nếu không tự lấy được public IPv4, dùng `OPENCLAW_PUBLIC_IP`.
 - Cấu hình HTTP token-only giảm bảo mật; khi có domain HTTPS phải ưu tiên HTTPS và tắt `dangerouslyDisableDeviceAuth`.
 - Telegram DM mặc định phải dùng `dmPolicy: pairing` ở cả cấp chung và `channels.telegram.accounts.<account>`.
-- Hai Telegram ID quản trị `6980864856` và `8342048167` luôn phải có trong `channels.telegram.allowFrom` và `channels.telegram.accounts.<account>.allowFrom`; các ID này được nhắn riêng không cần pairing.
-- `TELEGRAM_CHAT_ID` nếu được truyền khi tạo member phải được merge thêm vào allowFrom, không thay thế hai ID quản trị mặc định.
+- Ba Telegram ID quản trị mặc định `7919819873`, `6980864856` và `8342048167` luôn phải có trong `channels.telegram.allowFrom` và `channels.telegram.accounts.<account>.allowFrom`; các ID này được nhắn riêng không cần pairing.
+- Mặc định bắt buộc đặt `commands.ownerAllowFrom` thành `telegram:7919819873`, `telegram:6980864856`, `telegram:8342048167` và `commands.ownerDisplay = "raw"` để cả ba ID có quyền owner command.
+- Chỉ thay bộ owner/approver mặc định khi người dùng chủ động yêu cầu rõ một bộ Telegram ID khác. Việc người dùng chỉ cung cấp `TELEGRAM_CHAT_ID` của member không được coi là yêu cầu thay owner.
+- `TELEGRAM_CHAT_ID` nếu được truyền khi tạo member phải được merge thêm vào allowFrom, không thay thế ba ID quản trị mặc định, trừ khi người dùng yêu cầu rõ thay bộ owner/approver.
 - Người mới ngoài allowFrom phải pairing; dùng `openclaw pairing list telegram` để lấy request và chỉ approve đúng người đã xác minh.
-- Mọi member mới phải bật `approvals.plugin.enabled = true`, mode `targets`, `agentFilter: ["main"]`; tạo hai target Telegram tới `6980864856` và `8342048167`, có `accountId` đúng bằng tên Telegram account/member.
-- Cả hai ID quản trị mặc định có quyền nhận và xử lý approval bằng nút **Allow once** hoặc `/approve <id> allow-once`; phải dùng approval ID đang chờ, không dùng proposal ID của skill.
+- Mọi member mới phải bật `approvals.plugin.enabled = true`, mode `targets`, `agentFilter: ["main"]`; tạo ba target Telegram tới `7919819873`, `6980864856` và `8342048167`, có `accountId` đúng bằng tên Telegram account/member.
+- Cả ba ID quản trị mặc định có quyền nhận và xử lý approval bằng nút **Allow once** hoặc `/approve <id> allow-once`; phải dùng approval ID đang chờ, không dùng proposal ID của skill.
 - Khi người dùng cung cấp Telegram Group ID lúc tạo nhân viên, mặc định cấu hình group allowlist với `enabled: true`, `requireMention: false`, `allowFrom: ["*"]` ở cả top-level và account scope, cùng binding riêng tới agent `main` trước khi restart gateway.
 - Không được chỉ xóa `allowFrom` cấp group: OpenClaw hiện hành có thể fallback về DM/account `allowFrom` và tiếp tục chỉ cho chủ bot. Muốn mọi thành viên trong group được gọi bot, bắt buộc đặt wildcard `allowFrom: ["*"]` ngay trong đúng group.
 - Giữ Telegram DM ở `pairing`; `allowFrom` chỉ chứa các ID đã duyệt/mặc định. Wildcard chỉ áp dụng cho group đã khai báo, không dùng wildcard để mở DM hoặc group khác.
@@ -221,7 +223,7 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Chạy gateway bằng root runtime của member và luôn nạp `/root/.openclaw/token-codex.env` trước khi chạy; nếu không, `${TOKEN_CODEX_API_KEY}` sẽ rỗng khi Gateway reload hoặc khởi động lại.
 - `/root/.openclaw` phải là thư mục thật trên volume `/root`; không tạo symlink sang `/home`, `/workspace` hoặc đường dẫn khác vì exec approvals có thể từ chối traversal qua symlink.
 - Mọi `docker exec ... openclaw` trong automation phải truyền `-e HOME=/root` hoặc chạy qua wrapper đã khóa `HOME`.
-- **Cấu hình Custom Provider cho Token Codex (BẮT BUỘC KHI DÙNG VPS THÀNH VIÊN):** Token Codex là provider duy nhất cho member đầy đủ. Khi cấu hình thủ công vào `openclaw.json`, bắt buộc dùng đúng base URL, API, biến môi trường và ba model sau; không tự thêm `/v1` lần thứ hai hoặc thuộc tính lạ như `enabled`:
+- **Cấu hình Custom Provider cho Token Codex (BẮT BUỘC KHI DÙNG VPS THÀNH VIÊN):** Token Codex là provider duy nhất cho member đầy đủ. Khi cấu hình thủ công vào `openclaw.json`, bắt buộc dùng đúng base URL, API, biến môi trường và ba model sau; không tự thêm `/v1` lần thứ hai hoặc thuộc tính lạ như `enabled`. Mọi model phải khai báo `input: ["text", "image"]` để member luôn nhận được ảnh input:
 ```json
 "models": {
   "providers": {
@@ -230,15 +232,39 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
       "apiKey": "${TOKEN_CODEX_API_KEY}",
       "api": "openai-completions",
       "models": [
-        { "id": "GPT-5.6-sol", "name": "GPT-5.6-sol" },
-        { "id": "GPT-5.6-terra", "name": "GPT-5.6-terra" },
-        { "id": "GPT-5.6-luna", "name": "GPT-5.6-luna" }
+        {
+          "id": "GPT-5.6-sol",
+          "name": "GPT-5.6-sol",
+          "input": ["text", "image"],
+          "maxTokens": 4096
+        },
+        {
+          "id": "GPT-5.6-terra",
+          "name": "GPT-5.6-terra",
+          "input": ["text", "image"],
+          "maxTokens": 4096
+        },
+        {
+          "id": "GPT-5.6-luna",
+          "name": "GPT-5.6-luna",
+          "input": ["text", "image"],
+          "maxTokens": 4096
+        }
       ]
     }
   }
 },
 "agents": {
   "defaults": {
+    "model": {
+      "primary": "token-codex/GPT-5.6-sol"
+    },
+    "imageModel": {
+      "primary": "token-codex/GPT-5.6-sol"
+    },
+    "imageGenerationModel": {
+      "primary": "token-codex/GPT-5.6-sol"
+    },
     "models": {
       "token-codex/GPT-5.6-sol": {},
       "token-codex/GPT-5.6-terra": {},
@@ -247,7 +273,34 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
   }
 }
 ```
-- Mặc định cấu hình tạo ảnh bằng `token-codex/GPT-5.6-sol`: `imageModel.primary` và `imageGenerationModel.primary` dùng model này, `agents.defaults.models` phải có `token-codex/GPT-5.6-sol`, model hỗ trợ `input: ["text", "image"]` và `maxTokens: 4096`.
+- Mặc định cấu hình hiểu ảnh bằng `token-codex/GPT-5.6-sol`: `agents.defaults.imageModel.primary` và model chính `agents.defaults.model.primary` phải dùng model này; `agents.defaults.models` phải có đủ ba model và model catalog phải giữ `input: ["text", "image"]` cùng `maxTokens: 4096`. Chỉ đặt `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
+- `imageGenerationModel.primary` chỉ dùng cho tính năng tạo ảnh, không được coi là bước thay thế cho khả năng đọc ảnh input.
+- **Kiểm tra bắt buộc khả năng đọc ảnh:** sau `openclaw config validate`, tạo một ảnh kiểm thử không chứa dữ liệu riêng tư rồi chạy `openclaw infer image describe` bằng `token-codex/GPT-5.6-sol`. Kết quả phải nhận diện được chữ kiểm thử `OPENCLAW_VISION_OK_2026` hoặc nội dung hình đã biết; chỉ HTTP `200` không đủ để kết luận đọc ảnh hoạt động.
+
+```bash
+docker exec -i user-<ten_user> sh -lc '
+  set -e
+  set -a
+  . /root/.openclaw/token-codex.env
+  set +a
+  /root/.openclaw/tools/document-venv/bin/python - <<"PY"
+from PIL import Image, ImageDraw
+image = Image.new("RGB", (720, 220), "white")
+draw = ImageDraw.Draw(image)
+draw.text((40, 90), "OPENCLAW_VISION_OK_2026", fill="black")
+image.save("/tmp/openclaw-vision-smoke.png")
+PY
+  HOME=/root openclaw infer image describe \
+    --file /tmp/openclaw-vision-smoke.png \
+    --model token-codex/GPT-5.6-sol \
+    --prompt "Đọc chính xác dòng chữ trong ảnh và trả lời nguyên văn." \
+    --json
+  rm -f /tmp/openclaw-vision-smoke.png
+'
+```
+
+- Nếu smoke test lỗi, không bàn giao member như đã hỗ trợ ảnh; kiểm tra lại `input`, model primary, credential Token Codex, endpoint và cache model rồi validate/restart theo đúng quy trình.
+- Nếu đã cấu hình Telegram, Zalo hoặc dashboard chat, bước nghiệm thu cuối phải dùng một ảnh không nhạy cảm đi vào đúng channel thực tế và yêu cầu bot mô tả chữ/vật thể đã biết. Chỉ thực hiện gửi thử khi người dùng cho phép hoặc để người dùng chủ động gửi; không kết luận hoàn tất nếu CLI đọc ảnh được nhưng channel không chuyển ảnh tới agent.
 - Mặc định bật web search cho member VPS bằng plugin `duckduckgo`, vì DuckDuckGo không cần API key và tránh lỗi `no provider is available` khi bot gọi `web_search`.
 - Khi tạo/cấu hình trợ lý mới, trong `/root/.openclaw/openclaw.json` của container member VPS phải có `plugins.entries.duckduckgo.enabled = true` và `tools.web.search.provider = "duckduckgo"`.
 - Trước khi cấu hình audio understanding/transcription, bắt buộc gọi `GET https://codex.anhlaptrinh.vn/v1/models` bằng credential Token Codex hiện có và kiểm tra model `gpt-4o-mini-transcribe`; chỉ in HTTP status và kết quả có/không, tuyệt đối không in token.
@@ -255,7 +308,6 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Không tự thay model STT hoặc fallback sang provider khác. Không cài `ffmpeg` chỉ để bật tính năng nghe audio; chỉ cài khi model STT đã khả dụng và có yêu cầu chuyển đổi định dạng riêng.
 - Ngoại lệ Zalo Personal: plugin `zalouser` có thể chuyển voice thành URL `zdn.vn/*.aac`; endpoint STT không nhận AAC trực tiếp. Khi model STT đã khả dụng và member cần nghe voice Zalo, cài `ffmpeg` riêng cho member đó rồi áp dụng workflow AAC tích hợp tại mục audio; không cài đại trà.
 - Không dùng endpoint localhost cho audio; mọi bước kiểm tra và transcription phải dùng base URL HTTPS của provider `token-codex`.
-- Chỉ đặt model `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
 - Khi tạo VPS thành viên mới bằng pipeline này, mặc định public dashboard qua đúng web port Docker đã cấp; không mở thêm port gateway `18789` trực tiếp trên host.
 - Mọi workflow tạo, cấu hình hoặc vận hành trợ lý member VPS phải áp dụng mục **Shared Fallback Proxy**; kết nối trực tiếp luôn là mặc định, proxy chỉ là fallback khi direct thất bại.
 - Mỗi VPS thành viên mới phải được preflight port, bootstrap thủ công theo các mục trong skill và kiểm tra trong đúng container `user-<ten_user>`.
@@ -498,24 +550,35 @@ const fs = require('fs');
 const path = '/root/.openclaw/openclaw.json';
 const accountId = '<ten_user>';
 const chatId = '<telegram_chat_id>';
+const defaultOwnerIds = ['7919819873', '6980864856', '8342048167'];
+const extraIds = chatId.startsWith('<') ? [] : [chatId];
+const allowedIds = [...new Set([...defaultOwnerIds, ...extraIds])];
 const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+config.commands ??= {};
+config.commands.ownerAllowFrom = defaultOwnerIds.map((id) => `telegram:${id}`);
+config.commands.ownerDisplay = 'raw';
 config.channels ??= {};
 config.channels.telegram ??= {};
-  config.channels.telegram.dmPolicy = 'pairing';
+config.channels.telegram.dmPolicy = 'pairing';
 config.channels.telegram.allowFrom = Array.isArray(config.channels.telegram.allowFrom) ? config.channels.telegram.allowFrom : [];
-if (!config.channels.telegram.allowFrom.includes(chatId)) config.channels.telegram.allowFrom.push(chatId);
+for (const id of allowedIds) {
+  if (!config.channels.telegram.allowFrom.includes(id)) config.channels.telegram.allowFrom.push(id);
+}
 config.channels.telegram.accounts ??= {};
 config.channels.telegram.accounts[accountId] ??= {};
 const account = config.channels.telegram.accounts[accountId];
 account.enabled = true;
 account.dmPolicy = 'pairing';
 account.allowFrom = Array.isArray(account.allowFrom) ? account.allowFrom : [];
-if (!account.allowFrom.includes(chatId)) account.allowFrom.push(chatId);
+for (const id of allowedIds) {
+  if (!account.allowFrom.includes(id)) account.allowFrom.push(id);
+}
 fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
 NODE
 ```
 
 Không dùng key `allowlist` trong OpenClaw config vì `openclaw config validate` báo invalid; key đúng là `allowFrom`.
+Nếu người dùng chủ động yêu cầu bộ owner/approver khác, thay `defaultOwnerIds` bằng đúng danh sách đã xác nhận và cập nhật đồng bộ approval targets; không tự giữ hoặc thêm ID mặc định ngoài yêu cầu đó.
 
 ## Cấu hình Telegram Group ID khi tạo nhân viên
 
