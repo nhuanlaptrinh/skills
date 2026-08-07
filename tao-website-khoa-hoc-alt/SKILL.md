@@ -1,6 +1,7 @@
 ---
 name: tao-website-khoa-hoc-alt
-description: Tạo website khóa học/chương trình theo chuẩn ALT khi người dùng nói "tạo folder website với tên miền", "tạo website khóa học", "gắn tên miền/subdomain", hoặc đưa một khóa học mới cần dựng giống mẫu OPLW: tạo folder code trong /root/10Web_BH, đặt tên theo subdomain, gắn tên miền nếu có, viết lại nội dung theo giọng Anh Lập Trình từ nguồn tham khảo, tạo dữ liệu cùng tên trong Second Brain, và cập nhật cổng ALT khi phù hợp. Cũng dùng khi cần đặt tên/đổi tên folder chuẩn ALT.
+description: >-
+  Tạo website khóa học/chương trình theo chuẩn ALT khi người dùng nói "tạo folder website với tên miền", "tạo website khóa học", "gắn tên miền/subdomain", hoặc đưa một khóa học mới cần dựng giống mẫu OPLW: tạo folder code trong /root/Apps/course_websites/10Web_BH, đặt tên theo subdomain, gắn tên miền nếu có, viết lại nội dung theo giọng Anh Lập Trình từ nguồn tham khảo, tạo dữ liệu cùng tên trong Second Brain, và cập nhật cổng ALT khi phù hợp. Cũng dùng khi cần đặt tên/đổi tên folder chuẩn ALT.
 ---
 
 # Tạo Website Khóa Học ALT
@@ -13,9 +14,9 @@ Skill này được thiết kế để bạn (AI) sử dụng khi người dùng
 - "Chuẩn hóa tên folder dựa theo tên miền"
 - "Tạo folder website chuẩn Anh Lập Trình/ALT"
 - "Tạo folder website với tên miền ..."
-- "Tạo một folder trong /root/10Web_BH khóa học ... rồi gắn tên miền ..."
-- "Tạo website theo mẫu /root/10Web_BH/03_domain_oplw"
-- "Tạo website mới trong `/root/10Web_BH` và gắn domain/subdomain"
+- "Tạo một folder trong /root/Apps/course_websites/10Web_BH khóa học ... rồi gắn tên miền ..."
+- "Tạo website theo mẫu /root/Apps/course_websites/10Web_BH/03_domain_oplw"
+- "Tạo website mới trong `/root/Apps/course_websites/10Web_BH` và gắn domain/subdomain"
 - "Tạo chương trình đào tạo/Second Brain cùng tên với website"
 - "Đưa chương trình/khóa học vào trang ALT"
 
@@ -57,9 +58,9 @@ Khi người dùng yêu cầu tạo một website/chương trình mới theo chu
 
 ### Nguyên tắc mặc định
 
-- Website mới trong `/root/10Web_BH` **mặc định phải dùng Python Django**, kể cả khi người dùng chỉ đưa HTML/brochure/landing page tĩnh. Chỉ dùng HTML tĩnh hoặc Nginx tĩnh nếu người dùng yêu cầu rõ.
-- Mẫu code Django mặc định để tham khảo là `/root/10Web_BH/03_domain_oplw`.
-- Mẫu dữ liệu Second Brain mặc định để tham khảo là `/root/Second_Brain/01_chuong_trinh_dao_tao/03_domain_oplw`.
+- Website mới trong `/root/Apps/course_websites/10Web_BH` **mặc định phải dùng Python Django**, kể cả khi người dùng chỉ đưa HTML/brochure/landing page tĩnh. Chỉ dùng HTML tĩnh hoặc Nginx tĩnh nếu người dùng yêu cầu rõ.
+- Mẫu code Django mặc định để tham khảo là `/root/Apps/course_websites/10Web_BH/03_domain_oplw`.
+- Mẫu dữ liệu Second Brain mặc định để tham khảo là `/root/Data/second_brain/Second_Brain/01_chuong_trinh_dao_tao/03_domain_oplw`.
 - Font chữ mặc định cho website tiếng Việt mới là `Be Vietnam Pro`, fallback `Inter`, `Arial`, `sans-serif`.
 - Template/base HTML phải import Google Fonts:
   ```html
@@ -83,7 +84,7 @@ Khi người dùng yêu cầu tạo một website/chương trình mới theo chu
 
 ### Bước A - Xác định tên chuẩn và nguồn dữ liệu
 
-- Tìm số thứ tự tiếp theo còn trống trong `/root/10Web_BH`.
+- Tìm số thứ tự tiếp theo còn trống trong `/root/Apps/course_websites/10Web_BH`.
 - Nếu có subdomain, đặt folder theo dạng `[Số]_domain_[subdomain]`, ví dụ `pytd.anhlaptrinh.vn` -> `25_domain_pytd`.
 - Nếu người dùng đưa link nguồn/nội dung mẫu, đọc link hoặc file đó, rồi biên tập thành nội dung website/chương trình mới. Không sao chép dài nguyên văn từ nguồn bên ngoài khi không cần thiết.
 - Nếu người dùng yêu cầu "viết lại theo Anh Lập Trình", chuyển nội dung nguồn sang giọng thực chiến, gần gũi, ưu tiên "cứ ứng dụng vào công việc trước, vướng thì gỡ", không bê nguyên văn câu chữ/claim của nguồn tham khảo.
@@ -93,16 +94,16 @@ Khi người dùng yêu cầu tạo một website/chương trình mới theo chu
   - `PROJECT_URL`: ví dụ `https://pytd.anhlaptrinh.vn/`.
   - `COURSE_TITLE`: tên chương trình/khóa học hiển thị.
 
-### Bước B - Tạo folder website trong `/root/10Web_BH`
+### Bước B - Tạo folder website trong `/root/Apps/course_websites/10Web_BH`
 
-- Tạo folder `/root/10Web_BH/[PROJECT_CODE]`.
+- Tạo folder `/root/Apps/course_websites/10Web_BH/[PROJECT_CODE]`.
 - Ưu tiên clone/copy cấu trúc từ website mẫu phù hợp:
-  - Mặc định cho mọi website khóa học/chương trình/landing page/brochure: tham khảo `/root/10Web_BH/03_domain_oplw`.
-  - Website khóa học có Django, đăng ký, thanh toán, chatbot nâng cao: vẫn ưu tiên bắt đầu từ `/root/10Web_BH/03_domain_oplw`, rồi chỉ bổ sung phần cần thiết từ `/root/10Web_BH/19_domain_ancl` nếu chức năng đó thật sự cần.
-  - Website cổng/portal: tham khảo `/root/10Web_BH/28_domain_alt`.
+  - Mặc định cho mọi website khóa học/chương trình/landing page/brochure: tham khảo `/root/Apps/course_websites/10Web_BH/03_domain_oplw`.
+  - Website khóa học có Django, đăng ký, thanh toán, chatbot nâng cao: vẫn ưu tiên bắt đầu từ `/root/Apps/course_websites/10Web_BH/03_domain_oplw`, rồi chỉ bổ sung phần cần thiết từ `/root/Apps/course_websites/10Web_BH/19_domain_ancl` nếu chức năng đó thật sự cần.
+  - Website cổng/portal: tham khảo `/root/Apps/course_websites/10Web_BH/28_domain_alt`.
 - Không copy runtime/private files từ mẫu: `.env` thật, `db.sqlite3`, `output.log`, `__pycache__/`, `*.pyc`.
 - Nếu mẫu có API key, SePay secret, webhook secret, email cá nhân hoặc token trong code/config, dùng skill `khu-token-api-secret` để chuyển sang `.env` hoặc placeholder trước khi báo xong.
-- Với website mới có chatbot tư vấn, sau khi tạo `.env` từ `.env.example`, copy các biến vận hành nội bộ `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` từ `.env` của mẫu `/root/10Web_BH/03_domain_oplw/.env` sang `.env` thật của dự án mới nếu mẫu có giá trị hợp lệ. Không in giá trị secret ra log/final answer, không đưa secret thật vào `.env.example`, tài liệu, Second Brain, hoặc skill.
+- Với website mới có chatbot tư vấn, tạo `.env` từ `.env.example` và chỉ cấu hình các biến cần thiết khi yêu cầu tích hợp đã rõ. Không tự copy secret từ `.env` của project khác; không in giá trị secret ra log/final answer, không đưa secret thật vào `.env.example`, tài liệu, Second Brain hoặc skill.
 - Cập nhật các file quan trọng:
   - `docker-compose.yml`: service/container/router/middleware/service name theo subdomain; Traefik `Host(\`PROJECT_DOMAIN\`)`.
   - `.env.example` và `.env`: `COURSE_CODE`, `COURSE_FOLDER`, `COURSE_TITLE`, `PROJECT_PUBLIC_URL`, `PROJECT_FOLDER_NAME`.
@@ -126,11 +127,11 @@ Khi người dùng yêu cầu tạo một website/chương trình mới theo chu
 
 Luôn tạo folder:
 
-`/root/Second_Brain/01_chuong_trinh_dao_tao/[PROJECT_CODE]`
+`/root/Data/second_brain/Second_Brain/01_chuong_trinh_dao_tao/[PROJECT_CODE]`
 
 Tạo cấu trúc chuẩn tương tự chương trình mẫu:
 
-`/root/Second_Brain/01_chuong_trinh_dao_tao/03_domain_oplw`
+`/root/Data/second_brain/Second_Brain/01_chuong_trinh_dao_tao/03_domain_oplw`
 
 Nếu chưa có lý do đặc biệt, dùng cấu trúc thư mục và kiểu file tổng hợp của `03_domain_oplw` làm chuẩn mặc định:
 
@@ -178,7 +179,7 @@ Yêu cầu nội dung tối thiểu:
 
 ### Bước E - Đưa chương trình vào dự án ALT portal
 
-Luôn cập nhật dự án `/root/10Web_BH/28_domain_alt` để cổng ALT biết khóa mới:
+Luôn cập nhật dự án `/root/Apps/course_websites/10Web_BH/28_domain_alt` để cổng ALT biết khóa mới:
 
 - Trong `website/views.py`:
   - Thêm `PROJECT_CODE` vào `COURSE_FOLDERS`.
@@ -194,7 +195,7 @@ Luôn cập nhật dự án `/root/10Web_BH/28_domain_alt` để cổng ALT bi�
 ### Bước F - Kiểm thử cuối
 
 - `rg` trong website mới để chắc không còn domain/tên khóa mẫu cũ.
-- `python3 manage.py check` ở website mới và ở `/root/10Web_BH/28_domain_alt` nếu đã sửa portal Django.
+- `python3 manage.py check` ở website mới và ở `/root/Apps/course_websites/10Web_BH/28_domain_alt` nếu đã sửa portal Django.
 - `curl -I` domain mới.
 - Test đọc context:
 
@@ -202,7 +203,7 @@ Luôn cập nhật dự án `/root/10Web_BH/28_domain_alt` để cổng ALT bi�
 COURSE_CODE=[PROJECT_CODE] COURSE_FOLDER=[PROJECT_CODE] python3 - <<'PY'
 from pathlib import Path
 import os
-os.chdir('/root/10Web_BH/[PROJECT_CODE]')
+os.chdir('/root/Apps/course_websites/10Web_BH/[PROJECT_CODE]')
 from trolyai.course_advisor import _read_course_context
 text = _read_course_context('[PROJECT_CODE]')
 print(len(text))
@@ -227,7 +228,7 @@ Việc đổi tên thư mục cha có thể phá vỡ các cấu hình liên k�
 ### Bước 3: Đồng bộ hóa cấu hình & Liên kết (Refactoring)
 - **Nếu là dự án Web (Docker Compose/Nginx):**
   - Quét nội dung các tệp tin cấu hình (`docker-compose.yml`, `nginx.conf`, script hướng dẫn chạy, biến `.env`) trong thư mục vừa được đổi tên.
-  - Tìm và thay thế các đường dẫn tuyệt đối dạng `/root/10Web_BH/[Tên_Cũ]` thành `/root/10Web_BH/[Tên_Mới]` để tránh lỗi đường dẫn.
+  - Tìm và thay thế các đường dẫn tuyệt đối dạng `/root/Apps/course_websites/10Web_BH/[Tên_Cũ]` thành `/root/Apps/course_websites/10Web_BH/[Tên_Mới]` để tránh lỗi đường dẫn.
 - **Nếu là tài liệu Obsidian (Second_Brain):**
   - Quét toàn bộ tệp tin `.md` trong toàn bộ Obsidian Vault.
   - Tự động tìm kiếm và cập nhật tất cả các wiki-links bị đổi tên (ví dụ: Thay thế `[[01 - Python Antigravity]]` thành `[[05_domain_vibepython]]`) để bảo toàn sơ đồ liên kết của người dùng.

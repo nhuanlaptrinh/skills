@@ -1,6 +1,6 @@
 ---
 name: tao-tro-ly-openclaw-windows-macos-linux
-description: Skill tự chứa để cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên chạy Docker. Dùng cả khi bot Telegram không trả lời trong group, chỉ trả lời khi mention, thiếu binding group vào agent, polling chưa connected hoặc Gateway không tự lên sau restart. Bắt buộc cài OpenClaw và đồng bộ toàn bộ skill vào OpenClaw root quản trị trước khi chạy Gateway. Bao gồm workflow Node.js/Python/OpenClaw local, Gateway, Codex login, DeepSeek tùy chọn, Token Codex, Telegram, Zalo QR/voice/reliability, kiểm tra openclaw.json, Custom Provider, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và tích hợp Facebook Fanpage/CSKH.
+description: Skill tự chứa để cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên chạy Docker; dùng cả khi phục hồi sau đổi tên thư mục/container hoặc tạo member mới bằng cách copy có chọn lọc từ member cũ. Dùng khi bot Telegram không trả lời trong group, chỉ trả lời khi mention, thiếu binding group vào agent, polling chưa connected hoặc Gateway không tự lên sau restart. Bắt buộc cài OpenClaw và đồng bộ toàn bộ skill vào OpenClaw root quản trị trước khi chạy Gateway. Bao gồm workflow Node.js/Python/OpenClaw local, Gateway, Codex login, DeepSeek tùy chọn, Token Codex, Telegram, Zalo QR/voice/reliability, kiểm tra openclaw.json, Custom Provider, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và tích hợp Facebook Fanpage/CSKH.
 ---
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
@@ -151,13 +151,13 @@ Trên Windows có thể thay `python3` bằng `python` hoặc `py -3`. Báo đú
 
 ## Mục tiêu cho VPS thành viên
 
-Trên VPS hiện tại, `/root/docker-users/manage-user.sh` chỉ tạo container nền với username, password và SSH port. Phần cài OpenClaw, dashboard, Telegram, Zalo, Token Codex và document tools phải chạy tiếp theo các mục tương ứng trong skill này; không được coi container nền là member OpenClaw hoàn chỉnh.
+Trên VPS hiện tại, `/root/Apps/member_vps/docker-users/manage-user.sh` chỉ tạo container nền với username, password và SSH port. Phần cài OpenClaw, dashboard, Telegram, Zalo, Token Codex và document tools phải chạy tiếp theo các mục tương ứng trong skill này; không được coi container nền là member OpenClaw hoàn chỉnh.
 
 ## Đường dẫn cho VPS thành viên
 
-- Bộ tạo container nền trên VPS này: `/root/docker-users/manage-user.sh`
-- Dữ liệu member trên host: `/root/docker-users/data/<name>`
-- Root persistent trên host: `/root/docker-users/data/<name>/root`, bắt buộc mount vào `/root` trong container
+- Bộ tạo container nền trên VPS này: `/root/Apps/member_vps/docker-users/manage-user.sh`
+- Dữ liệu member trên host: `/root/Apps/member_vps/docker-users/data/<name>`
+- Root persistent trên host: `/root/Apps/member_vps/docker-users/data/<name>/root`, bắt buộc mount vào `/root` trong container
 - Workspace OpenClaw bên trong container: `/root/.openclaw/workspace`
 - Root skill đích bên trong container: `/root/.openclaw/workspace/skills`
 - Home OpenClaw bên trong container: `/root`; đặt `HOME=/root` cho mọi lệnh OpenClaw
@@ -166,15 +166,26 @@ Trên VPS hiện tại, `/root/docker-users/manage-user.sh` chỉ tạo containe
 - Checklist SVG/PNG và lỗi shell approvals path: `references/svg-png-shell-checklist.md`
 - Fallback tạo ảnh local SVG/Python: `references/local-svg-python-image-fallback.md`
 - Checklist rút gọn tạo member VPS và Telegram group: `references/member-vps-creation-checklist.md`
+- Workflow đổi tên hoặc copy có chọn lọc từ member cũ: `references/member-vps-rename-copy-workflow.md`
 - Shared fallback proxy: thực hiện trực tiếp tại mục **Shared Fallback Proxy**.
 - Second AI Brain: thực hiện trực tiếp tại mục **Second AI Brain Cho Member VPS Mới**.
 - Chuẩn bị/kiểm tra API Token Codex: thực hiện trực tiếp tại mục **Chuẩn bị Token Codex trước member VPS**.
 - Đăng nhập Zalo Personal: thực hiện trực tiếp tại mục **Đăng nhập Zalo Personal/Zalo User**.
 
+## Trường hợp đổi tên hoặc copy từ VPS thành viên cũ
+
+- Trước tiên phải phân loại đúng: **đổi tên cùng một member** được phép giữ dữ liệu state sau backup; **copy tạo member mới** tuyệt đối không sao chép secret, identity, credential, session hoặc dữ liệu riêng của member nguồn.
+- Luôn kiểm tra container/mount thật bằng `docker inspect`; không coi `docker rename` là đổi tên hoàn chỉnh vì lệnh đó không đổi hostname, username, home, bind source, port, label hoặc config OpenClaw.
+- Nếu thư mục bind source bị đổi tên trong khi container còn chạy, container có thể tiếp tục thấy inode cũ nhưng sẽ lỗi sau restart. Ưu tiên đưa đúng inode về source path mà Docker đang inspect hoặc lập kế hoạch recreate riêng; không restart trước khi sửa source path.
+- Nếu chỉ còn folder orphan sau đổi tên và không còn container, backup nguyên folder, giữ state legacy riêng, dựng `root`/`home` persistent mới và dùng image sạch. Không copy token/API key từ image hoặc member mẫu.
+- Khi dùng image của member cũ làm base, phải xác nhận image không chứa `/root/.openclaw`, token, credential hoặc home dữ liệu nguồn; xóa user/home nguồn khỏi image mới và tạo API key, Telegram token, Gateway token, port, label, mount riêng cho member đích.
+- Snapshot tên/ID/trạng thái container trước và sau; chỉ báo hoàn tất khi container cũ không đổi ID/trạng thái và member mới đạt config validate, model, channel, dashboard, SSH/web port và disk guard.
+- Dry-run, lệnh chạy thật, exclude list, rollback và secret scan bắt buộc nằm trong `references/member-vps-rename-copy-workflow.md`.
+
 ## Quy tắc mặc định cho VPS thành viên
 
 - Tên container là `user-<name>`.
-- Folder data member là `/root/docker-users/data/<name>` trên VPS này; nếu chuyển sang máy khác phải kiểm tra lại đường dẫn thật.
+- Folder data member là `/root/Apps/member_vps/docker-users/data/<name>` trên VPS này; nếu chuyển sang máy khác phải kiểm tra lại đường dẫn thật.
 - Mật khẩu SSH mặc định luôn là `<name>123`; ví dụ `nhuan` thành `nhuan123`. Không tự sinh mật khẩu ngẫu nhiên, trừ khi người dùng yêu cầu rõ mật khẩu khác.
 - Trước khi tạo **OpenClaw member VPS đầy đủ**, phải có API key Token Codex được truyền qua kênh bảo mật hoặc có provisioning backend đã được kiểm tra tồn tại. Không gọi command tạo tài khoản ở đường dẫn đoán trước.
 - Nếu tài khoản được tạo qua provisioning backend, chỉ dùng mật khẩu/credit mặc định mà backend thực tế xác nhận; không tự ghi cứng mặc định vào live config.
@@ -185,8 +196,8 @@ Trên VPS hiện tại, `/root/docker-users/manage-user.sh` chỉ tạo containe
 
 Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền chỉ là bước trung gian:
 
-1. Chạy `/root/docker-users/manage-user.sh create <name> <password> <ssh_port>`; không giả định script tự sinh mật khẩu hoặc tự chọn port.
-2. Bắt buộc bổ sung volume persistent `/root/docker-users/data/<name>/root:/root`, cài OpenClaw trong container bằng `HOME=/root` và tạo `/root/.openclaw/workspace`.
+1. Chạy `/root/Apps/member_vps/docker-users/manage-user.sh create <name> <password> <ssh_port>`; không giả định script tự sinh mật khẩu hoặc tự chọn port.
+2. Bắt buộc bổ sung volume persistent `/root/Apps/member_vps/docker-users/data/<name>/root:/root`, cài OpenClaw trong container bằng `HOME=/root` và tạo `/root/.openclaw/workspace`.
 3. Bắt buộc đồng bộ toàn bộ skill nguồn vào `/root/.openclaw/workspace/skills`, chạy kiểm tra đủ skill và validate config.
 4. Chỉ sau đó mới cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào và chạy Gateway.
 5. Nếu người dùng thực sự chỉ cần một container Linux không có OpenClaw, task đó không thuộc skill tạo trợ lý này; chuyển sang workflow quản lý container/VPS riêng và không báo đã tạo trợ lý.
@@ -445,8 +456,8 @@ MEMBER_PASSWORD="${MEMBER_NAME}123"
 SSH_PORT='<ssh_port>'
 WEB_PORT='<web_port>'
 SKILL_DIR='/root/.agents/skills/tao-tro-ly-openclaw-windows-macos-linux'
-MEMBER_ROOT="/root/docker-users/data/${MEMBER_NAME}/root"
-test -x /root/docker-users/manage-user.sh
+MEMBER_ROOT="/root/Apps/member_vps/docker-users/data/${MEMBER_NAME}/root"
+test -x /root/Apps/member_vps/docker-users/manage-user.sh
 test -x "$SKILL_DIR/scripts/sync_all_skills_to_root.py"
 test -d /root/.agents/skills
 docker ps -a --format '{{.Names}}' | grep -Fx "user-${MEMBER_NAME}" && exit 1 || true
@@ -460,12 +471,12 @@ install -d -m 700 "$MEMBER_ROOT"
 Tạo container bằng đúng interface hiện tại, nhưng không dừng ở bước này:
 
 ```bash
-/root/docker-users/manage-user.sh create '<ten_user>' '<ten_user>123' '<ssh_port>'
+/root/Apps/member_vps/docker-users/manage-user.sh create '<ten_user>' '<ten_user>123' '<ssh_port>'
 ufw allow '<ssh_port>/tcp'
-/root/docker-users/manage-user.sh info '<ten_user>'
+/root/Apps/member_vps/docker-users/manage-user.sh show '<ten_user>'
 ```
 
-Lệnh trên chỉ map SSH. Trước khi cài OpenClaw, bắt buộc xác minh container có thêm mapping `<web_port>:80` và volume `/root/docker-users/data/<ten_user>/root:/root`. Root volume này đã chứa workspace `/root/.openclaw/workspace`, vì vậy không dùng `/workspace` làm OpenClaw workspace. Nếu provisioning hiện tại chưa mount `/root`, backup cấu hình rồi recreate container với volume đúng; không cài OpenClaw vào filesystem tạm của container.
+Lệnh trên tạo container nền theo manager hiện tại. Trước khi cài OpenClaw, bắt buộc xác minh mapping `<web_port>:80` và volume `/root/Apps/member_vps/docker-users/data/<ten_user>/root:/root`. Root volume này đã chứa workspace `/root/.openclaw/workspace`, vì vậy không dùng `/workspace` làm OpenClaw workspace. Nếu provisioning hiện tại chưa mount `/root`, backup cấu hình rồi recreate container với volume đúng; không cài OpenClaw vào filesystem tạm của container.
 
 Kiểm tra mount bắt buộc:
 
@@ -512,7 +523,7 @@ docker exec \
 Đồng bộ toàn bộ skill từ root nguồn của VPS chính vào root volume của member, rồi kiểm tra cả trên host và trong container:
 
 ```bash
-MEMBER_ROOT='/root/docker-users/data/<ten_user>/root'
+MEMBER_ROOT='/root/Apps/member_vps/docker-users/data/<ten_user>/root'
 SKILL_DIR='/root/.agents/skills/tao-tro-ly-openclaw-windows-macos-linux'
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
@@ -1267,8 +1278,8 @@ Khi báo kết quả cho user, hướng dẫn test bằng câu hỏi cần tra c
 ## Kiểm tra sau khi chạy
 
 ```bash
-cd /root/docker-users
-bash manage-user.sh info <ten_user>
+cd /root/Apps/member_vps/docker-users
+bash manage-user.sh show <ten_user>
 docker exec -e HOME=/root user-<ten_user> sh -lc 'openclaw --version && HOME=/root openclaw gateway status && HOME=/root openclaw channels status --probe'
 docker exec -e HOME=/root user-<ten_user> sh -lc 'python3 --version && document-python --version && command -v pdfinfo && command -v pdftotext'
 docker exec -e HOME=/root user-<ten_user> sh -lc '/root/.openclaw/tools/document-venv/bin/python -c "import openpyxl,pypdf,pdfplumber,fitz,PIL,xlsxwriter,pandas; print(\"document_modules=OK\")"'
@@ -1289,7 +1300,7 @@ Báo cho người dùng:
 
 - Container: `user-<ten_user>`
 - Mật khẩu: `<ten_user>123`
-- Port SSH lấy từ output của `manage-user.sh info <ten_user>`; web port lấy từ `docker inspect`, không giả định manager đã map port `80`
+- Port SSH lấy từ output của `manage-user.sh show <ten_user>`; web port lấy từ `docker inspect`, không giả định manager đã map port `80`
 - Dashboard nội bộ: `http://127.0.0.1:18789/`
 - Dashboard public: `http://<PUBLIC_IP>:<web_port>/`; đăng nhập bằng token trong `/root/.openclaw_dashboard_token`, để trống mật khẩu
 - Token Codex email/mật khẩu: chỉ báo khi provisioning backend thực tế đã tạo tài khoản

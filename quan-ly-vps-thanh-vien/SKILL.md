@@ -1,6 +1,6 @@
 ---
 name: quan-ly-vps-thanh-vien
-description: Tạo, liệt kê, kiểm tra và chuẩn hóa tài nguyên các VPS thành viên Docker bằng manage-user.sh tại cấu trúc Apps hiện hành.
+description: Tạo, liệt kê, kiểm tra, chuẩn hóa tài nguyên và dừng/bật lại OpenClaw riêng cho các VPS thành viên Docker tại cấu trúc production hiện hành.
 ---
 
 # Quản Lý VPS Thành Viên
@@ -11,32 +11,22 @@ Skill này dùng để tạo, liệt kê, kiểm tra hoặc giới hạn tài ng
 
 - Project: `/root/Apps/member_vps/docker-users`
 - Script: `/root/Apps/member_vps/docker-users/manage-user.sh`
-- Dữ liệu persistent: `/root/Apps/member_vps/docker-users/data/<username>`
-- Mount trong container: `/home/<username>`
-- Image mặc định: `member_vps-phukiengiakho:latest`
+- Dữ liệu persistent: `/root/Apps/member_vps/docker-users/data/<username>`; kiểm tra `docker inspect` vì member mới/custom có thể tách `home` và `root` thành các bind mount riêng.
+- Image fallback hiện hành của `manage-user.sh`: `member_vps-phukiengiakho:latest`; có thể override bằng `MEMBER_VPS_IMAGE`.
 
 ## Giới Hạn Mặc Định
 
 Container tạo mới mặc định có:
 
 - CPU: `2`
-- RAM: `4g`
-- Tổng RAM + swap: `6g`
-- PID tối đa: `1024`
+- RAM: `4g` (`6g` gồm swap)
 - Mutable disk guard: `10 GiB`
 - Restart policy: `unless-stopped`
 
 Ngoại lệ disk guard hiện hành:
 
 - `user-quocphong`: `25 GiB`
-- `user-anhlaptrinhthu`: không giới hạn dung lượng
-
-Có thể override lúc chạy script bằng các biến:
-
-- `MEMBER_VPS_CPUS`
-- `MEMBER_VPS_MEMORY`
-- `MEMBER_VPS_MEMORY_SWAP`
-- `MEMBER_VPS_PIDS_LIMIT`
+- `user-anhlaptrinhthu`: miễn disk guard
 
 ## Lệnh Quản Lý Chính
 
@@ -47,7 +37,7 @@ Có thể override lúc chạy script bằng các biến:
 
 2. **Tạo thành viên mới:**
    ```bash
-   /root/Apps/member_vps/docker-users/manage-user.sh create <username> <password> [ssh_port] [web_port]
+   /root/Apps/member_vps/docker-users/manage-user.sh create <username> <password> <ssh_port> <web_port>
    ```
    Không ghi mật khẩu thật vào log, tài liệu hoặc câu trả lời.
 
@@ -81,18 +71,18 @@ Có thể override lúc chạy script bằng các biến:
 - Script: `/root/Apps/member_vps/docker-users/member-vps-disk-guard.sh`
 - Cấu hình: `/root/Apps/member_vps/docker-users/member-vps-disk-guard.conf`
 - Trạng thái gần nhất: `/var/lib/member-vps-disk-guard/status.tsv`
-- Systemd timer: `member-vps-disk-guard.timer`, chạy mỗi 10 phút với CPU nice `19` và I/O class `idle`.
+- Systemd timer: `member-vps-disk-guard.timer`, chạy mỗi 5 phút với CPU nice `19` và I/O class `idle`.
 - Tổng dung lượng được tính bằng writable layer `SizeRw` cộng các bind mount persistent nằm dưới thư mục `data` của project. Shared image layers không tính riêng cho từng member.
 - Dry-run/báo cáo: `member-vps-disk-guard.sh --report`.
 - Chạy enforce thật: `member-vps-disk-guard.sh --enforce`; container đang chạy sẽ bị `docker stop` khi tổng dung lượng đạt hoặc vượt giới hạn.
 - Docker hiện dùng `overlayfs` trên root filesystem `ext4`; thử nghiệm xác nhận `docker run --storage-opt size=...` chỉ lưu option nhưng không thực thi quota. Vì vậy disk guard là cơ chế stop-at-limit, không phải filesystem hard quota và có thể vượt nhẹ trong khoảng giữa hai lần kiểm tra.
 - Không tự chuyển Docker sang XFS/project quota hoặc recreate container để tạo hard quota nếu chưa có maintenance plan và backup dữ liệu writable layer.
 
-Script hiện không có chế độ dry-run. Trước thay đổi hàng loạt phải dùng `docker inspect` và `docker stats --no-stream` để audit, sau đó snapshot cấu hình vào `/root/_Backups`.
+Trước thay đổi hàng loạt phải dùng `member-vps-disk-guard.sh --report`, `docker inspect` và `docker stats --no-stream` để audit, sau đó snapshot cấu hình vào `/root/_Backups`.
 
 ## OpenClaw Trong Member VPS
 
-- Dữ liệu OpenClaw persistent thường nằm tại `/root/Apps/member_vps/docker-users/data/<username>/.openclaw`, tương ứng `/home/<username>/.openclaw` trong container.
+- Các container legacy hiện có thể lưu `/root/.openclaw` trong writable layer. Hai bind mount mặc định chỉ là `/workspace` và `/root/data`; không recreate hoặc xóa container nếu chưa backup dữ liệu writable layer.
 - Gateway mặc định lắng nghe loopback tại cổng `18789`; Telegram polling chỉ hoạt động khi tiến trình `openclaw-gateway` đang chạy.
 - Kiểm tra read-only trước khi sửa:
   ```bash
@@ -119,6 +109,41 @@ Script hiện không có chế độ dry-run. Trước thay đổi hàng loạt 
 - Để phòng lỗi này tái diễn, dùng global skill `/root/.agents/skills/openclaw-member-config-guard/SKILL.md`; guard chỉ tự gỡ `group:messaging`, backup config, validate và restart riêng Gateway khi tool policy đổi.
 - Rollback: copy entrypoint backup trở lại container, đặt owner `root:root`, mode `0755`, rồi restart đúng container. Không recreate container vì dữ liệu ngoài bind mount có thể mất.
 - Không in nội dung token, credential, cookie, `.env` hoặc toàn bộ log plugin có thể chứa session/cookie. Chỉ dùng Telegram `getMe`/`getWebhookInfo` với output đã lọc khi cần xác minh token và hàng đợi; không tự gửi tin thật.
+
+### Tạm Dừng Riêng OpenClaw
+
+Dùng quy trình này khi cần dừng Gateway nhưng vẫn giữ container, SSH, Nginx và XRDP hoạt động:
+
+1. Xác nhận đúng container, tiến trình và cổng trước khi sửa:
+   ```bash
+   docker inspect user-<username> --format 'running={{.State.Running}} status={{.State.Status}} mounts={{json .Mounts}}'
+   docker top user-<username> -eo pid,ppid,user,etimes,stat,args
+   docker exec user-<username> sh -lc "ss -lntp | grep ':18789 ' || true"
+   ```
+2. Kiểm tra `/etc/supervisor/conf.d/member-vps.conf` và entrypoint thực tế. Nếu entrypoint sinh lại Supervisor config khi container khởi động, phải sửa đồng bộ cả hai file.
+3. Backup hai file root-only vào `/root/_Backups` rồi dùng bản copy cục bộ và `apply_patch`; không in nội dung file env/secret. Trong đúng block `[program:openclaw-gateway]`, đặt:
+   ```ini
+   autostart=false
+   autorestart=false
+   ```
+4. Kiểm tra `bash -n` cho entrypoint, copy hai file lại đúng container, giữ owner/mode ban đầu rồi yêu cầu Supervisor reload:
+   ```bash
+   docker kill --signal HUP user-<username>
+   ```
+   `SIGHUP` sẽ reload Supervisor và khởi động lại ngắn các service do Supervisor quản lý; phải kiểm tra lại SSH/Nginx/XRDP.
+5. Xác minh OpenClaw không còn tiến trình hoặc cổng listen, container vẫn running và các dịch vụ còn lại đang chạy:
+   ```bash
+   docker top user-<username> -eo pid,ppid,user,etimes,stat,args
+   docker exec user-<username> sh -lc "pgrep -af openclaw-gateway || true; ss -lntp | grep ':18789 ' || true"
+   docker inspect user-<username> --format 'running={{.State.Running}} status={{.State.Status}} restart_count={{.RestartCount}} oom={{.State.OOMKilled}}'
+   ```
+
+### Bật Lại OpenClaw
+
+- Backup trạng thái đang dừng trước khi sửa.
+- Trong đúng block `[program:openclaw-gateway]` của entrypoint và Supervisor config, gỡ `autostart=false` hoặc đặt `autostart=true`, đồng thời đặt `autorestart=true`.
+- Kiểm tra cú pháp, copy lại, chạy `docker kill --signal HUP user-<username>`, rồi xác minh Gateway health, cổng `18789` và channel probe.
+- Không recreate container chỉ để bật lại OpenClaw.
 
 ## Quy Trình Tạo Mới Thành Viên (Bắt buộc)
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tạo Website Django + Cloudflare"
+  short_description: "Tạo và triển khai website Django kèm subdomain"
+  default_prompt: "Use $tao-website-django-cloudflare to create a Django website and connect its Cloudflare subdomain safely."

@@ -39,7 +39,7 @@ Không dùng `chmod 777`. Nếu `/root/.openclaw` đang là symlink cũ, backup 
 Nếu đang làm trong project member VPS, ưu tiên đường dẫn thật trên host:
 
 ```bash
-cd /root/docker-users
+cd /root/Apps/member_vps/docker-users
 ```
 
 ## 2. Kiểm tra `/tmp`

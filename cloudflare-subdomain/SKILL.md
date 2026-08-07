@@ -1,10 +1,15 @@
+---
+name: cloudflare-subdomain
+description: Tạo Cloudflare DNS A record cho domain hoặc subdomain bằng CLI local, dùng IP mặc định legacy hoặc IPv4 được chỉ định. Use khi người dùng yêu cầu tạo tên miền con, thêm A record Cloudflare, trỏ subdomain về VPS, hoặc khi skill triển khai website cần tạo DNS trước SSL.
+---
+
 # Cloudflare Subdomain Manager
 
 ## Description
 Skill này giúp Agent tự động hóa việc tạo subdomain (A record) trên Cloudflare bằng các script đã được tích hợp tại `/root/.agents/skills/cloudflare-subdomain`.
 
 ## Capabilities
-- Tạo subdomain tự động trên Cloudflare với IP mặc định của VPS hiện tại (`187.127.177.163`).
+- Hỗ trợ IP mặc định legacy (`187.127.177.163`), nhưng workflow mới phải truyền IPv4 đã xác nhận rõ ràng.
 - Tạo subdomain tự động trên Cloudflare với IP tuỳ chỉnh.
 - Quản lý tự động virtual environment, nếu chưa có sẽ tự cài đặt.
 
@@ -16,7 +21,7 @@ Skill này giúp Agent tự động hóa việc tạo subdomain (A record) trên
 ## How to use / Instructions cho AI
 Khi user yêu cầu tạo một tên miền con (subdomain), hãy thực thi bash command trỏ trực tiếp đến script `tao_ten_mien` của hệ thống.
 
-### Lệnh chạy với IP mặc định (`187.127.177.163`)
+### Lệnh legacy với IP mặc định (`187.127.177.163`)
 ```bash
 /root/.agents/skills/cloudflare-subdomain/tao_ten_mien <tên_subdomain>
 ```
@@ -33,6 +38,8 @@ Khi user yêu cầu tạo một tên miền con (subdomain), hãy thực thi bas
 ```bash
 /root/.agents/skills/cloudflare-subdomain/tao_ten_mien api.anhlaptrinh.vn 192.168.1.100
 ```
+
+Ưu tiên lệnh có IP tuỳ chỉnh sau khi xác nhận public IPv4 của VPS. Không suy luận IP từ tài liệu cũ.
 
 ## Useful Information & Paths
 - **Thư mục gốc:** `/root/.agents/skills/cloudflare-subdomain`

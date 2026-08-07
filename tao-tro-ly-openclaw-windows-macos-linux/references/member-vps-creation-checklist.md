@@ -2,6 +2,7 @@
 
 ## Input
 - [ ] Member name
+- [ ] Nếu đổi tên/copy: source member/folder và mode `rename-same-member` hoặc `copy-new-member`
 - [ ] Email khách hàng nếu cần tạo tài khoản dashboard Token Codex
 - [ ] Token Codex API key nhận qua kênh bảo mật nếu đã có sẵn
 - [ ] Telegram account ID
@@ -14,6 +15,9 @@
 - [ ] Kiểm tra hiện trạng
 - [ ] Backup cấu hình
 - [ ] Kiểm tra manager/image/container/SSH port/web port/volume thực tế; không giả định có dry-run
+- [ ] Nếu folder vừa đổi tên: đối chiếu bind source trong `docker inspect` trước khi restart
+- [ ] Nếu copy member cũ: exclude toàn bộ secret, identity, credential, session và dữ liệu riêng nguồn
+- [ ] Không dùng `docker rename` như một migration hoàn chỉnh
 - [ ] Volume persistent của member được map `<member-data>/root:/root`; không dùng filesystem tạm hoặc symlink sang `/home`
 - [ ] Không lộ secret
 

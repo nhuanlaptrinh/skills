@@ -2,7 +2,7 @@
 
 1. Nhận API key Token Codex qua kênh bảo mật hoặc xác minh provisioning backend thật trước khi tạo tài khoản; chỉ cần email khi phải tạo tài khoản dashboard.
 2. Nếu sinh key mới, tạo `/root/Data/private_accounts/token_codex/` quyền `700`, lưu output một lần bằng file quyền `600` và không in full key vào chat hoặc log dùng chung.
-3. Preflight manager container, image, SSH port, web port, volume và tên container thực tế; bắt buộc có root volume persistent map vào `/root`, không giả định tồn tại dry-run.
+3. Preflight manager container, image, SSH port, web port, volume và tên container thực tế; nếu đầu vào là folder đã đổi tên hoặc copy từ member cũ, phân loại cùng-member hay member-mới và đọc `member-vps-rename-copy-workflow.md`; bắt buộc có root volume persistent map vào `/root`, không giả định tồn tại dry-run.
 4. Cài đúng version OpenClaw bằng root với `HOME=/root`, OpenClaw root `/root/.openclaw` và workspace `/root/.openclaw/workspace`; không dừng sau khi chỉ tạo container nền.
 5. Chạy `scripts/sync_all_skills_to_root.py` từ root quản trị để copy toàn bộ skill trực tiếp vào `/root/.openclaw/workspace/skills`, sau đó chạy `--check` và `openclaw skills check` trước khi start Gateway.
 6. Tạo/cấu hình member bằng key truyền qua `TOKEN_CODEX_API_KEY` hoặc `CUSTOM_PROVIDER_API_KEY`, kèm biến Telegram khi có.

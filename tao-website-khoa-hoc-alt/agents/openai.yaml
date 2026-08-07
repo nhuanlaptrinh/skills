@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tạo Website Khóa Học ALT"
+  short_description: "Tạo website khóa học Django theo chuẩn ALT"
+  default_prompt: "Use $tao-website-khoa-hoc-alt to create an ALT course website with the correct project structure."

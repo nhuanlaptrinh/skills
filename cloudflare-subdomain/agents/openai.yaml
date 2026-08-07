@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cloudflare Subdomain"
+  short_description: "Tạo A record Cloudflare cho domain và subdomain"
+  default_prompt: "Use $cloudflare-subdomain to point a subdomain to a confirmed IPv4 address."
