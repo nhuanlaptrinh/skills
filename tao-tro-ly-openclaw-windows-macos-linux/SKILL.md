@@ -363,6 +363,19 @@ done
 
 Chạy thật chỉ tạo phần còn thiếu bằng `mkdir -p`; các file Markdown mới phải là skeleton không chứa secret. Không ghi đè file hiện có bằng template chung.
 
+### Member legacy đang mount persistent vào `/home`
+
+Ngoại lệ chuyển tiếp này chỉ áp dụng cho member production cũ đã tồn tại trước chuẩn bind mount `/root`; không dùng để tạo member mới:
+
+1. Xác minh `docker inspect` cho thấy volume riêng của member đang bind vào đúng `/home/<username>` và container vẫn running ổn định.
+2. Không recreate container chỉ để tạo Second AI Brain, vì writable layer `/root` có thể còn dữ liệu legacy.
+3. Chạy dry-run cho cả đường dẫn chuẩn `/root/...` và đích persistent `/home/<username>/...`; không ghi đè đích đã tồn tại.
+4. Backup root-only các thư mục `/root/_Second_AI_Brain`, `/root/Apps`, `/root/Automation`, `/root/Data`, `/root/AI_Runtime`, `/root/_Infra`, `/root/_Backups`, `/root/_Archive`, file `/root/AGENTS.md` và entrypoint trước khi thay đổi.
+5. Copy hoặc bảo toàn dữ liệu vào volume persistent `/home/<username>`, sau đó dùng symlink từ các đường dẫn chuẩn `/root/...` tới đúng đích persistent. Quy tắc này không thay đổi yêu cầu `/root/.openclaw` phải là thư mục thật đối với member mới.
+6. Cập nhật entrypoint riêng của member để tự bảo toàn các symlink Second AI Brain sau restart; kiểm tra `bash -n`, owner, mode và checksum trước/sau khi copy vào container.
+7. Không cần restart Gateway hoặc container nếu chỉ tạo cấu trúc và symlink; xác minh live bằng `readlink -f`, kiểm tra ghi xuyên volume, `openclaw config validate`, channel probe và trạng thái container.
+8. Ghi rõ ngoại lệ legacy, đường dẫn persistent và backup rollback trong project note; không ghi credential.
+
 ## Workflow Tích Hợp Bắt Buộc
 
 Khi tạo VPS thành viên mới, thực hiện theo đúng thứ tự:

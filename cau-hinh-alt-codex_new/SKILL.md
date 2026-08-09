@@ -1,6 +1,6 @@
 ---
 name: cau-hinh-alt-codex
-description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config của Codex, khắc phục lỗi "Codex could not start - The extension couldn't load its resources" trên Antigravity IDE/VS Code Server, xử lý CSP/crossorigin block, đổi model mặc định hoặc model ghim theo agent trong OpenClaw, kiểm tra /v1/models, backup config, hoặc xử lý lỗi provider/model mà không làm lộ API key.
+description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config của Codex, khắc phục lỗi "Codex could not start - The extension couldn't load its resources" trên Antigravity IDE/VS Code Server, phân loại Webview timeout/CSP với app-server hoặc plugin manifest lỗi, xử lý crossorigin/modulepreload/fetch polyfill, đổi model mặc định hoặc model ghim theo agent trong OpenClaw, kiểm tra /v1/models, backup config, hoặc xử lý lỗi provider/model mà không làm lộ API key.
 ---
 
 # Cấu Hình Codex Qua ALT Gateway Đa Nền Tảng
@@ -565,76 +565,256 @@ openclaw gateway status
 - Không ghi API key thật vào skill. Khi đọc config để chẩn đoán, chỉ in provider, model, runtime và trạng thái `set/missing` của credential.
 - Sau thay đổi quan trọng, ghi backup, lệnh validate, kết quả log request và tình trạng restart vào nhật ký VPS.
 
-## Khắc Phục Lỗi "Codex could not start - The extension couldn't load its resources" Trên Antigravity IDE
+## Khắc Phục Lỗi "The extension couldn't load its resources" Trên Antigravity IDE
 
-### Khi Nào Dùng
-Áp dụng trường hợp Codex Extension trong Antigravity IDE (hoặc VS Code Remote Server trên Linux VPS) không thể mở Webview Sidebar / Panel, báo lỗi:
-`Codex could not start - The extension couldn't load its resources`
-Hoặc trong log `/root/.antigravity-ide-server/data/logs/<SESSION>/exthost*/openai.chatgpt/Codex.log` xuất hiện dòng:
-`[error] [CodexWebviewProvider] Webview did not finish starting extensionVersion=... role=sidebar`
+### Phạm Vi Và Nguyên Tắc Chẩn Đoán
 
-### Nguyên Nhân Kỹ Thuật
-1. **`crossorigin` Attribute & Polyfill Fetch Block:**
-   Bản cập nhật extension pre-release (`openai.chatgpt-*.linux-x64`) chứa thuộc tính `crossorigin` trong `<script type="module" crossorigin>` và `<link rel="modulepreload" crossorigin>` tại file `webview/index.html`.
-   Trong file `webview/assets/index-*.js`, hàm Polyfill đọc thẻ `modulepreload` và gọi `fetch(e.href)`.
-2. **Xung Đột CSP (`connect-src`):**
-   Trong môi trường Antigravity Webview, chính sách Content-Security-Policy (CSP) cấu hình `connect-src` ngăn cản lệnh `fetch()` truy cập tài nguyên local scheme của webview. Lệnh `fetch()` bắn ra ngoại lệ CSP unhandled exception làm crash script khởi chạy giao diện -> React UI không mount được -> không gửi được tin nhắn `ready` về Extension Host trong 30s -> nổ lỗi đếm lùi Watchdog Timeout.
-3. **Zombie Process Spawns:**
-   Khi extension tự động update, tiến trình `codex app-server` thuộc bản extension cũ bị xóa thư mục vẫn tiếp tục chạy ngầm chiếm socket `/root/.codex/ipc/ipc.sock`.
+Áp dụng khi Codex Extension trong Antigravity IDE hoặc VS Code Remote Server không mở được Sidebar/Panel và báo một trong các thông báo:
 
-### Quy Trình Khắc Phục Chuẩn
-
-#### 1. Kiểm tra log nhận diện lỗi
-```bash
-find /root/.antigravity-ide-server/data/logs/ -name "Codex.log" | xargs ls -lt 2>/dev/null | head -n 3
+```text
+Codex could not start - The extension couldn't load its resources
+The extension couldn't load its resources
 ```
-Xác nhận có dòng `[error] [CodexWebviewProvider] Webview did not finish starting`.
 
-#### 2. Sửa file `webview/index.html` của Extension
-Xác định vị trí thư mục extension hiện tại:
+Đây là thông báo giao diện chung, không phải lúc nào cũng do CSP. Luôn đọc `Codex.log` mới nhất rồi phân loại trước khi sửa:
+
+- **Nhánh A - Webview timeout/CSP:** có `CodexWebviewProvider] Webview did not finish starting ... role=sidebar`; `webview/index.html` còn `crossorigin` hoặc `modulepreload`; entry JS còn polyfill `fetch(e.href,n)` chưa được bảo vệ.
+- **Nhánh B - `codex app-server` chết:** có `Fatal error`, `Codex app-server process exited unexpectedly` hoặc `Last CLI error`. Sửa lỗi app-server/plugin/config được ghi ngay sau đó; không mặc định vá Webview.
+- **Nhánh C - provider/xác thực/kết nối:** có `401`, `404`, timeout, DNS hoặc provider/model lỗi. Dùng các mục xử lý gateway/config phía trên; patch Webview không giải quyết nhóm này.
+- Nếu log có nhiều nhánh, xử lý từng lỗi theo thứ tự thời gian và luôn kiểm tra log của lần reload mới nhất.
+
+### Ca Thực Tế Đã Xác Nhận Ngày 2026-08-08
+
+- Log `$HOME/.antigravity-ide-server/data/logs/20260808T053622/exthost2/openai.chatgpt/Codex.log` có `Webview did not finish starting extensionVersion=26.730.61309 role=sidebar`.
+- Thư mục thực tế là `$HOME/.antigravity-ide-server/extensions/openai.chatgpt-26.5730.61309-linux-x64`. Chuỗi version trong log và tên folder có thể khác cách biểu diễn; không tự ghép đường dẫn từ `extensionVersion`, phải dò trên filesystem.
+- Đã backup `webview/index.html` và `webview/assets/index-BC1ECcH_.js`, bỏ `crossorigin`/`modulepreload`, rồi đổi polyfill thành `try{fetch(e.href,n).catch(()=>{})}catch(_){}`.
+- Đã kiểm tra config user dùng provider `router` trỏ tới ALT Gateway mà không in `auth.json`, dọn tiến trình app-server cũ và yêu cầu chạy `Developer: Reload Window`.
+- Cùng thông báo giao diện vẫn có thể đi kèm lỗi khác trong log, ví dụ plugin manifest có `defaultPrompt` dài quá giới hạn. Lỗi plugin là nhánh riêng và không được coi là bằng chứng rằng patch CSP thất bại.
+
+### 1. Resolve Đường Dẫn Thực Tế
+
+Không hardcode `/root`. Dùng home của user đang chạy Antigravity hoặc biến override đã được xác minh:
+
 ```bash
-ext_dir=$(ls -d /root/.antigravity-ide-server/extensions/openai.chatgpt-*-linux-x64 2>/dev/null | tail -n 1)
+server_home="${ANTIGRAVITY_SERVER_HOME:-$HOME/.antigravity-ide-server}"
+logs_root="$server_home/data/logs"
+extensions_root="$server_home/extensions"
+
+latest_log="$(
+  find "$logs_root" -type f -path '*/openai.chatgpt/Codex.log' \
+    -printf '%T@ %p\n' 2>/dev/null |
+    sort -nr | head -n 1 | cut -d' ' -f2-
+)"
+
+ext_dir="$(
+  find "$extensions_root" -mindepth 1 -maxdepth 1 -type d \
+    -name 'openai.chatgpt-*-linux-x64' -printf '%T@ %p\n' 2>/dev/null |
+    sort -nr | head -n 1 | cut -d' ' -f2-
+)"
+
+test -f "$latest_log" || { echo "Không tìm thấy Codex.log" >&2; exit 1; }
+test -d "$ext_dir/webview" || { echo "Không tìm thấy webview extension" >&2; exit 1; }
+printf 'Codex log: %s\nExtension: %s\n' "$latest_log" "$ext_dir"
+```
+
+Chọn extension theo filesystem/mtime và kiểm tra `package.json`; không dùng `ls ... | tail -n 1` vì thứ tự chuỗi version có thể chọn nhầm bản.
+
+### 2. Đọc Log Và Chọn Đúng Nhánh
+
+```bash
+rg -n \
+  'Webview did not finish starting|Fatal error|app-server process exited|Last CLI error|401|404|timeout|CSP|Content-Security' \
+  "$latest_log" | tail -n 100
+```
+
+Chỉ đi tiếp nhánh patch Webview khi log và file tài nguyên cùng khớp. Kiểm tra dấu hiệu mà không in toàn bộ bundle:
+
+```bash
 index_html="$ext_dir/webview/index.html"
-```
-Loại bỏ thuộc tính `crossorigin` và các thẻ `<link rel="modulepreload">` trong `$index_html`:
-- Thay `<script type="module" crossorigin src="...">` thành `<script type="module" src="...">`.
-- Xóa các thẻ `<link rel="modulepreload" ...>`.
+entry_src="$(rg -o 'src="\./assets/index-[^"]+\.js"' "$index_html" | head -n 1 | cut -d'"' -f2)"
+test -n "$entry_src" || { echo "Không xác định được entry JS" >&2; exit 1; }
+index_js="$ext_dir/webview/${entry_src#./}"
 
-#### 3. Bọc try-catch hàm `fetch` trong `webview/assets/index-*.js`
-Tìm file script khởi chạy chính trong `$ext_dir/webview/assets/index-*.js`:
+test -f "$index_js" || { echo "Không tìm thấy: $index_js" >&2; exit 1; }
+rg -n 'crossorigin|modulepreload' "$index_html" || true
+rg -n -F 'fetch(e.href,n)' "$index_js" || true
+rg -n -F 'try{fetch(e.href,n).catch(()=>{})}catch(_){}' "$index_js" || true
+```
+
+Nếu bundle của version mới không còn đúng signature `fetch(e.href,n)`, dừng để phân tích version đó; không fuzzy-replace mọi lệnh `fetch()`.
+
+### 3. Backup Trước Khi Patch
+
 ```bash
-index_js=$(ls "$ext_dir/webview/assets/index-"*.js 2>/dev/null | head -n 1)
-```
-Thay thế đoạn lệnh `fetch(e.href,n)` thành `try{fetch(e.href,n).catch(()=>{})}catch(_){}` để tránh crash khi vi phạm CSP `connect-src`.
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+html_backup="$index_html.bak-$stamp"
+js_backup="$index_js.bak-$stamp"
 
-#### 4. Dọn dẹp tiến trình `codex` ngầm
+cp -p "$index_html" "$html_backup"
+cp -p "$index_js" "$js_backup"
+printf 'HTML backup: %s\nJS backup: %s\n' "$html_backup" "$js_backup"
+```
+
+Không ghi đè file `.bak` cũ và không copy bundle đã patch từ version extension khác.
+
+### 4. Patch `webview/index.html` Có Kiểm Soát
+
+Loại bỏ thuộc tính `crossorigin` và thẻ preload module. Lệnh dưới đây idempotent: chạy lại khi đã patch sẽ không thêm nội dung mới.
+
 ```bash
-pkill -f codex 2>/dev/null || true
+python3 - "$index_html" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+patched = re.sub(
+    r"\s+crossorigin(?:=(?:\"[^\"]*\"|'[^']*'))?",
+    "",
+    text,
+    flags=re.IGNORECASE,
+)
+patched = re.sub(
+    r"\s*<link\b(?=[^>]*\brel=(?:\"modulepreload\"|'modulepreload'))[^>]*>",
+    "",
+    patched,
+    flags=re.IGNORECASE,
+)
+if patched != text:
+    path.write_text(patched, encoding="utf-8")
+    print("Patched index.html")
+else:
+    print("index.html already patched or signature not present")
+PY
 ```
 
-#### 5. Kiểm tra & đảm bảo config `.codex`
-Xác nhận file `${CODEX_HOME:-$HOME/.codex}/config.toml` và `auth.json` đầy đủ thông tin xác thực (dùng provider `router` hoặc `alt` theo thiết lập người dùng):
-```toml
-model_provider = "router"
-model = "GPT-5.6-sol"
-model_reasoning_effort = "xhigh"
-preferred_auth_method = "apikey"
+### 5. Bảo Vệ `fetch()` Polyfill Trong Entry JS
 
-[model_providers.router]
-name = "router"
-base_url = "https://codex.anhlaptrinh.vn/v1"
-wire_api = "responses"
+Chỉ thay đúng một signature đã biết. Nếu không phải đúng một lần, script dừng để tránh làm hỏng bundle minified:
 
-[projects."/root"]
-trust_level = "trusted"
+```bash
+python3 - "$index_js" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+unsafe = "fetch(e.href,n)"
+guarded = "try{fetch(e.href,n).catch(()=>{})}catch(_){}"
+
+if guarded in text:
+    print("Entry JS already patched")
+    raise SystemExit(0)
+
+count = text.count(unsafe)
+if count != 1:
+    raise SystemExit(f"Expected exactly one known fetch signature, found {count}; stop for manual analysis")
+
+path.write_text(text.replace(unsafe, guarded, 1), encoding="utf-8")
+print("Patched entry JS")
+PY
 ```
 
-#### 6. Thao tác trên IDE
-Yêu cầu người dùng mở Command Palette (`Ctrl+Shift+P` hoặc `F1`) và chạy:
-`Developer: Reload Window`
+### 6. Xác Minh Patch Trước Khi Reload
 
-### Quy Tắc An Toàn
-- Tuyệt đối không ghi API key, token, cookie, password thật vào skill, log hay câu trả lời.
-- Luôn tạo backup `.bak` cho file `index.html` và `index-*.js` trước khi chỉnh sửa.
-- Sau khi thực hiện, ghi lại nhật ký thay đổi tại `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.
+```bash
+if rg -n 'crossorigin|modulepreload' "$index_html"; then
+  echo "index.html vẫn còn marker cần kiểm tra" >&2
+  exit 1
+fi
 
+rg -n -F 'try{fetch(e.href,n).catch(()=>{})}catch(_){}' "$index_js" >/dev/null || {
+  echo "Không tìm thấy fetch guard" >&2
+  exit 1
+}
+
+stat -c '%a %U:%G %s %n' "$index_html" "$index_js" "$html_backup" "$js_backup"
+```
+
+Không coi việc file đã đổi là đủ. Sau reload phải kiểm tra Webview thực sự mount và log mới không lặp lại timeout.
+
+### 7. Xử Lý App-Server Cũ Một Cách Có Phạm Vi
+
+Trước tiên chỉ liệt kê tiến trình:
+
+```bash
+pgrep -af 'codex.*app-server|openai.chatgpt.*codex' || true
+```
+
+- Chỉ `kill <PID>` sau khi xác minh PID thuộc extension/app-server cũ hoặc executable trỏ vào folder extension không còn tồn tại.
+- Không dùng `pkill -f codex` mặc định vì có thể dừng Codex CLI hiện tại, phiên khác của người dùng hoặc tiến trình không liên quan.
+- Nếu nghi socket cũ, kiểm tra `${CODEX_HOME:-$HOME/.codex}/ipc/ipc.sock` và process sở hữu trước; không xóa socket khi vẫn có process đang listen.
+
+### 8. Kiểm Tra Config Mà Không Lộ Secret
+
+Lỗi Webview có thể độc lập với provider. Chỉ xác minh các khóa cần thiết; không rewrite `config.toml` nếu log không chỉ ra lỗi config và tuyệt đối không in `auth.json`:
+
+```bash
+codex_home="${CODEX_HOME:-$HOME/.codex}"
+config_path="$codex_home/config.toml"
+auth_path="$codex_home/auth.json"
+
+test -f "$config_path" && \
+  rg -n '^(model_provider|model|model_reasoning_effort|preferred_auth_method)\s*=|^\[model_providers\.[^]]+\]|^(name|base_url|wire_api|env_key)\s*=' \
+    "$config_path"
+
+if test -s "$auth_path"; then
+  stat -c 'auth.json=present mode=%a owner=%U:%G' "$auth_path"
+else
+  echo 'auth.json=missing-or-empty'
+fi
+```
+
+Provider có thể là `router` hoặc `alt` tùy cấu hình hiện tại. Không đổi provider, model, reasoning hoặc auth method chỉ vì Webview timeout.
+
+### 9. Reload Và Xác Minh Kết Quả
+
+1. Mở Command Palette bằng `Ctrl+Shift+P` hoặc `F1`.
+2. Chạy `Developer: Reload Window`.
+3. Mở Codex Sidebar và chờ UI mount.
+4. Tìm `Codex.log` mới nhất theo bước 1; xác nhận không còn `Webview did not finish starting` trong lần khởi động mới.
+5. Nếu xuất hiện `Fatal error` mới, chuyển sang nhánh app-server thay vì lặp lại patch.
+
+### Nhánh Riêng: App-Server Hoặc Plugin Manifest Lỗi
+
+Ví dụ log:
+
+```text
+Codex app-server process exited unexpectedly
+Last CLI error: ... manifest ... defaultPrompt[0]: prompt must be at most 128 characters
+```
+
+Khi gặp nhánh này:
+
+- Xác định lỗi đầu tiên trước khi process thoát, không chỉ lấy câu cuối cùng trong log.
+- Nếu log trỏ vào `$CODEX_HOME/.tmp/plugins/...`, coi đó là bản staging/cache; tìm plugin/skill nguồn tương ứng trước khi sửa.
+- Backup manifest nguồn, rút gọn prompt vi phạm về tối đa 128 ký tự, validate plugin/skill rồi reload lại.
+- Không dùng patch `crossorigin`/`fetch()` để chữa lỗi manifest. Chỉ giữ patch Webview nếu nhánh A cũng được xác nhận độc lập.
+
+### Rollback
+
+Nếu Webview lỗi nặng hơn hoặc bundle không còn load, khôi phục đúng hai backup cùng timestamp:
+
+```bash
+cp -p "$html_backup" "$index_html"
+cp -p "$js_backup" "$index_js"
+```
+
+Sau rollback, chạy `Developer: Reload Window` và đọc log mới. Không rollback bằng file backup của version extension khác.
+
+### Lưu Ý Sau Khi Extension Tự Cập Nhật
+
+- Extension update có thể tạo folder hash/version mới và làm mất patch cũ.
+- Dò lại extension đang active, đọc log và kiểm tra signature từ đầu; không tự động chép `index.html` hoặc bundle JS của bản cũ sang bản mới.
+- Nếu upstream đã sửa CSP/polyfill, không áp dụng patch nữa.
+
+### Tiêu Chí Hoàn Tất
+
+- Đã phân loại đúng Webview timeout, app-server/plugin hoặc provider/auth.
+- Đã backup đúng file trước khi sửa và có đường dẫn rollback.
+- `index.html` không còn `crossorigin`/`modulepreload` khi nhánh A yêu cầu.
+- Entry JS có fetch guard đúng signature, không sửa các `fetch()` khác.
+- Codex Sidebar mount sau `Developer: Reload Window` và log mới không lặp timeout.
+- Không in hoặc ghi API key/token/cookie/password/private key vào skill, log hay báo cáo.
+- Sau thay đổi quan trọng trên VPS, cập nhật `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.

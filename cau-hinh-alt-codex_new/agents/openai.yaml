@@ -1,4 +1,4 @@
 interface:
-  display_name: "Đổi model ALT cho Codex và OpenClaw"
-  short_description: "Đổi an toàn GPT-5.6 sol, terra hoặc luna trên Codex/OpenClaw"
-  default_prompt: "Hãy cấu hình hoặc đổi đồng bộ model GPT-5.6-sol, GPT-5.6-terra hoặc GPT-5.6-luna cho Codex và OpenClaw, backup trước khi sửa, không làm lộ API key và kiểm tra cấu hình sau thay đổi."
+  display_name: "Cấu hình ALT Codex và sửa Webview"
+  short_description: "Cấu hình Codex/OpenClaw và sửa lỗi Webview"
+  default_prompt: "Dùng $cau-hinh-alt-codex để cấu hình model ALT hoặc chẩn đoán lỗi Codex Extension không nạp được Webview."

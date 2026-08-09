@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tonia Token Storefront"
+  short_description: "Vận hành storefront Token Tonia production"
+  default_prompt: "Use $partner-token-storefront-tonia to safely operate or verify the Tonia token storefront."

@@ -1,6 +1,6 @@
 ---
 name: openclaw-zalo-qr-login
-description: Hướng dẫn thao tác đăng nhập lại Zalo Personal cho OpenClaw bằng QR trên VPS/headless, đồng bộ QR ra link web công khai, giữ nguyên các cấu hình khác ở mặc định hoặc giá trị hiện có để tránh ảnh hưởng production. Use when Codex needs to regenerate expired Zalo QR, onboard/re-login OpenClaw Zalo Personal, configure dmPolicy/groupPolicy safely, or reproduce the QR login workflow on another VPS.
+description: Hướng dẫn đăng nhập lại Zalo Personal cho OpenClaw bằng QR trên VPS/headless, gửi QR trực tiếp tới Telegram owner hoặc đồng bộ ra web, và giữ nguyên cấu hình không liên quan. Use when Codex needs to regenerate expired Zalo QR, authorize an owner-triggered Telegram QR workflow, onboard/re-login OpenClaw Zalo Personal, or configure dmPolicy/groupPolicy safely.
 ---
 
 # OpenClaw Zalo QR Login
@@ -14,6 +14,51 @@ Skill này dùng để đăng nhập lại kênh **Zalo Personal** của OpenCla
 - Không in token, cookie, bot token, gateway token, QR raw payload, hoặc nội dung secret ra câu trả lời.
 - Nếu đang ở VPS production, đọc quy tắc/AGENTS/checklist của máy trước khi sửa và ghi nhật ký thay đổi nếu máy có cơ chế nhật ký.
 - Ưu tiên giữ giá trị hiện có khi wizard hỏi các bước không liên quan.
+
+## Quyền Telegram owner bắt buộc
+
+Khi user muốn ra lệnh từ Telegram để tạo và nhận QR Zalo, ID Telegram đó phải xuất hiện đồng thời trong các lớp quyền sau:
+
+- `channels.telegram.allowFrom`: được nhắn trực tiếp với bot.
+- `commands.ownerAllowFrom`: dùng dạng `telegram:<user_id>` để nhận quyền owner command.
+- `tools.elevated.allowFrom.telegram`: được phép gọi công cụ elevated từ Telegram.
+- `channels.telegram.execApprovals.approvers`: được bấm duyệt hoặc từ chối exec approval.
+- `approvals.plugin.targets`: định tuyến plugin approval tới DM Telegram của owner nếu hệ thống dùng plugin approval.
+
+Không thêm wildcard `"*"` vào owner, elevated hoặc approver allowlist. Không gửi QR vào group hoặc tới một ID chỉ được chuyển tiếp qua lời nhắn của người khác.
+
+## Gửi QR trực tiếp qua Telegram owner
+
+Helper dùng cho workflow không tương tác:
+
+- Global: `/root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs`
+- Trong member workspace: `<workspace>/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs`
+
+Helper dừng riêng channel Zalo trong Gateway, tạo QR bằng API plugin với `force=true`, giữ Telegram tiếp tục chạy để gửi ảnh, chờ quét, rồi bật lại channel Zalo. Không restart container và không đổi model/provider/token/policy.
+
+Dry-run bắt buộc trước:
+
+```bash
+node /path/to/send_zalo_qr_to_telegram_owner.mjs \
+  --target <telegram_user_id> \
+  --dry-run
+```
+
+Chạy thật chỉ khi owner đã yêu cầu đăng nhập lại hoặc gửi QR mới:
+
+```bash
+node /path/to/send_zalo_qr_to_telegram_owner.mjs \
+  --target <telegram_user_id> \
+  --apply
+```
+
+Input/output:
+
+- Input: Telegram user ID đã có đủ các lớp quyền trên; account Zalo mặc định là `default`; timeout mặc định 180 giây.
+- Output: ảnh QR được gửi vào DM Telegram của owner; sau khi quét, helper gửi tin xác nhận và channel Zalo được start lại.
+- Backup: `~/.openclaw/backups/zalo-qr-<timestamp>/` với mode riêng tư; không in nội dung credential.
+- Rerun: nếu QR hết hạn, chạy lại lệnh `--apply`; mỗi lượt tạo QR mới và xóa ảnh tạm sau khi kết thúc.
+- An toàn: `--apply` sẽ thay phiên Zalo hiện tại, vì vậy không chạy khi owner chỉ muốn kiểm tra trạng thái.
 
 ## Link QR chuẩn cần dùng
 

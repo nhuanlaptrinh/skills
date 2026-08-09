@@ -22,6 +22,7 @@ This app is independent from `/root/Apps/9router_usage_dashboard`. Do not edit, 
 
 ## Behavior
 
+- Authenticate partner login emails case-insensitively through `dashboard.auth_backends.CaseInsensitiveEmailBackend`. Keep Django's default backend second to preserve existing sessions, while continuing to normalize newly stored emails to lowercase.
 - New registrations start with `is_active=false`, zero credit, and wait for superuser approval.
 - Superusers manage partners at `/quan-tri/` or `/nguoi-dung/`.
 - The fixed commercial conversion is `1 USD paid = 20 USD internal usage credit`.
@@ -118,7 +119,9 @@ The shared ingress `9router.anhlaptrinh.vn` and generated partner-domain `/v1/` 
 - Every request signs method, full path, Unix timestamp, nonce, and body SHA-256. Nonces are stored once in `ResellerBridgeNonce`; clock skew over 300 seconds and replayed nonces are rejected.
 - The bridge validates the key against 9Router, maps it to `ManagedApiKey`, enforces partner status, remaining credit, `allow_key_creation`, and `max_api_keys`, then records child keys with prefix `CDX-`.
 - Supported operations: list keys with live balance, create a child key, set `isActive`, delete a child key, and read usage rows for the partner's `CDX-` child keys.
+- Activating an inactive child key is rejected with HTTP 409 unless the partner is active, key creation is allowed, remaining credit is positive, and the active-key count is below `max_api_keys`; the storefront cannot reactivate keys to bypass partner policy.
 - The list response includes total internal credit, all-time spent, remaining credit, total active keys, active CDX child keys, and `max_api_keys`; CDX displays this read-only to its superusers.
+- Tonia uses a dedicated non-`CDX-` parent key owned by the Học Viện AI partner account. Never document or print that key; rotate/recreate it only together with the storefront `.env`.
 - Public Nginx rate-limits `/api/reseller/v1/`; the legacy loopback endpoint remains limited to localhost and public Nginx returns 404 for `/internal/reseller-bridge/`.
 - The CDX client sends `User-Agent: CDX-Reseller-Bridge/1.0` because Cloudflare Browser Integrity otherwise returns error 1010 for Python urllib.
 - When changing this bridge, run the partner test suite and the CDX end-to-end key test, then update both global skills.

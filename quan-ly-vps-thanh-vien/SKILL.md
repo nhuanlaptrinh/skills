@@ -91,7 +91,11 @@ Trước thay đổi hàng loạt phải dùng `member-vps-disk-guard.sh --repor
   docker exec user-<username> sh -lc 'HOME=/home/<username> openclaw gateway status'
   docker exec user-<username> sh -lc 'HOME=/home/<username> openclaw channels status --probe'
   ```
+- Không mặc định mọi member đều dùng `HOME=/home/<username>`. Container legacy có thể giữ config thật tại `/root/.openclaw`; xác định `HOME` đúng bằng `docker top`, kiểm tra file config tồn tại và chạy `openclaw config validate` với từng HOME khả dĩ trước khi thêm Supervisor. Block Supervisor phải dùng đúng HOME chứa config đang hoạt động, nếu không Gateway có thể lên nhưng Telegram báo `not configured`.
 - Một số image tạo lại `/etc/supervisor/conf.d/member-vps.conf` từ `/usr/local/bin/member-vps-entrypoint.sh` mỗi lần container khởi động. Nếu chỉ sửa file supervisor đã sinh, thay đổi sẽ mất sau `docker restart`.
+- Member `user-trolyketoancatminh` dùng OpenClaw persistent tại host `/root/Apps/member_vps/docker-users/data/trolyketoancatminh/.openclaw`, tương ứng `HOME=/home/trolyketoancatminh` trong container. `/root/.openclaw` là symlink tương thích tới HOME persistent để các đường dẫn lịch sử cũ vẫn đọc được.
+- Member này chạy hai agent tách biệt: `main` dùng `workspace`, còn `ai_catminh` dùng `workspace_AI_CatMinh`; mỗi agent có Telegram account và workspace riêng. Bản `AI_CatMinh` trên OpenClaw VPS chính phải giữ `enabled=false` khi bot đang chạy trong member để tránh hai Gateway polling cùng token.
+- Backup migration và rollback của member này nằm dưới `/root/_Backups/openclaw/trolyketoancatminh/20260808T183813Z`; không xóa `/root/.openclaw.pre-persistent-20260808T183813Z` trong container nếu chưa xác nhận không còn cần rollback và đã kiểm tra disk guard.
 - Muốn OpenClaw tự lên bền vững, backup entrypoint root-only vào `/root/_Backups`, sau đó thêm chương trình sau vào heredoc supervisor bên trong entrypoint của đúng container:
   ```ini
   [program:openclaw-gateway]
@@ -109,6 +113,24 @@ Trước thay đổi hàng loạt phải dùng `member-vps-disk-guard.sh --repor
 - Để phòng lỗi này tái diễn, dùng global skill `/root/.agents/skills/openclaw-member-config-guard/SKILL.md`; guard chỉ tự gỡ `group:messaging`, backup config, validate và restart riêng Gateway khi tool policy đổi.
 - Rollback: copy entrypoint backup trở lại container, đặt owner `root:root`, mode `0755`, rồi restart đúng container. Không recreate container vì dữ liệu ngoài bind mount có thể mất.
 - Không in nội dung token, credential, cookie, `.env` hoặc toàn bộ log plugin có thể chứa session/cookie. Chỉ dùng Telegram `getMe`/`getWebhookInfo` với output đã lọc khi cần xác minh token và hàng đợi; không tự gửi tin thật.
+
+### Đổi Tên Member Hoặc Thư Mục Dữ Liệu
+
+- Đổi riêng tên thư mục host khi container đang chạy không phải là đổi tên member hoàn chỉnh. Bind mount hiện tại vẫn giữ inode nên dịch vụ có thể chạy tạm thời, nhưng `docker inspect` vẫn lưu source cũ và lần restart sau có thể tạo/mount một thư mục rỗng.
+- Trước khi restart, so sánh `docker inspect`, `stat` đường dẫn host, `stat` mount trong container và `findmnt -T`. Source Docker, đường dẫn host và mount trong container phải cùng inode/dữ liệu.
+- Nếu chỉ cần phục hồi production, đưa dữ liệu về đúng source đang ghi trong `docker inspect`. Docker có thể tự tạo lại source cũ trong lúc sửa; nếu dữ liệu bị lồng vào thư mục rỗng, di chuyển inode dữ liệu ra một sibling tạm rồi dùng `mv -T` thay thế thư mục rỗng, sau đó kiểm tra lại inode trước khi restart.
+- `docker rename` chỉ đổi tên container; nó không đổi hostname, Linux user, HOME, mount destination, label hoặc source path. Muốn đổi toàn bộ sang username mới phải có kế hoạch migrate/recreate riêng, backup cả writable layer `/root`, dữ liệu bind mount, cổng và credential; không làm trong một task kiểm tra nhanh.
+
+#### Quy Trình Đổi Tên End-to-End
+
+1. Audit container cũ bằng `docker inspect`, `docker top`, `docker stats`, port, mount, inode, HTTP/SSH và OpenClaw health; xác nhận container đích và thư mục đích chưa tồn tại.
+2. Tạo backup root-only gồm Docker inspect, entrypoint, Supervisor config, `/root/.openclaw` và archive dữ liệu bind mount. Nếu OpenClaw active nằm trong writable layer `/root`, phải snapshot toàn bộ writable layer bằng `docker commit`; không chỉ copy thư mục `/home`.
+3. Snapshot image từ member có thể chứa credential và trạng thái riêng tư. Chỉ giữ local, không push/export, không dùng cho member khác và ghi rõ image/container rollback trong project note.
+4. Dừng container cũ, chốt snapshot cuối, đổi container cũ sang tên backup không bắt đầu bằng `user-`, dùng `mv -T` đổi source data, rồi tạo container mới với nguyên port, limit, restart policy nhưng dùng container name, hostname, service label, source path và mount destination mới.
+5. Nếu dữ liệu hoặc virtualenv còn đường dẫn tuyệt đối `/home/<old>`, tạo symlink tương thích `/home/<old>` → `/home/<new>` trong container mới thay vì sửa hàng loạt ngay trong cửa sổ migration.
+6. Nếu bất kỳ bước nào lỗi: xóa riêng container mới, chuyển data về source cũ, đổi container rollback về tên cũ và start lại. Không xóa image/container cũ trước khi container mới qua restart thật.
+7. Xác minh sau một lần `docker restart`: hostname/label/mount mới, inode host và container trùng nhau, SSH/web/XRDP/Supervisor/OpenClaw đều hoạt động, Telegram `works, audit ok`, agent test không `--deliver`, không OOM và disk guard nhận đúng tên mới.
+8. Lưu ý `docker commit` chuyển dung lượng writable cũ thành image layer; disk guard chỉ báo phần writable mới cộng bind mount. Dùng thêm `docker system df`, image size và backup retention để đánh giá dung lượng thật.
 
 ### Tạm Dừng Riêng OpenClaw
 
