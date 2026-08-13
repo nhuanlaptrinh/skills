@@ -13,20 +13,43 @@ import sys
 import tempfile
 
 
+NON_OWNER_DENY = [
+    "group:runtime",
+    "group:fs",
+    "group:memory",
+    "group:ui",
+    "group:automation",
+    "group:messaging",
+    "group:nodes",
+    "group:agents",
+    "group:plugins",
+    "sessions_list",
+    "sessions_history",
+    "sessions_send",
+    "sessions_spawn",
+    "sessions_yield",
+    "subagents",
+    "skill_workshop",
+]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Grant a verified Telegram user full VPS administration through OpenClaw."
     )
     parser.add_argument("--telegram-id", required=True)
     parser.add_argument("--openclaw-root", default="/root/.openclaw")
+    parser.add_argument(
+        "--runtime-openclaw-root",
+        help="OpenClaw root as seen by the runtime when the config is edited through a host-mounted path",
+    )
     parser.add_argument("--account-id", default="main")
-    parser.add_argument("--agent-id", default="owner-admin")
+    parser.add_argument("--agent-id", default="main")
     parser.add_argument("--backup-dir", default="/root/_Backups/openclaw")
     parser.add_argument("--workspace")
     parser.add_argument("--agent-dir")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--replace-binding", action="store_true")
     arguments = parser.parse_args()
     if arguments.apply and arguments.check:
         parser.error("--apply and --check cannot be used together")
@@ -81,22 +104,26 @@ def add_change(changes, changed, description):
         changes.append(description)
 
 
-def binding_matches(binding, account_id, telegram_id):
+def binding_matches_account(binding, account_id):
     match = binding.get("match")
     if not isinstance(match, dict):
-        return False
-    peer = match.get("peer")
-    if not isinstance(peer, dict):
         return False
     return (
         match.get("channel") == "telegram"
         and match.get("accountId") == account_id
-        and peer.get("kind") == "direct"
-        and str(peer.get("id")) == telegram_id
     )
 
 
-def merge_config(config, telegram_id, telegram_id_number, account_id, agent_id, workspace, agent_dir, replace_binding):
+def merge_config(
+    config,
+    telegram_id,
+    telegram_id_number,
+    account_id,
+    agent_id,
+    workspace,
+    agent_dir,
+    normalize_agent_paths,
+):
     changes = []
     channels = ensure_object(config, "channels")
     telegram = ensure_object(channels, "telegram")
@@ -105,12 +132,12 @@ def merge_config(config, telegram_id, telegram_id_number, account_id, agent_id, 
         raise ValueError(f"Telegram account does not exist: {account_id}")
     account = accounts[account_id]
 
-    if telegram.get("dmPolicy") != "pairing":
-        telegram["dmPolicy"] = "pairing"
-        changes.append("set Telegram dmPolicy=pairing")
-    if account.get("dmPolicy") != "pairing":
-        account["dmPolicy"] = "pairing"
-        changes.append(f"set Telegram account {account_id} dmPolicy=pairing")
+    if telegram.get("dmPolicy") not in {"pairing", "allowlist"}:
+        telegram["dmPolicy"] = "allowlist"
+        changes.append("set Telegram dmPolicy=allowlist")
+    if account.get("dmPolicy") not in {"pairing", "allowlist"}:
+        account["dmPolicy"] = "allowlist"
+        changes.append(f"set Telegram account {account_id} dmPolicy=allowlist")
 
     telegram_allow_from = ensure_array(telegram, "allowFrom")
     add_change(
@@ -147,6 +174,9 @@ def merge_config(config, telegram_id, telegram_id_number, account_id, agent_id, 
         append_unique(approvers, approver_value),
         "add target to Telegram exec approvers",
     )
+    if exec_approvals.get("target") != "dm":
+        exec_approvals["target"] = "dm"
+        changes.append("send Telegram exec approvals to DM only")
 
     agents = ensure_object(config, "agents")
     agent_list = ensure_array(agents, "list")
@@ -155,69 +185,121 @@ def merge_config(config, telegram_id, telegram_id_number, account_id, agent_id, 
         raise ValueError(f"Duplicate agent id found: {agent_id}")
     if matching_agents:
         admin_agent = matching_agents[0]
+    elif agent_id == "main":
+        admin_agent = {"id": "main", "default": True}
+        agent_list.insert(0, admin_agent)
+        changes.append("register implicit default agent main")
     else:
-        admin_agent = {
-            "id": agent_id,
-            "name": agent_id,
-            "workspace": str(workspace),
-            "agentDir": str(agent_dir),
-            "tools": {"profile": "full"},
-        }
-        agent_list.append(admin_agent)
-        changes.append(f"create admin agent {agent_id}")
+        raise ValueError(
+            f"Agent does not exist: {agent_id}. Create a new agent only when creating a new bot."
+        )
 
-    if not admin_agent.get("workspace"):
+    if not admin_agent.get("workspace") or (
+        normalize_agent_paths and str(admin_agent.get("workspace")) != str(workspace)
+    ):
         admin_agent["workspace"] = str(workspace)
         changes.append(f"set {agent_id} workspace")
-    if not admin_agent.get("agentDir"):
+    if not admin_agent.get("agentDir") or (
+        normalize_agent_paths and str(admin_agent.get("agentDir")) != str(agent_dir)
+    ):
         admin_agent["agentDir"] = str(agent_dir)
         changes.append(f"set {agent_id} agentDir")
     tools = ensure_object(admin_agent, "tools")
     if tools.get("profile") != "full":
         tools["profile"] = "full"
         changes.append(f"set {agent_id} tools.profile=full")
+    exec_tools = ensure_object(tools, "exec")
+    if exec_tools.get("host") != "gateway":
+        exec_tools["host"] = "gateway"
+        changes.append(f"set {agent_id} exec host=gateway")
+    if exec_tools.get("mode") != "auto":
+        exec_tools.pop("security", None)
+        exec_tools.pop("ask", None)
+        exec_tools["mode"] = "auto"
+        changes.append(f"set {agent_id} exec mode=auto")
+    if exec_tools.get("strictInlineEval") is not True:
+        exec_tools["strictInlineEval"] = True
+        changes.append(f"set {agent_id} strict inline exec approval")
+
+    tools_by_sender = ensure_object(tools, "toolsBySender")
+    owner_sender_key = f"channel:telegram:{telegram_id}"
+    if tools_by_sender.get(owner_sender_key) != {}:
+        tools_by_sender[owner_sender_key] = {}
+        changes.append(f"grant owner sender full {agent_id} profile")
+    wildcard = tools_by_sender.get("*")
+    if not isinstance(wildcard, dict):
+        wildcard = {}
+        tools_by_sender["*"] = wildcard
+    wildcard_deny = ensure_array(wildcard, "deny")
+    for denied_tool in NON_OWNER_DENY:
+        add_change(
+            changes,
+            append_unique(wildcard_deny, denied_tool),
+            "restrict non-owner administrative tools",
+        )
+
+    global_tools = ensure_object(config, "tools")
+    fs_tools = ensure_object(global_tools, "fs")
+    if fs_tools.get("workspaceOnly") is not True:
+        fs_tools["workspaceOnly"] = True
+        changes.append("limit filesystem tools to the workspace")
+    elevated = ensure_object(global_tools, "elevated")
+    if elevated.get("enabled") is not True:
+        elevated["enabled"] = True
+        changes.append("enable guarded elevated mode")
+    elevated_allow = ensure_object(elevated, "allowFrom")
+    elevated_telegram = ensure_array(elevated_allow, "telegram")
+    add_change(
+        changes,
+        append_unique(elevated_telegram, telegram_id),
+        "add target to Telegram elevated allowlist",
+    )
 
     bindings = ensure_array(config, "bindings")
-    target_bindings = [binding for binding in bindings if isinstance(binding, dict) and binding_matches(binding, account_id, telegram_id)]
-    conflicting_bindings = [binding for binding in target_bindings if binding.get("agentId") != agent_id]
-    if conflicting_bindings and not replace_binding:
-        conflicting_agent_names = sorted({str(binding.get("agentId")) for binding in conflicting_bindings})
-        raise ValueError(
-            "Target already has a direct binding to another agent: "
-            + ", ".join(conflicting_agent_names)
-            + ". Re-run with --replace-binding only after explicit approval."
-        )
-    if conflicting_bindings:
-        config["bindings"] = [
-            binding
-            for binding in bindings
-            if not (isinstance(binding, dict) and binding_matches(binding, account_id, telegram_id))
-        ]
-        bindings = config["bindings"]
-        changes.append("remove conflicting direct binding")
-
-    exact_binding_exists = any(
-        isinstance(binding, dict)
-        and binding.get("agentId") == agent_id
-        and binding_matches(binding, account_id, telegram_id)
+    account_bindings = [
+        binding
         for binding in bindings
+        if isinstance(binding, dict) and binding_matches_account(binding, account_id)
+    ]
+    conflicting_agents = sorted(
+        {
+            str(binding.get("agentId"))
+            for binding in account_bindings
+            if binding.get("agentId") != agent_id
+        }
     )
-    if not exact_binding_exists:
+    if conflicting_agents:
+        raise ValueError(
+            "Telegram account already routes to another agent: "
+            + ", ".join(conflicting_agents)
+            + ". Use unify-openclaw-bot-workspace before granting this owner."
+        )
+    canonical_bindings = [
+        binding
+        for binding in account_bindings
+        if binding.get("agentId") == agent_id
+        and isinstance(binding.get("match"), dict)
+        and binding["match"].get("peer") is None
+    ]
+    peer_bindings = [
+        binding
+        for binding in account_bindings
+        if isinstance(binding.get("match"), dict) and binding["match"].get("peer") is not None
+    ]
+    if peer_bindings:
+        raise ValueError(
+            "Telegram account has peer-specific routing. Use unify-openclaw-bot-workspace first."
+        )
+    if not canonical_bindings:
         bindings.append(
             {
                 "agentId": agent_id,
-                "match": {
-                    "channel": "telegram",
-                    "accountId": account_id,
-                    "peer": {"kind": "direct", "id": telegram_id},
-                },
+                "match": {"channel": "telegram", "accountId": account_id},
             }
         )
-        changes.append(f"add direct Telegram binding to {agent_id}")
+        changes.append(f"bind entire Telegram account to {agent_id}")
 
-    effective_workspace = pathlib.Path(str(admin_agent["workspace"])).expanduser().resolve()
-    effective_agent_dir = pathlib.Path(str(admin_agent["agentDir"])).expanduser().resolve()
-    return changes, effective_workspace, effective_agent_dir
+    return changes
 
 
 def create_backup(config_path, backup_dir, telegram_id):
@@ -225,6 +307,15 @@ def create_backup(config_path, backup_dir, telegram_id):
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
     backup_path = backup_dir / f"openclaw-before-telegram-admin-{telegram_id}-{timestamp}.json"
     shutil.copy2(config_path, backup_path)
+    os.chmod(backup_path, stat.S_IRUSR | stat.S_IWUSR)
+    return backup_path
+
+
+def create_named_backup(source_path, backup_dir, label, telegram_id):
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+    backup_path = backup_dir / f"{label}-before-telegram-admin-{telegram_id}-{timestamp}.json"
+    shutil.copy2(source_path, backup_path)
     os.chmod(backup_path, stat.S_IRUSR | stat.S_IWUSR)
     return backup_path
 
@@ -244,24 +335,94 @@ def atomic_write_json(config_path, config):
             os.unlink(temporary_name)
 
 
-def create_admin_directories(workspace, agent_dir, template_path):
+def create_admin_directories(workspace, agent_dir, references_dir):
     workspace.mkdir(parents=True, exist_ok=True)
     agent_dir.mkdir(parents=True, exist_ok=True)
-    agents_path = workspace / "AGENTS.md"
-    if not agents_path.exists():
-        shutil.copy2(template_path, agents_path)
 
 
-def print_summary(mode, config_path, account_id, agent_id, telegram_id, changes, backup_path=None):
+def merge_host_approvals(approvals, agent_id):
+    changes = []
+    if approvals.get("version") != 1:
+        approvals["version"] = 1
+        changes.append("set host approvals schema version=1")
+    desired = {
+        "security": "allowlist",
+        "ask": "on-miss",
+        "askFallback": "deny",
+        "autoAllowSkills": False,
+    }
+    defaults = ensure_object(approvals, "defaults")
+    for key, value in desired.items():
+        if defaults.get(key) != value:
+            defaults[key] = value
+            changes.append(f"set host approval default {key}")
+    agents = ensure_object(approvals, "agents")
+    agent = ensure_object(agents, agent_id)
+    for key, value in desired.items():
+        if agent.get(key) != value:
+            agent[key] = value
+            changes.append(f"set host approval {agent_id} {key}")
+    if not isinstance(agent.get("allowlist"), list):
+        agent["allowlist"] = []
+        changes.append(f"initialize host approval {agent_id} allowlist")
+    return changes
+
+
+def merge_plugin_approval_target(config, account_id, agent_id, telegram_id):
+    changes = []
+    approvals = ensure_object(config, "approvals")
+    plugin = ensure_object(approvals, "plugin")
+    if plugin.get("enabled") is not True:
+        plugin["enabled"] = True
+        changes.append("enable plugin approval forwarding")
+    if plugin.get("mode") != "targets":
+        plugin["mode"] = "targets"
+        changes.append("set plugin approval mode=targets")
+    agent_filter = ensure_array(plugin, "agentFilter")
+    add_change(
+        changes,
+        append_unique(agent_filter, agent_id),
+        "add canonical agent to plugin approval filter",
+    )
+    targets = ensure_array(plugin, "targets")
+    exists = any(
+        isinstance(target, dict)
+        and target.get("channel") == "telegram"
+        and str(target.get("to")) == telegram_id
+        and target.get("accountId") == account_id
+        for target in targets
+    )
+    if not exists:
+        targets.append(
+            {"channel": "telegram", "to": telegram_id, "accountId": account_id}
+        )
+        changes.append("add owner plugin approval target")
+    return changes
+
+
+def print_summary(
+    mode,
+    config_path,
+    approvals_path,
+    account_id,
+    agent_id,
+    telegram_id,
+    changes,
+    host_changes,
+    backup_paths=None,
+):
     print(f"mode={mode}")
     print(f"config={config_path}")
+    print(f"host_approvals={approvals_path}")
     print(f"telegram_id={telegram_id}")
     print(f"account_id={account_id}")
     print(f"agent_id={agent_id}")
-    print(f"change_count={len(changes)}")
+    print(f"change_count={len(changes) + len(host_changes)}")
     for change in changes:
         print(f"change={change}")
-    if backup_path is not None:
+    for change in host_changes:
+        print(f"host_change={change}")
+    for backup_path in backup_paths or []:
         print(f"backup={backup_path}")
 
 
@@ -274,24 +435,54 @@ def main():
     account_id = require_identifier(arguments.account_id, "Telegram account ID")
     agent_id = require_identifier(arguments.agent_id, "Agent ID")
     openclaw_root = pathlib.Path(arguments.openclaw_root).expanduser().resolve()
+    runtime_openclaw_root = (
+        pathlib.Path(arguments.runtime_openclaw_root).expanduser()
+        if arguments.runtime_openclaw_root
+        else openclaw_root
+    )
     config_path = openclaw_root / "openclaw.json"
+    approvals_path = openclaw_root / "exec-approvals.json"
     if not config_path.is_file():
         raise FileNotFoundError(f"OpenClaw config not found: {config_path}")
     if config_path.is_symlink():
         raise ValueError("Refusing to modify a symlinked OpenClaw config")
-
-    workspace = pathlib.Path(arguments.workspace).expanduser().resolve() if arguments.workspace else openclaw_root / f"workspace-{agent_id}"
-    agent_dir = pathlib.Path(arguments.agent_dir).expanduser().resolve() if arguments.agent_dir else openclaw_root / "agents" / agent_id / "agent"
-    backup_dir = pathlib.Path(arguments.backup_dir).expanduser().resolve()
-    template_path = pathlib.Path(__file__).resolve().parent.parent / "references" / "owner-admin-AGENTS.md"
+    if approvals_path.is_symlink():
+        raise ValueError("Refusing to modify symlinked host exec approvals")
 
     with config_path.open("r", encoding="utf-8") as config_file:
         original_config = json.load(config_file)
     if not isinstance(original_config, dict):
         raise ValueError("OpenClaw config root must be an object")
 
+    configured_agent = None
+    agents_config = original_config.get("agents")
+    if isinstance(agents_config, dict):
+        for entry in agents_config.get("list", []):
+            if isinstance(entry, dict) and entry.get("id") == agent_id:
+                configured_agent = entry
+                break
+    defaults = agents_config.get("defaults", {}) if isinstance(agents_config, dict) else {}
+    configured_workspace = configured_agent.get("workspace") if configured_agent else None
+    if not configured_workspace and agent_id == "main" and isinstance(defaults, dict):
+        configured_workspace = defaults.get("workspace")
+    workspace = pathlib.Path(arguments.workspace).expanduser() if arguments.workspace else pathlib.Path(configured_workspace) if configured_workspace else runtime_openclaw_root / ("workspace" if agent_id == "main" else f"workspace-{agent_id}")
+    agent_dir = pathlib.Path(arguments.agent_dir).expanduser() if arguments.agent_dir else runtime_openclaw_root / "agents" / agent_id / "agent"
+    try:
+        workspace_relative = workspace.relative_to(runtime_openclaw_root)
+        workspace_filesystem = openclaw_root / workspace_relative
+    except ValueError:
+        workspace_filesystem = workspace
+    agent_dir_filesystem = openclaw_root / "agents" / agent_id / "agent"
+    if not arguments.runtime_openclaw_root:
+        workspace = workspace.resolve()
+        agent_dir = agent_dir.resolve()
+        workspace_filesystem = workspace
+        agent_dir_filesystem = agent_dir
+    backup_dir = pathlib.Path(arguments.backup_dir).expanduser().resolve()
+    references_dir = pathlib.Path(__file__).resolve().parent.parent / "references"
+
     updated_config = copy.deepcopy(original_config)
-    changes, effective_workspace, effective_agent_dir = merge_config(
+    changes = merge_config(
         updated_config,
         telegram_id,
         telegram_id_number,
@@ -299,31 +490,98 @@ def main():
         agent_id,
         workspace,
         agent_dir,
-        arguments.replace_binding,
+        bool(arguments.runtime_openclaw_root),
+    )
+    changes.extend(
+        merge_plugin_approval_target(
+            updated_config, account_id, agent_id, telegram_id
+        )
     )
 
+    original_approvals = {}
+    if approvals_path.exists():
+        with approvals_path.open("r", encoding="utf-8") as approvals_file:
+            original_approvals = json.load(approvals_file)
+        if not isinstance(original_approvals, dict):
+            raise ValueError("Host exec approvals root must be an object")
+    updated_approvals = copy.deepcopy(original_approvals)
+    host_changes = merge_host_approvals(updated_approvals, agent_id)
+
     if arguments.check:
-        print_summary("check", config_path, account_id, agent_id, telegram_id, changes)
-        if changes:
+        print_summary(
+            "check",
+            config_path,
+            approvals_path,
+            account_id,
+            agent_id,
+            telegram_id,
+            changes,
+            host_changes,
+        )
+        if changes or host_changes:
             print("status=not-compliant")
             return 2
         print("status=compliant")
         return 0
 
     if not arguments.apply:
-        print_summary("dry-run", config_path, account_id, agent_id, telegram_id, changes)
-        print("status=changes-required" if changes else "status=already-compliant")
+        print_summary(
+            "dry-run",
+            config_path,
+            approvals_path,
+            account_id,
+            agent_id,
+            telegram_id,
+            changes,
+            host_changes,
+        )
+        print(
+            "status=changes-required"
+            if changes or host_changes
+            else "status=already-compliant"
+        )
         return 0
 
-    if not changes:
-        print_summary("apply", config_path, account_id, agent_id, telegram_id, changes)
+    if not changes and not host_changes:
+        create_admin_directories(workspace_filesystem, agent_dir_filesystem, references_dir)
+        print_summary(
+            "apply",
+            config_path,
+            approvals_path,
+            account_id,
+            agent_id,
+            telegram_id,
+            changes,
+            host_changes,
+        )
         print("status=already-compliant")
         return 0
 
-    backup_path = create_backup(config_path, backup_dir, telegram_id)
-    create_admin_directories(effective_workspace, effective_agent_dir, template_path)
-    atomic_write_json(config_path, updated_config)
-    print_summary("apply", config_path, account_id, agent_id, telegram_id, changes, backup_path)
+    backup_paths = []
+    if changes:
+        backup_paths.append(create_backup(config_path, backup_dir, telegram_id))
+    if host_changes and approvals_path.exists():
+        backup_paths.append(
+            create_named_backup(
+                approvals_path, backup_dir, "exec-approvals", telegram_id
+            )
+        )
+    create_admin_directories(workspace_filesystem, agent_dir_filesystem, references_dir)
+    if changes:
+        atomic_write_json(config_path, updated_config)
+    if host_changes:
+        atomic_write_json(approvals_path, updated_approvals)
+    print_summary(
+        "apply",
+        config_path,
+        approvals_path,
+        account_id,
+        agent_id,
+        telegram_id,
+        changes,
+        host_changes,
+        backup_paths,
+    )
     print("status=applied")
     return 0
 

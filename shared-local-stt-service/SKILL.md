@@ -47,6 +47,7 @@ docker exec user-anhlaptrinhthu python3 /home/anhlaptrinh/.openclaw/workspace/sk
 ## Rerun And Rollback
 
 - Restart the service with `systemctl restart shared-local-stt.service`.
+- If the shared credential is exposed, discover every active `shared-local-stt.token`, back up the service env and all client tokens, then rotate them together. The current helper `/root/Automation/openclaw_member_assistant/scripts/rotate_shared_local_stt_token.sh` updates `openclaw-main`, `anhlaptrinhthu`, and `nguyendinhtan`; extend its explicit allowlist before running if another client exists. It restarts only this service and waits for health without printing the new token.
 - Inspect recent metrics with `tail -n 10 /root/AI_Runtime/shared_local_stt/logs/metrics.jsonl`.
 - Roll a member back by restoring its backed-up `openclaw.json` local CLI entry.
 - Keep each member token in its credential folder and the matching service token in `.env`; never print either token.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unify OpenClaw Bot Workspace"
+  short_description: "One bot, one agent, one shared workspace"
+  default_prompt: "Use $unify-openclaw-bot-workspace to safely merge one bot into one OpenClaw agent and workspace."

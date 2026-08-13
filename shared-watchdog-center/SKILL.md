@@ -287,20 +287,26 @@ tail -120 /path/shared_self_healing/logs/fanpage_alt.log
 
 ## OpenClaw Zalo Personal Health Check
 
-Với member VPS `user-anhlaptrinhthu` (giữ home nội bộ `/home/anhlaptrinh`), dùng project `member_anhlaptrinh_zalouser` và script:
+Script dùng chung nhận `CONTAINER`, `MEMBER_HOME`, `MEMBER_LABEL` và `PROJECT_KEY`, nên mỗi member chỉ cần một entry config riêng. Ví dụ:
 
 ```bash
 bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
 /root/Automation/watchdog/shared_self_healing/run_project.sh member_anhlaptrinh_zalouser
+CONTAINER=user-nguyendinhtan MEMBER_HOME=/root MEMBER_LABEL=nguyendinhtan PROJECT_KEY=member_nguyendinhtan_zalouser bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
+/root/Automation/watchdog/shared_self_healing/run_project.sh member_nguyendinhtan_zalouser
 ```
 
-Script kiểm tra container, giữ `proxy.enabled=false` để Zalo chạy direct-first, probe `openclaw channels status --probe`, và chỉ restart tmux gateway khi channel không ở trạng thái `configured, running, works`. Cooldown restart là 10 phút. Nếu restart không khôi phục được phiên, script ghi `MANUAL_REQUIRED`; không tự logout, không tự tạo QR và không gọi AI lặp lại.
+Script kiểm tra container, giữ `proxy.enabled=false` để Zalo chạy direct-first, nạp gateway env nội bộ rồi probe `openclaw channels status --probe`. Script phát hiện cả listener exit và `OutboundDeliveryError`, sau đó gửi `SIGTERM` cho gateway dưới Supervisor với cooldown 10 phút. Nếu restart không khôi phục được phiên, script ghi `MANUAL_REQUIRED`; không tự logout, không tự tạo QR và không gọi AI lặp lại.
+
+Với session có ít dòng nhưng context lớn do tool output, cấu hình một project `openclaw_session` dùng `MEMBER_HOME`, `SESSION_PATTERN` hẹp và `COMPACTION_MODE=summary`. Chỉ compact khi session idle đủ lâu; luôn backup session index trước lần áp dụng đầu tiên.
 
 Log và state:
 
 ```text
 /root/Automation/watchdog/shared_self_healing/logs/member_anhlaptrinh_zalouser.log
 /root/Automation/watchdog/shared_self_healing/state/member_anhlaptrinh_zalouser_runtime.json
+/root/Automation/watchdog/shared_self_healing/logs/member_nguyendinhtan_zalouser.log
+/root/Automation/watchdog/shared_self_healing/state/member_nguyendinhtan_zalouser_runtime.json
 ```
 
 Reset duplicate-error protection for one project:

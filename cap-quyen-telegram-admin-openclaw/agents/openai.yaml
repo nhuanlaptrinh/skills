@@ -1,4 +1,4 @@
 interface:
   display_name: "Cấp quyền Telegram Admin OpenClaw"
-  short_description: "Cấp Telegram ID quyền quản trị VPS an toàn"
-  default_prompt: "Use $cap-quyen-telegram-admin-openclaw to grant a verified Telegram user full VPS administration through OpenClaw."
+  short_description: "Cấp owner trên đúng agent và workspace của bot"
+  default_prompt: "Use $cap-quyen-telegram-admin-openclaw to grant a verified Telegram owner on the bot's canonical OpenClaw agent and workspace."

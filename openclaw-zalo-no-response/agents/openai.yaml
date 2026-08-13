@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Zalo No Response"
+  short_description: "Diagnose and recover silent Zalo replies"
+  default_prompt: "Use $openclaw-zalo-no-response to diagnose and safely recover an OpenClaw Zalo channel that receives messages but does not reply."

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import json
-import mimetypes
-import os
-import secrets
 import subprocess
 import sys
 import tempfile
@@ -14,7 +10,15 @@ from pathlib import Path
 
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
-TRANSCRIPTION_URL = "https://codex.anhlaptrinh.vn/v1/audio/transcriptions"
+DEFAULT_SHARED_CLIENT = (
+    Path.home()
+    / ".openclaw"
+    / "workspace"
+    / "skills"
+    / "openclaw-shared-voice-stt"
+    / "scripts"
+    / "transcribe_shared.py"
+)
 
 
 def fail(message: str) -> None:
@@ -26,34 +30,12 @@ def validate_url(raw_url: str) -> str:
     parsed = urllib.parse.urlparse(raw_url)
     hostname = (parsed.hostname or "").lower()
     if parsed.scheme != "https" or not (hostname == "zdn.vn" or hostname.endswith(".zdn.vn")):
-        fail("URL voice Zalo không hợp lệ")
+        fail("URL voice Zalo khong hop le")
     return raw_url
 
 
-def find_config() -> Path:
-    candidates = [
-        os.environ.get("OPENCLAW_CONFIG"),
-        "/root/.openclaw/openclaw.json",
-        str(Path.home() / ".openclaw" / "openclaw.json"),
-    ]
-    for candidate in candidates:
-        if candidate and Path(candidate).is_file():
-            return Path(candidate)
-    fail("Không tìm thấy OpenClaw config")
-
-
-def load_api_key() -> str:
-    config = json.loads(find_config().read_text(encoding="utf-8"))
-    providers = config.get("models", {}).get("providers", {})
-    for provider_name in ("openai", "9rt", "9r"):
-        api_key = providers.get(provider_name, {}).get("apiKey")
-        if api_key:
-            return api_key
-    fail("Không tìm thấy credential 9Router trong OpenClaw config")
-
-
 def download_audio(url: str, destination: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "OpenClaw-ZaloVoice/1.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": "OpenClaw-ZaloVoice/2.0"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
             total = 0
@@ -63,77 +45,57 @@ def download_audio(url: str, destination: Path) -> None:
                     break
                 total += len(chunk)
                 if total > MAX_AUDIO_BYTES:
-                    fail("Voice Zalo vượt giới hạn 25 MB")
+                    fail("Voice Zalo vuot gioi han 25 MB")
                 output.write(chunk)
     except urllib.error.URLError as error:
-        fail(f"Không tải được voice Zalo: {error.reason}")
+        fail(f"Khong tai duoc voice Zalo: {error.reason}")
 
 
-def convert_to_mp3(source: Path, destination: Path) -> None:
-    command = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-        "-i", str(source), "-vn", "-ac", "1", "-ar", "16000",
-        "-codec:a", "libmp3lame", "-b:a", "64k", str(destination),
-    ]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=120, check=False)
-    if result.returncode != 0 or not destination.is_file() or destination.stat().st_size == 0:
-        fail("Không chuyển đổi được voice Zalo sang MP3")
-
-
-def multipart_body(audio_path: Path) -> tuple[bytes, str]:
-    boundary = f"----OpenClawZaloVoice{secrets.token_hex(12)}"
-    audio = audio_path.read_bytes()
-    parts = []
-    for name, value in (("model", "gpt-4o-mini-transcribe"), ("language", "vi")):
-        parts.append(
-            f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n".encode()
-        )
-    content_type = mimetypes.guess_type(audio_path.name)[0] or "audio/mpeg"
-    parts.append(
-        f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"voice.mp3\"\r\nContent-Type: {content_type}\r\n\r\n".encode()
-        + audio
-        + b"\r\n"
-    )
-    parts.append(f"--{boundary}--\r\n".encode())
-    return b"".join(parts), boundary
-
-
-def transcribe(audio_path: Path, api_key: str) -> str:
-    body, boundary = multipart_body(audio_path)
-    request = urllib.request.Request(
-        TRANSCRIPTION_URL,
-        data=body,
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-        },
-    )
+def transcribe(audio_path: Path, shared_client: Path) -> str:
+    if not shared_client.is_file():
+        fail("Khong tim thay shared local STT client")
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        fail(f"STT 9Router trả HTTP {error.code}")
-    except (urllib.error.URLError, json.JSONDecodeError) as error:
-        fail(f"Không gọi được STT 9Router: {error}")
-    transcript = payload.get("text") or payload.get("transcript")
-    if not isinstance(transcript, str) or not transcript.strip():
-        fail("STT không trả transcript")
-    return transcript.strip()
+        result = subprocess.run(
+            [sys.executable, str(shared_client), str(audio_path)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        fail("Shared local STT qua thoi gian xu ly")
+    transcript = result.stdout.strip()
+    if result.returncode != 0 or not transcript:
+        fail("Shared local STT khong tra transcript")
+    return transcript
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Transcribe a Zalo Personal AAC voice URL")
-    parser.add_argument("url", help="HTTPS zdn.vn voice URL")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("url", nargs="?", help="HTTPS zdn.vn voice URL")
+    source.add_argument("--audio-file", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--shared-client",
+        type=Path,
+        default=DEFAULT_SHARED_CLIENT,
+        help="Path to the internal shared local STT client",
+    )
     args = parser.parse_args()
+    shared_client = args.shared_client.expanduser().resolve()
+    if args.audio_file:
+        audio_path = args.audio_file.expanduser().resolve()
+        if not audio_path.is_file():
+            fail("Khong tim thay file audio")
+        if audio_path.stat().st_size > MAX_AUDIO_BYTES:
+            fail("Voice Zalo vuot gioi han 25 MB")
+        print(transcribe(audio_path, shared_client))
+        return
     url = validate_url(args.url)
-    api_key = load_api_key()
     with tempfile.TemporaryDirectory(prefix="zalo-voice-") as temp_dir:
         source = Path(temp_dir) / "voice.aac"
-        converted = Path(temp_dir) / "voice.mp3"
         download_audio(url, source)
-        convert_to_mp3(source, converted)
-        print(transcribe(converted, api_key))
+        print(transcribe(source, shared_client))
 
 
 if __name__ == "__main__":

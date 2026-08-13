@@ -1,28 +1,43 @@
 # Mô Hình Bảo Mật
 
-## Bốn Lớp Quyền
+## Một Bot, Một Agent
 
-1. Telegram DM access: `dmPolicy` và `allowFrom` quyết định sender có được nhận hay không.
-2. Owner commands: `commands.ownerAllowFrom` quyết định quyền dùng lệnh owner-only.
-3. Exec approvals: `channels.telegram.execApprovals.approvers` quyết định ai được duyệt lệnh cần approval.
-4. Agent routing: direct peer binding quyết định DM của user đi vào agent nào và tool profile nào.
+Một Telegram `accountId` phải có đúng một account-level binding tới một agent. DM và group dùng cùng agent/workspace nhưng giữ session riêng. Thêm owner không được tạo agent/workspace mới.
 
-Một ID chỉ thực sự có quyền quản trị đầy đủ khi cả bốn lớp được cấu hình đồng bộ.
+Owner là sender có quyền đầy đủ trên canonical agent. Không tạo identity/agent/workspace riêng cho owner và không thêm field Telegram ngoài schema; `commands.ownerAllowFrom` là nguồn owner.
+
+## Các Lớp Owner
+
+Một owner đầy đủ phải xuất hiện đồng bộ tại:
+
+1. `channels.telegram.allowFrom` và account `allowFrom`.
+2. `commands.ownerAllowFrom` dạng `telegram:<ID>`.
+3. Telegram exec approvers với target `dm`.
+4. Plugin approval target đúng account.
+5. `tools.elevated.allowFrom.telegram`.
+6. Exact `agents.list[].tools.toolsBySender["channel:telegram:<ID>"] = {}`.
+
+Owner dùng full profile của canonical agent. Wildcard sender policy phải deny công cụ quản trị cho người khác. Không đặt deny ở group base rồi cố `alsoAllow` cho owner vì deny luôn thắng.
+
+## Exec
+
+- Canonical agent: `host=gateway`, `mode=auto`, `strictInlineEval=true`.
+- Host approvals: `security=allowlist`, `ask=on-miss`, `askFallback=deny`.
+- Không dùng `full/off` cho agent có mặt trong group.
+- Không copy rộng các rule `allow-always` từ một agent admin legacy sang agent chung mà chưa audit.
 
 ## Ranh Giới
 
-- Chỉ dùng direct peer `kind: direct` với đúng Telegram user ID.
-- Không dùng `allowFrom: ["*"]` cho DM.
-- Không bind `owner-admin` vào group.
-- Không đổi `tools.profile` toàn cục sang `full`; chỉ đặt profile trên agent admin riêng.
-- Không tắt exec approvals. `auto` vẫn cho phép vận hành đầy đủ nhưng giữ điểm chặn đối với lệnh nhạy cảm.
-- Nếu một peer đã bind tới agent khác, dừng để xác minh. Chỉ thay bằng `--replace-binding` sau khi người dùng đồng ý rõ.
-- Khi thu hồi, xóa đồng bộ cả bốn lớp quyền và credential pairing liên quan.
+- Không wildcard owner hoặc elevated allowlist.
+- Không để peer-specific binding tách owner DM sang agent khác.
+- `tools.fs.workspaceOnly=true` giới hạn file tools vào workspace, nhưng không hạn chế shell; non-owner phải mất `group:runtime`.
+- Shared workspace giảm file isolation. Không đưa transcript DM thô hoặc bí mật hạ tầng vào memory dùng chung.
 
-## Kiểm Thử An Toàn
+## Kiểm Thử
 
-- Kiểm tra direct binding bằng `openclaw agents bindings` và che ID khác khi ghi log.
-- Kiểm tra config bằng `openclaw config validate` sau khi source env provider.
-- Kiểm tra Telegram bằng `openclaw channels status --probe`.
-- Yêu cầu user nhắn DM và thử `id`, `pwd`, hoặc đọc trạng thái service trước.
-- Không dùng lệnh xóa dữ liệu, restart VPS, thay firewall hoặc SSH để smoke test.
+- `openclaw config validate`.
+- `openclaw agents list --bindings` chỉ ra một binding account-level.
+- `openclaw approvals get` cho thấy allowlist/on-miss/deny.
+- Owner trong DM/group có tool đầy đủ và exec cần duyệt.
+- Non-owner group không có runtime, filesystem, memory, session-control, messaging hoặc admin tools.
+- `openclaw channels status --probe` báo connected/works/audit ok.

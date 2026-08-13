@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zalo Voice Transcription"
+  short_description: "Transcribe Zalo AAC voice with shared local STT"
+  default_prompt: "Transcribe a Zalo Personal zdn.vn AAC voice URL through the internal local STT service."

@@ -9,10 +9,10 @@ Skill này dùng để tạo, liệt kê, kiểm tra hoặc giới hạn tài ng
 
 ## Source Of Truth
 
-- Project: `/root/Apps/member_vps/docker-users`
-- Script: `/root/Apps/member_vps/docker-users/manage-user.sh`
-- Dữ liệu persistent: `/root/Apps/member_vps/docker-users/data/<username>`; kiểm tra `docker inspect` vì member mới/custom có thể tách `home` và `root` thành các bind mount riêng.
-- Image fallback hiện hành của `manage-user.sh`: `member_vps-phukiengiakho:latest`; có thể override bằng `MEMBER_VPS_IMAGE`.
+- Project: `/root/docker-users`
+- Script: `/root/docker-users/manage-user.sh`
+- Dữ liệu persistent: `/root/docker-users/data/<username>`; kiểm tra `docker inspect` vì member mới/custom có thể tách `home` và `root` thành các bind mount riêng.
+- Image fallback hiện hành của `manage-user.sh`: `vps-user-env`; có thể override bằng `MEMBER_VPS_IMAGE`.
 
 ## Giới Hạn Mặc Định
 
@@ -20,30 +20,30 @@ Container tạo mới mặc định có:
 
 - CPU: `2`
 - RAM: `4g` (`6g` gồm swap)
-- Mutable disk guard: `10 GiB`
+- Mutable disk guard: `17 GiB`
 - Restart policy: `unless-stopped`
 
 Ngoại lệ disk guard hiện hành:
 
-- `user-quocphong`: `25 GiB`
-- `user-anhlaptrinhthu`: miễn disk guard
+- `user-dinh`: `24 GiB`
+- PMT: `25 GiB`, tính gộp `user-pmt`, writable layer của `n8n-pmt-app`/`n8n-pmt-runners`, bind data và named volume `root_n8n_pmt_data`.
 
 ## Lệnh Quản Lý Chính
 
 1. **Liệt kê danh sách thành viên:**
    ```bash
-   /root/Apps/member_vps/docker-users/manage-user.sh list
+   /root/docker-users/manage-user.sh list
    ```
 
 2. **Tạo thành viên mới:**
    ```bash
-   /root/Apps/member_vps/docker-users/manage-user.sh create <username> <password> <ssh_port> <web_port>
+   /root/docker-users/manage-user.sh create <username> <password> <ssh_port> <web_port>
    ```
    Không ghi mật khẩu thật vào log, tài liệu hoặc câu trả lời.
 
 3. **Xem một thành viên:**
    ```bash
-   /root/Apps/member_vps/docker-users/manage-user.sh show <username>
+   /root/docker-users/manage-user.sh show <username>
    ```
 
 4. **Kiểm tra live resource:**
@@ -63,16 +63,17 @@ Ngoại lệ disk guard hiện hành:
 
 7. **Xem dung lượng mutable của tất cả member:**
    ```bash
-   /root/Apps/member_vps/docker-users/manage-user.sh disk-status
+   /root/docker-users/manage-user.sh disk-status
    ```
 
 ## Disk Guard
 
-- Script: `/root/Apps/member_vps/docker-users/member-vps-disk-guard.sh`
-- Cấu hình: `/root/Apps/member_vps/docker-users/member-vps-disk-guard.conf`
+- Script: `/root/docker-users/member-vps-disk-guard.sh`
+- Cấu hình: `/root/docker-users/member-vps-disk-guard.conf`
 - Trạng thái gần nhất: `/var/lib/member-vps-disk-guard/status.tsv`
 - Systemd timer: `member-vps-disk-guard.timer`, chạy mỗi 5 phút với CPU nice `19` và I/O class `idle`.
-- Tổng dung lượng được tính bằng writable layer `SizeRw` cộng các bind mount persistent nằm dưới thư mục `data` của project. Shared image layers không tính riêng cho từng member.
+- Tổng dung lượng thông thường được tính bằng writable layer `SizeRw` cộng các bind mount persistent nằm dưới thư mục `data` của project. Shared image layers không tính riêng cho từng member.
+- Riêng PMT, guard tính thêm writable layer của `n8n-pmt-app` và `n8n-pmt-runners` cùng toàn bộ named volume `root_n8n_pmt_data`; khi đạt `25 GiB`, enforce sẽ dừng app, runner và `user-pmt` nếu đang chạy.
 - Dry-run/báo cáo: `member-vps-disk-guard.sh --report`.
 - Chạy enforce thật: `member-vps-disk-guard.sh --enforce`; container đang chạy sẽ bị `docker stop` khi tổng dung lượng đạt hoặc vượt giới hạn.
 - Docker hiện dùng `overlayfs` trên root filesystem `ext4`; thử nghiệm xác nhận `docker run --storage-opt size=...` chỉ lưu option nhưng không thực thi quota. Vì vậy disk guard là cơ chế stop-at-limit, không phải filesystem hard quota và có thể vượt nhẹ trong khoảng giữa hai lần kiểm tra.
@@ -175,7 +176,7 @@ Khi người dùng yêu cầu tạo một thành viên mới, AI phải thực h
 3. **Kiểm tra firewall:** Script tự gọi UFW cho SSH/web port nếu UFW có sẵn; vẫn phải kiểm tra lại rule và port listen.
 4. **Kiểm tra giới hạn:** Xác nhận CPU `2e9`, RAM `4294967296`, RAM+swap `6442450944`, PID `1024`.
 5. **Kiểm tra và bàn giao:** Kiểm tra container running, SSH/web port, mount riêng và không lộ mật khẩu.
-6. **Disk guard:** Container mới tự nhận mức mặc định `10 GiB` theo tên `user-<username>`; chạy `manage-user.sh disk-status` để xác nhận xuất hiện trong báo cáo.
+6. **Disk guard:** Container mới tự nhận mức mặc định `17 GiB` theo tên `user-<username>`; chạy `manage-user.sh disk-status` để xác nhận xuất hiện trong báo cáo.
 
 ## Quy Tắc An Toàn & Bảo Mật
 

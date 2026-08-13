@@ -43,22 +43,39 @@
 - [ ] Global và account `dmPolicy` là `pairing`
 - [ ] Global allowFrom có `7919819873`, `6980864856`, `8342048167`
 - [ ] Account allowFrom có `7919819873`, `6980864856`, `8342048167`
+- [ ] `6980864856` là ID bắt buộc, không bị xóa/thay thế dù người dùng yêu cầu bộ owner khác
 - [ ] `TELEGRAM_CHAT_ID` được merge thêm nếu có
 - [ ] Người ngoài allowFrom phải pairing
 
 ## Command owner
 - [ ] `commands.ownerAllowFrom` có `telegram:7919819873`, `telegram:6980864856`, `telegram:8342048167`
 - [ ] `commands.ownerDisplay` là `raw`
-- [ ] Chỉ thay bộ owner mặc định khi người dùng chủ động yêu cầu rõ ID khác
+- [ ] Khi đổi owner khác vẫn merge giữ `telegram:6980864856`; không ghi đè toàn bộ mảng
+
+## Native exec approval
+- [ ] Global và account `channels.telegram.execApprovals.enabled` là `auto`
+- [ ] Global và account `execApprovals.approvers` có `6980864856`
+- [ ] Global và account `execApprovals.target` là `dm`
+- [ ] Telegram DM inline buttons đã bật
+- [ ] Global/agent liên quan dùng `tools.exec.host=gateway`, `tools.exec.mode=auto`, `strictInlineEval=true`
+- [ ] `exec-approvals.json` có `security=allowlist`, `ask=on-miss`, `askFallback=deny` cho default và agent liên quan
+- [ ] `openclaw exec-policy show` xác nhận effective policy không phải `full/off`
+
+## Forwarded exec approval
+- [ ] `approvals.exec.enabled` true
+- [ ] Mode `targets`
+- [ ] Agent filter có `main`
+- [ ] Target Telegram `6980864856` qua đúng account member
 
 ## Plugin approval
 - [ ] `approvals.plugin.enabled` true
 - [ ] Mode `targets`
-- [ ] Agent filter chỉ `main`
+- [ ] Agent filter có `main`
 - [ ] Target Telegram `7919819873` qua đúng account member
 - [ ] Target Telegram `6980864856` qua đúng account member
 - [ ] Target Telegram `8342048167` qua đúng account member
-- [ ] Cả ba ID mặc định nhận và xử lý được approval
+- [ ] `skills.workshop.approvalPolicy` là `pending`, không phải `auto`
+- [ ] `6980864856` nhận và xử lý được approval exec/plugin/Skill Workshop
 - [ ] Hướng dẫn dùng Allow once hoặc `/approve <id> allow-once`
 - [ ] Không dùng proposal ID thay approval ID
 
@@ -93,6 +110,7 @@
 
 ## Runtime
 - [ ] `openclaw --version` đúng `2026.7.1-2`
+- [ ] `ensure_default_telegram_owner.py --check` đạt sau khi Telegram account tồn tại
 - [ ] config validate
 - [ ] Restart tmux sau khi source `token-codex.env`
 - [ ] gateway status OK

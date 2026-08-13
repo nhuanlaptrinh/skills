@@ -30,6 +30,9 @@ description: Vận hành và sửa độ ổn định Zalo Personal cho OpenClaw
 bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
 bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-anhlaptrinhthu
 MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh
+CONTAINER=user-nguyendinhtan MEMBER_HOME=/root MEMBER_LABEL=nguyendinhtan PROJECT_KEY=member_nguyendinhtan_zalouser bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
+MEMBER_HOME=/root SESSION_PATTERN='agent:main:zalouser:direct:<zalo-id>' COMPACTION_MODE=summary bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-nguyendinhtan
+MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/nguyendinhtan/root bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh
 python3 /root/Automation/openclaw_member_assistant/scripts/validate_zalo_file.py /path/to/file.xlsx
 ```
 
@@ -37,6 +40,8 @@ python3 /root/Automation/openclaw_member_assistant/scripts/validate_zalo_file.py
 
 ```bash
 bash /root/Automation/watchdog/shared_self_healing/run_project.sh member_anhlaptrinh_zalouser
+/root/Automation/watchdog/shared_self_healing/run_project.sh member_nguyendinhtan_zalouser
+/root/Automation/watchdog/shared_self_healing/run_project.sh member_nguyendinhtan_sessions
 bash /root/Automation/openclaw_member_assistant/scripts/setup_member_document_tools.sh user-anhlaptrinhthu /home/anhlaptrinh
 SESSION_PATTERN='agent:main:zalouser:' TOKEN_THRESHOLD_64K=18000 TOKEN_THRESHOLD_128K=40000 SESSION_IDLE_SECONDS=600 MAX_LINES=300 bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-anhlaptrinhthu --apply
 MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh --apply
@@ -48,6 +53,8 @@ MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /roo
 - Validator nhận một đường dẫn file, trả JSON gồm dung lượng, MIME, trạng thái XLSX và mức phù hợp điện thoại.
 - Session audit đọc store OpenClaw, liệt kê session vượt ngưỡng; `--apply` compact còn số dòng cấu hình.
 - Shared watchdog chạy `member_anhlaptrinh_sessions` mỗi 2 giờ, compact session Zalo đã idle ít nhất 10 phút theo ngưỡng 18.000 token với context 64K và 40.000 token với context 128K.
+- Member có HOME khác `/home/anhlaptrinh` phải truyền `MEMBER_HOME`; với transcript ít dòng nhưng tool output lớn, dùng `COMPACTION_MODE=summary` thay vì truncate theo `MAX_LINES`.
+- `member_nguyendinhtan_zalouser` kiểm tra mỗi 5 phút và `member_nguyendinhtan_sessions` summary-compact riêng DM owner mỗi 2 giờ sau ít nhất 10 phút idle.
 - Phản hồi Zalo thông thường giới hạn 1.800 ký tự; nội dung dài phải tóm tắt trước hoặc chuyển thành file.
 - Plugin Zalo chia tin ở 2.000 ký tự, nghỉ 600 ms giữa các đoạn và retry tối đa 3 lần với backoff khi gửi lỗi.
 - Với model/provider không tự bật session pruning, cấu hình `agents.defaults.contextPruning.mode=cache-ttl` và `ttl=5m` để soft-trim/hard-clear tool output cũ trong context gửi model; transcript trên đĩa vẫn được giữ nguyên.
@@ -59,8 +66,8 @@ MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /roo
 
 ## Rerun
 
-- Watchdog có cooldown 10 phút để tránh restart lặp.
-- Container member này chạy gateway bằng `supervisord`; watchdog gửi `SIGTERM` cho process `openclaw` để supervisor tự khởi động lại, không dùng `tmux` hoặc chạy thêm gateway trùng port.
+- Watchdog có cooldown 10 phút để tránh restart lặp; phải nạp `$MEMBER_HOME/.openclaw/gateway.env` nội bộ trước khi probe để không kết luận sai khi gateway auth dùng secret reference.
+- Watchdog coi cả listener exit và `Zalouser final reply failed: OutboundDeliveryError` là lỗi cần phục hồi. Container chạy gateway bằng `supervisord`; gửi `SIGTERM` cho `openclaw-gateway` hoặc fallback `openclaw` để supervisor tự khởi động lại, không dùng `tmux` hoặc chạy thêm gateway trùng port.
 - Validator có thể chạy lại nhiều lần sau mỗi lần tối ưu file.
 - Session audit mặc định chỉ đọc; chỉ dùng `--apply` sau backup.
 - Sau khi OpenClaw/plugin Zalo được cập nhật, chạy dry-run script patch; nếu bundle mới chưa có marker `ZALO_SEND_MAX_ATTEMPTS` thì chạy lại với `--apply` và restart gateway.

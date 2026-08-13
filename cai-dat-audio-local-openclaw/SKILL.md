@@ -32,14 +32,24 @@ Không cấu hình provider `gpt-4o-mini-transcribe` hoặc paid fallback khi y�
 
 ## Member VPS Dùng Shared STT
 
-Trước khi chạy installer, xác định config thật. Nếu gateway chạy `HOME=/root` và config chỉ tồn tại tại `/root/.openclaw/openclaw.json` bên trong container, đây là **runtime legacy**: không dùng installer host-bind bên dưới và không `docker restart`. Backup bằng `docker cp`, cài client/config trực tiếp trong container, sau đó chỉ respawn gateway bằng:
+Trước khi chạy installer, xác định config thật. Nếu gateway chạy `HOME=/root` và `/root` được bind-mount persistent từ member root, đây là **runtime legacy persistent**: dùng installer không restart container, validate, rồi chỉ respawn gateway. Không dùng `install_member_shared.sh --apply` vì lệnh đó restart toàn container.
 
 ```bash
-docker exec user-member \
-  tmux respawn-pane -k -t openclaw 'HOME=/root openclaw gateway run'
+bash /root/Automation/openclaw_member_assistant/scripts/install_member_shared_stt_without_container_restart.sh \
+  --container user-member \
+  --member-root /root/Apps/member_vps/docker-users/data/member/root \
+  --member-id member \
+  --container-openclaw-home /root/.openclaw \
+  --dry-run
 ```
 
-Sau respawn, phải kiểm tra startup log và kết nối Telegram. Cấu hình trong filesystem container có thể mất nếu container bị recreate; cần lưu bản backup bên ngoài tại `/root/_Backups`.
+Đổi thành `--apply`, validate config, rồi signal riêng gateway để Supervisor tự respawn:
+
+```bash
+docker exec user-member sh -lc 'kill -TERM "$(pgrep -xo openclaw-gateway)"'
+```
+
+Nếu `/root` không persistent, backup bằng `docker cp`, cài trực tiếp trong container và vẫn chỉ respawn gateway. Sau respawn, phải kiểm tra startup log và kết nối Telegram/Zalo.
 
 Dry-run:
 

@@ -19,6 +19,7 @@ description: Operate, test, extend, or integrate the shared internal OpenClaw AI
 - Website agent primary model: `9r/GPT-5.6-luna`
 - Model source of truth: `WEBSITE_MODEL` in `/root/AI_Runtime/openclaw_bridge/scripts/register_course_websites.py`
 - Docker network: `root_traefik` (`172.18.0.0/16`)
+- AIA mapping: project `aia` -> agent `website-aia` -> website folder `36_domain_aia`
 
 Websites never receive or mount the OpenClaw gateway token. The host Bridge reads it locally and maps each allowed project to one restricted OpenClaw agent.
 

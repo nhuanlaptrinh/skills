@@ -146,6 +146,13 @@ openclaw.json
 - Workspace nên đặt theo convention: `workspace_<agent_id>` (VD: `workspace_trolyai`, `workspace_laptrinh121`).
 - Nếu phát hiện 2 agent trở lên dùng chung workspace → báo lỗi.
 
+#### Quy tắc 7: Một bot chỉ dùng một agent/workspace cho cả DM và group
+- Mỗi Telegram `accountId` phải có đúng một account-level binding không chứa `match.peer`.
+- Không tạo peer-specific binding để đưa DM owner sang agent/workspace khác.
+- Owner là quyền sender trên canonical agent, khai báo bằng `commands.ownerAllowFrom`; owner không phải một agent riêng.
+- Chỉ tạo agent/workspace mới khi thêm một bot/account mới thật sự.
+- `channels.telegram.commands` chỉ dùng các field được schema hiện hành chấp nhận; luôn chạy `openclaw config validate` và không tự thêm field không có trong schema.
+
 ### Bước 5: Báo cáo kết quả
 Báo cáo cho user theo format:
 
@@ -306,6 +313,7 @@ Lưu ý khi sửa:
 
 ## Lưu ý đặc biệt
 - **⚠️ 1 Bot Token = 1 Workspace RIÊNG (BẮT BUỘC)**: Mỗi Telegram bot token phải có một workspace riêng biệt. KHÔNG BAO GIỜ dùng chung workspace giữa các bot khác nhau. Convention đặt tên: `workspace_<agent_id>`.
+- **⚠️ Owner không tạo workspace**: DM owner và group của cùng bot phải cùng route vào canonical agent/workspace. Bot thứ hai mới tạo workspace thứ hai.
 - **Workspace trên Windows**: Dùng `\\` (double backslash), VD: `C:\\Users\\user\\.openclaw\\workspace_agentname`
 - **Workspace trên Linux**: Dùng `/`, VD: `/root/.openclaw/workspace_agentname`
 - **Account `default`** là cấu hình fallback, luôn giữ và KHÔNG cần botToken

@@ -1,79 +1,73 @@
 ---
 name: cap-quyen-telegram-admin-openclaw
-description: Cấp hoặc kiểm tra một Telegram user ID có quyền quản trị toàn VPS qua OpenClaw bằng DM riêng, owner commands, exec approvals và direct binding tới agent tool profile full. Use khi người dùng yêu cầu thêm Telegram ID toàn quyền VPS/OpenClaw, tạo owner-admin cho VPS khác, đồng bộ quyền admin Telegram, hoặc kiểm tra một ID đã đủ quyền quản trị mà không mở quyền cho group.
+description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS owner on the existing canonical agent and workspace for that bot, without creating a separate admin agent or DM-only workspace. Use when adding an owner, synchronizing Telegram owner/exec/plugin approval rights, repairing incomplete owner access, or checking that one bot still routes both DMs and groups through one agent/workspace.
 ---
 
 # Cấp Quyền Telegram Admin OpenClaw
 
-## Nguyên Tắc Bắt Buộc
+## Nguyên Tắc
 
-- Chỉ thao tác khi người dùng cung cấp rõ Telegram user ID dạng số dương.
-- Chỉ cấp qua DM chính xác của user; không dùng wildcard cho DM và không bind agent admin vào group.
-- Giữ `dmPolicy: pairing`, đồng thời thêm đúng ID đã được người dùng xác nhận vào allowlist cấp Telegram và account.
-- Thêm đồng bộ `commands.ownerAllowFrom`, Telegram exec approver và direct peer binding.
-- Dùng agent riêng `owner-admin` với `tools.profile: full`; không đổi tool profile toàn cục sang `full`.
-- Giữ Telegram exec approvals ở `auto`; không tắt approval chỉ để tạo cảm giác “toàn quyền”.
-- Không mở Gateway public, không sửa firewall/SSH và không in token hoặc toàn bộ `openclaw.json`.
-- Đọc tài liệu vận hành của VPS, backup trước khi sửa và cập nhật nhật ký sau thay đổi.
+- Cấp owner trên agent đang phục vụ toàn bộ Telegram account, thường là `main`.
+- Owner là quyền của sender trên `main`, không phải một agent; DM/group của owner vẫn dùng `/root/.openclaw/workspace` như mọi cuộc trò chuyện của bot đó.
+- Không tạo `owner-admin`, workspace mới hoặc direct peer binding chỉ để thêm owner.
+- Chỉ tạo agent/workspace mới khi thực sự tạo bot/account thứ hai.
+- Nếu account đang route tới nhiều agent hoặc có peer-specific binding, dùng `unify-openclaw-bot-workspace` trước.
+- Giữ DM allowlist, owner commands, exec approvers, plugin approval targets, elevated allowlist và sender policy đồng bộ.
+- Owner exact Telegram ID kế thừa `tools.profile: full`; sender khác bị chặn runtime, filesystem, memory, browser, messaging, automation, nodes, plugins và session/admin tools.
+- Exec dùng `host=gateway`, `mode=auto`, `strictInlineEval=true`; host approvals dùng `allowlist/on-miss/deny`.
+- Không mở wildcard owner, không in credential và không gửi tin thật khi kiểm thử tự động.
+- Không thêm field ngoài schema như `channels.telegram.commands.enforceOwnerForCommands`; dùng `commands.ownerAllowFrom` làm nguồn owner.
 
-## Quy Trình
-
-1. Đọc entrypoint vận hành, hồ sơ OpenClaw và `AGENTS.md` áp dụng cho VPS đích.
-2. Xác minh runtime đang chạy bằng `root`, `HOME=/root`, OpenClaw root `/root/.openclaw` và Telegram account cần dùng.
-3. Kiểm tra version, service, config mode và binding hiện tại mà không in credential.
-4. Chạy dry-run:
+## Dry-Run
 
 ```bash
 python3 /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py \
   --telegram-id <TELEGRAM_USER_ID> \
-  --openclaw-root /root/.openclaw \
-  --account-id main
+  --openclaw-root <HOST_OPENCLAW_ROOT> \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id <TELEGRAM_ACCOUNT_ID> \
+  --agent-id main
 ```
 
-5. Đọc danh sách thay đổi. Nếu ID đang có direct binding tới agent khác, dừng và xác minh; chỉ dùng `--replace-binding` khi người dùng cho phép thay route.
-6. Áp dụng:
+Đọc danh sách thay đổi đã làm sạch. Nếu script báo account route nhiều agent hoặc có peer binding, dừng và gộp bằng skill `unify-openclaw-bot-workspace`.
+
+## Apply
+
+Backup production trước, sau đó chạy:
 
 ```bash
 python3 /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py \
   --telegram-id <TELEGRAM_USER_ID> \
-  --openclaw-root /root/.openclaw \
-  --account-id main \
+  --openclaw-root <HOST_OPENCLAW_ROOT> \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id <TELEGRAM_ACCOUNT_ID> \
+  --agent-id main \
+  --backup-dir /root/_Backups/openclaw \
   --apply
 ```
 
-7. Đồng bộ toàn bộ skill vào OpenClaw root bằng script chuẩn của skill cài OpenClaw, rồi chạy `--check` và `openclaw skills check`.
-8. Source file env của provider, chạy `openclaw config validate`, restart đúng Gateway process manager và probe Telegram.
-9. Kiểm tra trạng thái quyền bằng:
+Script backup `openclaw.json` và `exec-approvals.json` khi cần, ghi atomically và giữ socket token không đổi.
+
+## Check
 
 ```bash
 python3 /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py \
   --telegram-id <TELEGRAM_USER_ID> \
-  --openclaw-root /root/.openclaw \
-  --account-id main \
+  --openclaw-root <HOST_OPENCLAW_ROOT> \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id <TELEGRAM_ACCOUNT_ID> \
+  --agent-id main \
   --check
 ```
 
-10. Yêu cầu người dùng nhắn DM cho bot và thử lệnh chỉ đọc như `id`, `pwd` hoặc kiểm tra trạng thái service. Không tự gửi tin Telegram nếu chưa được phép.
-11. Cập nhật nhật ký thay đổi bằng thông tin đã làm sạch; không ghi bot token, API key hoặc nội dung DM.
+Tiếp tục chạy `openclaw config validate`, xem binding, restart đúng Gateway process manager, probe channel và kiểm tra effective exec policy. Yêu cầu owner tự thử lệnh chỉ đọc trong DM/group; không tự deliver tin nhắn.
 
-## Script
+## Thu Hồi
 
-`scripts/grant_telegram_admin.py` thực hiện idempotent:
+Backup trước rồi xóa ID đồng bộ khỏi channel/account allowlist, `commands.ownerAllowFrom`, exec approvers, plugin targets, elevated allowlist và exact `toolsBySender`. Không xóa agent/workspace vì việc thu hồi một owner không thay đổi bot architecture.
 
-- Kiểm tra Telegram ID, config JSON và Telegram account.
-- Giữ `dmPolicy: pairing` và merge ID vào allowlist chính xác.
-- Merge `telegram:<ID>` vào owner allowlist.
-- Bật exec approvals `auto` và merge ID vào approver list.
-- Tạo hoặc chuẩn hóa agent `owner-admin` với workspace/agent state riêng và profile `full`.
-- Thêm direct binding đúng account và Telegram peer.
-- Backup config bằng mode `600`, ghi file atomically và không đọc/in secret.
-- Hỗ trợ dry-run mặc định, `--apply`, `--check` và `--replace-binding`.
+## Tài Liệu
 
-## Thu Hồi Quyền
-
-Không tự xóa bằng tay từng chỗ khi người dùng yêu cầu thu hồi. Trước tiên backup config, sau đó xóa đồng bộ ID khỏi direct binding, owner allowlist, exec approvers, Telegram allowlist cấp chung/account và credential pairing liên quan. Validate, restart, probe và ghi nhật ký. Không xóa agent `owner-admin` nếu vẫn còn operator khác sử dụng.
-
-## Tham Khảo
-
-- Đọc `references/security-model.md` trước khi thay đổi policy hoặc xử lý binding xung đột.
-- Dùng `references/owner-admin-AGENTS.md` làm guardrail ban đầu khi script phải tạo workspace admin mới.
+- Đọc `references/security-model.md` trước khi sửa policy.
+- Dùng `unify-openclaw-bot-workspace` khi cấu hình legacy đã có agent/workspace admin riêng.
+- Chạy `scripts/test_grant_telegram_admin.py` sau khi sửa script.

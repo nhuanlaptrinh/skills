@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set OpenClaw Thinking Levels"
+  short_description: "Bật nhiều mức thinking an toàn cho OpenClaw"
+  default_prompt: "Use $set-openclaw-thinking-levels to enable off, minimal, low, medium, high, and xhigh for an OpenClaw agent."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Facebook YouTube Auto Publisher"
+  short_description: "Publish Sheet rows to Facebook and YouTube"
+  default_prompt: "Use $facebook-youtube-auto-publisher to preview and publish the next PD row from Google Sheet."

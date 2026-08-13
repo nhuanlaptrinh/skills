@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Shared Voice STT"
+  short_description: "Transcribe OpenClaw voice through local faster-whisper"
+  default_prompt: "Configure or use the internal shared local STT client for OpenClaw audio without a paid API."

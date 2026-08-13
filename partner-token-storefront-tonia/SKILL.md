@@ -53,7 +53,7 @@ Authenticate customer login emails case-insensitively through `dashboard.auth_ba
 
 ## Email Notifications And Credit Guard
 
-- SMTP is configured only through `DJANGO_EMAIL_*` in the storefront `.env`. Keep the protected system sender, SMTP user, and app password aligned with `/root/Apps/9router_usage_dashboard`, but set `ADMIN_NOTIFICATION_EMAIL` and `CREDIT_ALERT_ADMIN_EMAIL` to this partner's own admin mailbox. Never print or document their values.
+- SMTP is configured only through `DJANGO_EMAIL_*` in the storefront `.env`. Keep the system sender, SMTP user, and app password on the dedicated mailbox supplied for this storefront, while `ADMIN_NOTIFICATION_EMAIL` and `CREDIT_ALERT_ADMIN_EMAIL` remain the partner's configured admin recipients. Never print or document their values.
 - A successful registration emails the admin after the database transaction commits. A successful SePay payment emails both the customer and admin after credit has committed. Email delivery failures are logged but must never roll back account creation, payment state, or credited limits.
 - `lethang-credit-guard.timer` runs `/etc/systemd/system/lethang-credit-guard.service` every minute with the storefront `EnvironmentFile`. It invokes `manage.py enforce_credit_limits`, warns the customer and admin at 80% usage, and applies the existing quota disable/reactivation rules.
 - Store `low_credit_alert_sent_at` and `low_credit_alert_credit_limit` to avoid repeated warning emails. Permit another warning only after the credit limit changes or usage falls below 80% and later crosses the threshold again.
@@ -66,6 +66,14 @@ Authenticate customer login emails case-insensitively through `dashboard.auth_ba
 - Supported custom types are percentage bonus, provider multiplier, free fixed credit, and fixed VND payment for fixed credit.
 - Enforce active dates, first-purchase rules, per-user limits, minimum package values, and pending-order protection in the server-side purchase flow; browser previews are informational only.
 - Never delete a coupon after it has appeared on an order. The custom admin page deactivates it to preserve the payment audit trail.
+
+## Registration And Referral Behavior
+
+- Require a customer phone number on public website registration, normalize Vietnamese `+84`/`84` input to a 10-digit number beginning with `0`, store it in `CustomerAccount.phone_number`, and include it in the admin registration email. Existing accounts may keep the field blank.
+- Permit customer registration without a referral code on both the website and Telegram bot.
+- Keep the referral field hidden on the public registration form. A valid `/dang-ky/?ref=XXXXXX` link may still attribute the new customer for commissions.
+- Ignore a missing or invalid hidden referral code instead of blocking account creation.
+- Preserve existing referral codes, wallets, commission history, and the three-purchase commission limit unless the user explicitly requests removing the referral program.
 
 ## Analytics Tracking
 
@@ -115,7 +123,7 @@ For a domain change, confirm DNS first, create a dedicated Nginx site, run `ngin
 
 ## Inputs And Outputs
 
-- Input: customer registrations, signed reseller bridge responses, partner capacity, package amount, promotion code, dynamic invoice code, and SePay webhook payload.
+- Input: direct customer registrations with name, email, phone number and password; optional referral links; signed reseller bridge responses; partner capacity; package amount; promotion code; dynamic invoice code; and SePay webhook payload.
 - Output: customer dashboard, API-key management, usage reports, coupon administration, VietQR payment page, paid order status, and credited internal usage limit.
 - Local writes: storefront SQLite database and collected static files.
 - External calls: signed reseller bridge to the partner portal, VietQR image generation, email delivery, SePay webhook delivery, and Meta Pixel `PageView` tracking from rendered browser pages.
