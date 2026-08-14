@@ -29,8 +29,14 @@ Skill này cung cấp các bộ mẫu giao diện phong phú và cơ chế tự 
    - Tất cả liên kết neo `a[href^="#"]` và nút Scroll-To-Top phải được gắn sự kiện cuộn mượt bằng JavaScript `scrollIntoView({ behavior: 'smooth' })`.
 2. **ACTIVE HOME MENU STATE**: Menu "Trang Chủ" có `class="active"` nổi bật mặc định và tự động thay đổi theo vị trí cuộn.
 3. **FLOATING SCROLL-TO-TOP BUTTON**: Nút cuộn tròn cố định ở góc phải màn hình, tự động xuất hiện khi cuộn xuống quá 280px.
+4. **MANDATORY AUTHENTICATION MODAL & GMAIL OTP REGISTRATION SYSTEM**:
+   - Header navigation có nút "Đăng Nhập" (gọi `openAuthModal('login')`).
+   - Pop-up Glassmorphism Modal `<div id="authModal" class="modal">` hỗ trợ 2 Tab: **Đăng Nhập** & **Tạo Tài Khoản**.
+   - Nhập Email Gmail khi Đăng Ký sẽ gửi mã OTP 6 chữ số xác thực qua Gmail SMTP App Password (`kebanhay2011@gmail.com`).
+   - Trạng thái đã đăng nhập (User Session State): Hiển thị Avatar & Tên (`Xin chào, Quốc Đạt!`) + Dropdown menu (Thông tin cá nhân, Lịch sử đơn hàng, Đăng xuất).
 
 ---
+
 
 ## 🛠️ Quy trình Sinh Tên Miền Subdomain Đẹp (Pretty Slugs)
 

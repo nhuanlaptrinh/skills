@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Agent Full Exec"
+  short_description: "Bật Full Exec không hỏi duyệt cho agent"
+  default_prompt: "Use $set-openclaw-agent-full-exec to enable no-prompt Full Exec for a selected OpenClaw agent safely."
