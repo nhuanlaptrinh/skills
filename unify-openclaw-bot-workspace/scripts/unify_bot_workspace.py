@@ -48,7 +48,7 @@ NON_OWNER_DENY = [
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Merge one OpenClaw bot account into one agent and workspace."
+        description="Normalize or merge one OpenClaw bot account into one agent and workspace."
     )
     parser.add_argument("--openclaw-root", default="/root/.openclaw")
     parser.add_argument(
@@ -76,8 +76,6 @@ def parse_args():
         parser.error("--account-id is required")
     if args.apply and not args.gateway_stopped:
         parser.error("Apply requires --gateway-stopped")
-    if not args.source_agent and not args.check:
-        parser.error("At least one --source-agent is required")
     return args
 
 

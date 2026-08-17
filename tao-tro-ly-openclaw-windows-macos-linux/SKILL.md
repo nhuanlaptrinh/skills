@@ -1,13 +1,13 @@
 ---
 name: tao-tro-ly-openclaw-windows-macos-linux
-description: Skill tự chứa để cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên chạy Docker; dùng cả khi phục hồi sau đổi tên thư mục/container hoặc tạo member mới bằng cách copy có chọn lọc từ member cũ. Dùng khi bot Telegram không trả lời trong group, chỉ trả lời khi mention, thiếu binding group vào agent, cần đặt quyền owner/exec/plugin/Skill Workshop approval, polling chưa connected hoặc Gateway không tự lên sau restart. Bắt buộc cài OpenClaw, đồng bộ toàn bộ skill và giữ Telegram ID 6980864856 làm owner/approver trước khi chạy Gateway. Bao gồm workflow Node.js/Python/OpenClaw local, Gateway, Codex login, DeepSeek tùy chọn, Token Codex, Telegram, Zalo QR/voice/reliability, kiểm tra openclaw.json, Custom Provider, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và tích hợp Facebook Fanpage/CSKH.
+description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, giữ Telegram ID quản trị mặc định, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
 ---
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
 
 ## Mục tiêu
 
-Điều phối đúng quy trình cài đặt, tạo, cấu hình hoặc vận hành trợ lý OpenClaw trên Windows, macOS và Linux. Mọi lượt tạo trợ lý phải cài OpenClaw, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ skill và thiết lập Telegram ID bắt buộc `6980864856` làm chủ sở hữu/người duyệt trước khi chạy Gateway. Trên Linux phải phân biệt máy local/server, VPS chính và VPS thành viên chạy trong container Docker; không dùng lẫn script, config, token, port hoặc dữ liệu giữa các môi trường.
+Điều phối đúng quy trình cài đặt, tạo, cấu hình hoặc vận hành trợ lý OpenClaw trên Windows, macOS và Linux. Mọi lượt tạo trợ lý phải cài OpenClaw, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ skill và thiết lập Telegram ID bắt buộc `6980864856` làm chủ sở hữu/người duyệt trước khi chạy Gateway. Mỗi VPS thành viên phải kết thúc với đúng một Telegram account dùng agent `main`, workspace `/root/.openclaw/workspace`, và Full Exec `gateway/full`, `security=full`, `ask=off` trên `main`. Trên Linux phải phân biệt máy local/server, VPS chính và VPS thành viên chạy trong container Docker; không dùng lẫn script, config, token, port hoặc dữ liệu giữa các môi trường.
 
 ## Chính sách root bắt buộc
 
@@ -18,15 +18,17 @@ description: Skill tự chứa để cài đặt, tạo, cấu hình, vận hàn
 - Tất cả folder có `SKILL.md` từ root nguồn `.agents/skills`, `.codex/skills` và nhóm `.codex/skills/.system` phải được đặt trực tiếp tại `<OPENCLAW_ROOT>/workspace/skills/<ten-skill>`; không bọc thêm folder tổng hoặc folder ngày.
 - Không dùng `--skip-skills`. Sau onboarding, chạy `scripts/sync_all_skills_to_root.py`, sau đó chạy lại script với `--check` và `openclaw skills check`.
 - Mọi lần dùng skill này để tạo, cài, khôi phục hoặc chuẩn hóa một OpenClaw runtime đều phải chạy `scripts/ensure_default_telegram_owner.py`: Telegram ID `6980864856` là invariant bắt buộc, không được xóa hoặc thay thế bởi danh sách owner/approver khác.
+- Với VPS thành viên, sau khi Telegram account và owner tồn tại, bắt buộc chạy `unify-openclaw-bot-workspace` để kiểm tra hoặc gộp kiến trúc về `main`, rồi chạy `set-openclaw-agent-full-exec` cho `main` sau cùng. Mọi lần chạy lại owner/unify đều phải chạy lại Full Exec check.
 - Script đồng bộ phải loại `.git`, `__pycache__`, `.pyc`, `node_modules`; nếu skill đích đã tồn tại, script backup trước khi thay.
 - Nếu trùng tên skill giữa các root nguồn, ưu tiên root nguồn xuất hiện trước; chỉ cài một folder trực tiếp cho mỗi tên skill.
-- Gateway chỉ được start/restart sau khi `openclaw --version`, đồng bộ skill, `openclaw config validate` và `openclaw skills check` đều đạt.
+- Gateway chỉ được start/restart sau khi `openclaw --version`, đồng bộ skill, owner check, unify check, Full Exec file check, `openclaw config validate` và `openclaw skills check` đều đạt.
 
 ## Tính độc lập và cách chuyển VPS
 
-- Đây là skill điều phối tự chứa; không phụ thuộc logic của skill khác để thực hiện cài đặt, nhưng vẫn bắt buộc đóng gói toàn bộ skill khả dụng vào OpenClaw root.
+- Đây là skill điều phối. Nhánh Windows/macOS/local vẫn tự chứa; riêng workflow VPS thành viên bắt buộc gọi đúng hai global skill `unify-openclaw-bot-workspace` và `set-openclaw-agent-full-exec` sau khi đồng bộ skill.
 - Khi chuyển sang máy khác, copy nguyên folder skill, gồm `SKILL.md`, `agents/`, `references/`, `scripts/` và `resources/`, vào root nguồn skill trước khi chạy đồng bộ.
-- Các project hoặc automation được nêu trong skill vẫn phải tồn tại nếu muốn dùng đúng lệnh tự động; nếu VPS đích chưa có, thực hiện workflow thủ công tương ứng trong skill thay vì gọi một skill khác.
+- Hai skill bắt buộc phải tồn tại tại root nguồn và workspace member trước khi finalize; nếu thiếu, dừng và khôi phục/sync đúng skill, không chép lại logic migration hoặc Full Exec bằng lệnh ad-hoc.
+- Các project hoặc automation khác được nêu trong skill vẫn phải tồn tại nếu muốn dùng đúng lệnh tự động; nếu VPS đích chưa có, thực hiện workflow thủ công tương ứng trong skill.
 - Không xóa các skill độc lập cũ trên VPS nguồn vì chúng có thể đang được workflow khác sử dụng; skill này chỉ loại bỏ sự phụ thuộc vào chúng.
 
 ## Chọn hệ điều hành và môi trường trước khi thao tác
@@ -174,6 +176,8 @@ Trên VPS hiện tại, `/root/Apps/member_vps/docker-users/manage-user.sh` ch�
 - Fallback tạo ảnh local SVG/Python: `references/local-svg-python-image-fallback.md`
 - Checklist rút gọn tạo member VPS và Telegram group: `references/member-vps-creation-checklist.md`
 - Workflow đổi tên hoặc copy có chọn lọc từ member cũ: `references/member-vps-rename-copy-workflow.md`
+- Skill chuẩn hóa một bot/một main workspace: `/root/.agents/skills/unify-openclaw-bot-workspace`
+- Skill bật Full Exec cho `main`: `/root/.agents/skills/set-openclaw-agent-full-exec`
 - Shared fallback proxy: thực hiện trực tiếp tại mục **Shared Fallback Proxy**.
 - Second AI Brain: thực hiện trực tiếp tại mục **Second AI Brain Cho Member VPS Mới**.
 - Chuẩn bị/kiểm tra API Token Codex: thực hiện trực tiếp tại mục **Chuẩn bị Token Codex trước member VPS**.
@@ -205,9 +209,10 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 
 1. Chạy `/root/Apps/member_vps/docker-users/manage-user.sh create <name> <password> <ssh_port>`; không giả định script tự sinh mật khẩu hoặc tự chọn port.
 2. Bắt buộc bổ sung volume persistent `/root/Apps/member_vps/docker-users/data/<name>/root:/root`, cài OpenClaw trong container bằng `HOME=/root` và tạo `/root/.openclaw/workspace`.
-3. Bắt buộc đồng bộ toàn bộ skill nguồn vào `/root/.openclaw/workspace/skills`, chạy kiểm tra đủ skill và validate config.
-4. Chỉ sau đó mới cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào và chạy Gateway.
-5. Nếu người dùng thực sự chỉ cần một container Linux không có OpenClaw, task đó không thuộc skill tạo trợ lý này; chuyển sang workflow quản lý container/VPS riêng và không báo đã tạo trợ lý.
+3. Bắt buộc đồng bộ toàn bộ skill nguồn vào `/root/.openclaw/workspace/skills`, gồm hai skill finalize, rồi chạy kiểm tra đủ skill và validate config.
+4. Cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào; chạy owner setup, unify về `main`, rồi bật Full Exec cho `main` theo đúng thứ tự trước khi bàn giao.
+5. Chỉ start Gateway sau các file check; sau khi Gateway lên, chạy lại Full Exec runtime check và channel probe.
+6. Nếu người dùng thực sự chỉ cần một container Linux không có OpenClaw, task đó không thuộc skill tạo trợ lý này; chuyển sang workflow quản lý container/VPS riêng và không báo đã tạo trợ lý.
 - OpenClaw phải luôn cài cố định `openclaw@2026.7.1-2`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
 - Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.7.1-2 engines --json`; version này yêu cầu Node `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`.
 - Mọi member mới phải có `python3`, `python3-full`, `python3-venv`, `python3-pip`.
@@ -231,11 +236,13 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - `TELEGRAM_CHAT_ID` của member nếu có chỉ được merge thêm vào allowlist/owner theo yêu cầu; tuyệt đối không thay thế Telegram ID bắt buộc `6980864856`.
 - Người mới ngoài allowFrom phải pairing; dùng `openclaw pairing list telegram` để lấy request và chỉ approve đúng người đã xác minh.
 - Bắt buộc bật native `channels.telegram.execApprovals` ở global và account scope với `enabled: "auto"`, `target: "dm"`, `approvers` chứa `6980864856`; bật Telegram inline buttons cho DM.
-- Bắt buộc đặt host exec của agent liên quan về `tools.exec.host = "gateway"`, `tools.exec.mode = "auto"`, `tools.exec.strictInlineEval = true`; đồng bộ `/root/.openclaw/exec-approvals.json` về `security: "allowlist"`, `ask: "on-miss"`, `askFallback: "deny"` để lệnh chưa tin cậy thực sự đi qua approval gate.
+- `scripts/ensure_default_telegram_owner.py` chạy trước để merge owner/approval an toàn; trạng thái bàn giao cuối cùng của agent `main` phải được `set-openclaw-agent-full-exec` đặt thành `tools.exec.host = "gateway"`, `tools.exec.mode = "full"`, `tools.exec.strictInlineEval = false` và policy `security: "full"`, `ask: "off"`, `askFallback: "full"`, `autoAllowSkills: true`.
 - Bắt buộc bật cả `approvals.exec` và `approvals.plugin` với mode `targets`, agent filter có `main`, target Telegram `6980864856` qua đúng `accountId` member. Hai lớp này độc lập, không được chỉ bật plugin approval rồi coi exec approval đã có.
 - Bắt buộc giữ `skills.workshop.approvalPolicy = "pending"`; approval của hành động apply/reject/quarantine do agent phải được chuyển tới `6980864856` qua plugin approval target. Không đặt `auto` để bỏ qua duyệt.
-- ID `6980864856` phải nhận và xử lý được approval bằng nút **Allow once** hoặc `/approve <id> allow-once`; phải dùng approval ID đang chờ, không dùng proposal ID của skill.
-- Khi người dùng cung cấp Telegram Group ID lúc tạo nhân viên, mặc định cấu hình group allowlist với `enabled: true`, `requireMention: false`, `allowFrom: ["*"]` ở cả top-level và account scope, cùng binding riêng tới agent `main` trước khi restart gateway.
+- ID `6980864856` vẫn là owner và target duyệt plugin/Skill Workshop. Full Exec không tạo approval prompt cho lệnh Exec của `main`; không mô tả nút **Allow once** như một bước bắt buộc sau khi Full Exec đã bật.
+- Mỗi Telegram account chỉ có đúng một account-level binding tới agent `main`, không có `match.peer`. Group ID được giới hạn bằng `channels.telegram.groups` và account `groups`, không tạo binding riêng cho từng group.
+- Sau khi owner/binding đã ổn định, chạy `unify-openclaw-bot-workspace --check`; nếu có `owner-admin` hoặc workspace legacy thì gộp khi Gateway đã dừng. Chạy `set-openclaw-agent-full-exec` cuối cùng và yêu cầu `--check` đạt trước bàn giao.
+- Khi người dùng cung cấp Telegram Group ID lúc tạo nhân viên, mặc định cấu hình group allowlist với `enabled: true`, `requireMention: false`, `allowFrom: ["*"]` ở cả top-level và account scope; routing vẫn đi qua account-level binding duy nhất tới `main`.
 - Không được chỉ xóa `allowFrom` cấp group: OpenClaw hiện hành có thể fallback về DM/account `allowFrom` và tiếp tục chỉ cho chủ bot. Muốn mọi thành viên trong group được gọi bot, bắt buộc đặt wildcard `allowFrom: ["*"]` ngay trong đúng group.
 - Giữ Telegram DM ở `pairing`; `allowFrom` chỉ chứa các ID đã duyệt/mặc định. Wildcard chỉ áp dụng cho group đã khai báo, không dùng wildcard để mở DM hoặc group khác.
 - Khi cần Zalo Personal/Zalo User, cài `@openclaw/zalouser` đúng version OpenClaw, ưu tiên gửi QR trực tiếp tới Telegram ID đang có trong allowlist thay vì public QR trên web.
@@ -390,15 +397,19 @@ Ngoại lệ chuyển tiếp này chỉ áp dụng cho member production cũ đ�
 
 Khi tạo VPS thành viên mới, thực hiện theo đúng thứ tự:
 
-1. Đọc mục Token Codex trong skill chính này; không gọi skill ngoài.
+1. Đọc mục Token Codex trong skill chính này; phần Token Codex không gọi skill ngoài. Hai ngoại lệ bắt buộc của workflow member là skill unify và Full Exec ở bước finalize.
 2. Nhận API key Token Codex qua biến môi trường bảo mật hoặc dùng provisioning backend đã xác minh tồn tại; không gọi đường dẫn local bị thiếu.
 3. Nếu provisioning sinh key mới, lưu output một lần vào file quyền `600`, không đưa full key vào chat hoặc log chung.
 4. Thực hiện hai mục tích hợp **Shared Fallback Proxy** và **Second AI Brain Cho Member VPS Mới** trong skill này.
 5. Preflight tên container, image, SSH port, web port, volume và lệnh provisioning thực tế.
 6. Tạo container/member rồi nạp API qua `TOKEN_CODEX_API_KEY` hoặc `CUSTOM_PROVIDER_API_KEY` mà không in key.
-7. Cấu hình dashboard public, Second AI Brain và shared fallback proxy.
-8. Validate provider/model Token Codex, OpenClaw, public HTTP 200, gateway/channel, Second AI Brain và proxy fallback.
-9. Bàn giao VPS cùng email/mật khẩu Token Codex và link `https://codex.anhlaptrinh.vn/` để xem credit.
+7. Đồng bộ toàn bộ skill; xác nhận `unify-openclaw-bot-workspace` và `set-openclaw-agent-full-exec` có ở root nguồn lẫn workspace member.
+8. Cấu hình Telegram account, owner, group policy và đúng một account-level binding tới `main`; chạy `ensure_default_telegram_owner.py` trước.
+9. Chạy `unify-openclaw-bot-workspace --check`; nếu có agent/workspace legacy thì dừng Gateway, dry-run/apply/check để gộp về `main`.
+10. Chạy `set-openclaw-agent-full-exec` cho `main` sau cùng: dry-run, apply `--no-restart`, check `--no-restart`; sau khi Gateway lên chạy lại `--check` để xác nhận runtime `full/off`.
+11. Cấu hình dashboard public, Second AI Brain và shared fallback proxy.
+12. Validate provider/model Token Codex, OpenClaw, public HTTP 200, Gateway/channel, one-agent/one-workspace, Full Exec, Second AI Brain và proxy fallback.
+13. Bàn giao VPS cùng email/mật khẩu Token Codex và link `https://codex.anhlaptrinh.vn/` để xem credit.
 
 ## Chuẩn bị Token Codex trước member VPS
 
@@ -565,12 +576,40 @@ python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
   --account-id '<ten_user>' \
   --check
+test -f /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py
+test -f /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh
+test -f "$MEMBER_ROOT/.openclaw/workspace/skills/unify-openclaw-bot-workspace/SKILL.md"
+test -f "$MEMBER_ROOT/.openclaw/workspace/skills/set-openclaw-agent-full-exec/SKILL.md"
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --backup-dir /root/_Backups/openclaw-bot-workspace \
+  --apply --gateway-stopped
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --check
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --dry-run --no-restart
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --apply --no-restart
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --check --no-restart
 docker exec -e HOME=/root user-<ten_user> openclaw skills check
 docker exec -e HOME=/root user-<ten_user> openclaw config validate
 docker exec -e HOME=/root user-<ten_user> openclaw exec-policy show
 ```
 
-Không start Gateway nếu bất kỳ lệnh cài đặt, sync, owner/approval `--check`, `skills check`, config validate hoặc kiểm tra exec policy nào thất bại. Chỉ truyền `--account-id` sau khi Telegram account tương ứng đã tồn tại; nếu Telegram được cấu hình ở bước sau, phải chạy lại hai lệnh owner/approval ngay sau khi tạo account và trước khi start Gateway.
+Khối lệnh trên là normalize-only cho member sạch chỉ có `main`. Trước khi chạy, inventory agents/bindings; nếu có `owner-admin` hoặc agent legacy thì dùng mode merge ở mục **Finalize bắt buộc: main workspace và Full Exec**, không chạy normalize-only rồi để agent thừa. Chỉ truyền `--account-id` sau khi Telegram account tương ứng đã tồn tại. Nếu Telegram/owner được cấu hình hoặc sửa ở bước sau, phải chạy lại owner, unify và Full Exec theo đúng thứ tự.
 
 Provider sau khi container tồn tại phải dùng:
 
@@ -616,9 +655,91 @@ Nếu không có ID bổ sung, bỏ hoàn toàn `--extra-owner-id`; không truy�
 
 Sau `--apply`, hạn chế quyền hai file runtime về owner-only: Linux/macOS chạy `chmod 600 <OPENCLAW_ROOT>/openclaw.json <OPENCLAW_ROOT>/exec-approvals.json`; Windows giữ ACL chỉ cho Administrator/SYSTEM theo policy máy. Không đổi quyền bot token hoặc credential ngoài phạm vi này.
 
-Rerun/repair: chạy lại dry-run rồi `--apply`; script idempotent sẽ chỉ bổ sung phần thiếu. Rollback: dừng Gateway, lấy đúng cặp backup `openclaw-before-required-owner-*.json` và `exec-approvals-before-required-owner-*.json` cùng timestamp, kiểm tra không chứa cấu hình mới cần giữ, rồi restore thủ công và validate trước khi restart. Không rollback bằng cách xóa ID `6980864856`.
+Rerun/repair: chạy lại dry-run rồi `--apply`; script idempotent sẽ chỉ bổ sung phần thiếu. Vì script owner đặt policy guarded trung gian, mọi lần apply/repair owner phải chạy lại `set-openclaw-agent-full-exec` cho `main` sau cùng. Rollback: dừng Gateway, lấy đúng cặp backup `openclaw-before-required-owner-*.json` và `exec-approvals-before-required-owner-*.json` cùng timestamp, kiểm tra không chứa cấu hình mới cần giữ, rồi restore thủ công và validate trước khi restart. Không rollback bằng cách xóa ID `6980864856`.
 
-Không dùng key `allowlist` trong OpenClaw config vì key đúng cho người gửi Telegram là `allowFrom`. Không dùng `tools.exec.mode = "full"`, `approvalPolicy = "auto"` hoặc danh sách owner mới để vô hiệu hóa quyền duyệt của `6980864856`.
+Không dùng key `allowlist` trong OpenClaw config vì key đúng cho người gửi Telegram là `allowFrom`. Giữ `skills.workshop.approvalPolicy = "pending"`; Full Exec chỉ bỏ bước duyệt lệnh Exec của `main`, không tự động duyệt proposal/plugin hoặc mở quyền cho sender đang bị `toolsBySender` deny.
+
+## Finalize bắt buộc: main workspace và Full Exec
+
+Chạy phần này sau khi Telegram account, owner, group policy, provider và bindings đã cấu hình xong. Thứ tự là bắt buộc: owner setup -> unify -> Full Exec. `unify` có thể đặt lại exec về guarded để bảo vệ migration, vì vậy không chạy Full Exec trước `unify`.
+
+### 1. Normalize hoặc gộp về một agent/workspace
+
+Inventory trước bằng `openclaw agents list --bindings --json`. Với member sạch chỉ có `main`, chạy normalize-only không có `--source-agent`; skill sẽ tạo account-level binding, guarded owner policy và transaction backup mà không move workspace. Không tạo `owner-admin` giả:
+
+```bash
+MEMBER_ROOT='/root/Apps/member_vps/docker-users/data/<ten_user>/root'
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --backup-dir /root/_Backups/openclaw-bot-workspace \
+  --apply --gateway-stopped
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --check
+```
+
+Nếu inventory có agent/workspace `owner-admin` hoặc agent admin legacy, Gateway phải dừng/quiesce rồi mới dry-run và apply. Với member mới chưa start Gateway, điều kiện `--gateway-stopped` đã thỏa:
+
+```bash
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --source-agent owner-admin
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --source-agent owner-admin \
+  --backup-dir /root/_Backups/openclaw-bot-workspace \
+  --apply --gateway-stopped
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --target-agent main \
+  --source-agent owner-admin \
+  --check
+```
+
+Nếu inventory có agent legacy khác tên `owner-admin`, truyền đúng từng `--source-agent <id>` sau khi xác minh workspace/agent state; không đoán tên hoặc bỏ sót agent đang phục vụ binding khác.
+
+### 2. Bật Full Exec cho main sau cùng
+
+Trước lần start Gateway đầu tiên, dùng `--no-restart`:
+
+```bash
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --dry-run --no-restart
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --apply --no-restart
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --check --no-restart
+```
+
+Sau khi Gateway đã chạy, bắt buộc xác minh runtime:
+
+```bash
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh \
+  --member '<ten_user>' --agent main --check
+```
+
+Không chạy lại `ensure_default_telegram_owner.py --check` hoặc `unify_bot_workspace.py --check` sau khi Full Exec đã bật, vì hai check đó xác nhận policy guarded trung gian. Nếu cần sửa owner/routing về sau, chạy lại toàn bộ thứ tự owner -> unify -> Full Exec. Sau Full Exec, kiểm tra kiến trúc bằng `openclaw agents list --bindings --json` và kiểm tra policy bằng skill Full Exec.
+
+Tiêu chí bàn giao: một agent `main`, workspace `/root/.openclaw/workspace`, một agent state `/root/.openclaw/agents/main/agent`, một account-level Telegram binding, `mode=full`, `security=full`, `ask=off`, `strictInlineEval=false`, config hợp lệ và channel probe đạt.
 
 ## Cấu hình Telegram Group ID khi tạo nhân viên
 
@@ -630,27 +751,23 @@ Trước khi thao tác, đọc `references/member-vps-creation-checklist.md` và
 2. Đặt `groupPolicy: "allowlist"` tại đúng cấp Telegram/account theo schema của phiên bản OpenClaw đang cài.
 3. Thêm từng Group ID vào cả `channels.telegram.groups` và `channels.telegram.accounts.<accountId>.groups`; đặt `enabled: true`, `requireMention` theo yêu cầu và `allowFrom: ["*"]` để mọi thành viên trong đúng group được gọi bot.
 4. Không bỏ trống group `allowFrom`: OpenClaw hiện hành có thể fallback về account/DM `allowFrom` và vô tình chỉ cho user chủ bot. Không đưa Telegram user ID chủ bot vào group `allowFrom` nếu mục tiêu là mở cho mọi thành viên.
-5. Tạo binding từ đúng Telegram `accountId` tới agent `main` cho từng Group ID.
-6. Mỗi binding group phải có `match.peer.kind: "group"` và `match.peer.id` là Group ID dạng string.
-7. Tạo một binding riêng cho mỗi group; không gộp nhiều Group ID vào một binding.
-8. Trước khi thêm, kiểm tra toàn bộ `bindings` và không tạo bản ghi trùng bộ khóa `agentId + channel + accountId + peer.kind + peer.id`.
+5. Tạo đúng một account-level binding từ Telegram `accountId` tới agent `main`.
+6. Binding canonical chỉ có `match.channel: "telegram"` và `match.accountId`; không có `match.peer`.
+7. Không tạo binding riêng cho từng group. Danh sách group được giới hạn bằng `channels.telegram.groups` và `channels.telegram.accounts.<accountId>.groups`.
+8. Trước khi thêm, xóa/gộp peer-specific binding legacy theo `unify-openclaw-bot-workspace`, rồi xác nhận toàn account chỉ còn một binding tới `main`.
 9. Chạy `openclaw config validate` thành công trước khi restart gateway. Nếu validate lỗi, không restart và không báo cấu hình đã hoàn tất.
 10. Kiểm tra BotFather `Group Privacy` đã tắt nếu group cần nhận tin nhắn thường không mention. Việc này cần người quản trị bot xác nhận hoặc thao tác bằng `/setprivacy` → chọn bot → `Disable`.
 11. Sau restart, chạy `openclaw gateway status` và `openclaw channels status --probe`, rồi kiểm tra log có inbound từ đúng Group ID và outbound gửi thành công.
 12. Không báo thành công hoàn toàn nếu mới chỉ validate/configure mà chưa thấy cả inbound và outbound thực tế.
 
-Mẫu binding cho một group:
+Mẫu binding canonical cho toàn Telegram account:
 
 ```json
 {
   "agentId": "main",
   "match": {
     "channel": "telegram",
-    "accountId": "<telegram_account_id>",
-    "peer": {
-      "kind": "group",
-      "id": "<telegram_group_id>"
-    }
+    "accountId": "<telegram_account_id>"
   }
 }
 ```
@@ -709,15 +826,14 @@ Giữ `groupPolicy: "allowlist"` tại cấp Telegram/account để không mở 
 HOME=<EFFECTIVE_HOME> openclaw agents bindings
 ```
 
-Nếu thiếu route, thêm đúng một binding cho mỗi group theo mẫu ở phần **Cấu hình Telegram Group ID khi tạo nhân viên**:
+Nếu thiếu route, thêm đúng một account-level binding theo mẫu ở phần **Cấu hình Telegram Group ID khi tạo nhân viên**:
 
 - `agentId: "main"`
 - `match.channel: "telegram"`
 - `match.accountId`: đúng account đang polling
-- `match.peer.kind: "group"`
-- `match.peer.id`: đúng Group ID dạng string
+- không có `match.peer`
 
-Trường hợp đã chứng minh thực tế: group entry và wildcard đúng nhưng thiếu binding group → `main`; sửa policy lặp lại không giải quyết cho tới khi thêm binding và restart Gateway sạch.
+Nếu còn peer-specific binding hoặc route sang agent khác, dùng `unify-openclaw-bot-workspace` để chuẩn hóa trước khi restart Gateway. Group entry và wildcard vẫn quyết định group nào được phép gọi bot; binding account-level chỉ bảo đảm DM/group/owner cùng đi qua `main`.
 
 ### 3. Phân loại lỗi bằng log mới
 
@@ -732,7 +848,7 @@ Phân loại:
 
 - Có `not-allowed`: sai/missing group entry, sender `allowFrom`, account scope hoặc Group ID đã migrate.
 - Không có inbound nào: kiểm tra đúng group hiện tại, bot còn trong group, BotFather Privacy Mode, quyền admin khi cần, polling `connected`, token có bị process khác polling gây `409 Conflict` hay không.
-- Có inbound nhưng không tạo session group: kiểm tra binding account/group → `main`.
+- Có inbound nhưng không tạo session group: kiểm tra account-level binding → `main` và group entry đúng Group ID.
 - Có session `agent:main:telegram:group:<GROUP_ID>` nhưng không outbound: kiểm tra provider/model, tool policy, lỗi agent và quota/API.
 - Có inbound, session group và outbound: lỗi đã xử lý; ghi lại thời gian test và user xác nhận.
 
@@ -1310,7 +1426,8 @@ Khi báo kết quả cho user, hướng dẫn test bằng câu hỏi cần tra c
 cd /root/Apps/member_vps/docker-users
 bash manage-user.sh show <ten_user>
 docker exec -e HOME=/root user-<ten_user> sh -lc 'openclaw --version && HOME=/root openclaw gateway status && HOME=/root openclaw channels status --probe'
-python3 /root/.agents/skills/tao-tro-ly-openclaw-windows-macos-linux/scripts/ensure_default_telegram_owner.py --openclaw-root /root/Apps/member_vps/docker-users/data/<ten_user>/root/.openclaw --account-id '<ten_user>' --check
+docker exec -e HOME=/root user-<ten_user> openclaw agents list --bindings --json
+bash /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh --member '<ten_user>' --agent main --check
 docker exec -e HOME=/root user-<ten_user> openclaw exec-policy show
 docker exec -e HOME=/root user-<ten_user> sh -lc 'python3 --version && document-python --version && command -v pdfinfo && command -v pdftotext'
 docker exec -e HOME=/root user-<ten_user> sh -lc '/root/.openclaw/tools/document-venv/bin/python -c "import openpyxl,pypdf,pdfplumber,fitz,PIL,xlsxwriter,pandas; print(\"document_modules=OK\")"'

@@ -38,6 +38,7 @@ MEMBER_DATA_DIR=<host-member-home> \
 ```
 
 `MEMBER_DATA_DIR` must point to the host directory that directly contains `.openclaw`; some members use `data/<member>`, while others use `data/<member>/root`.
+The patch script checks compatible send bundles newest-first so an old patched plugin generation cannot hide an unpatched active generation. After a plugin update, confirm the dry-run target belongs to the source path reported by `openclaw plugins inspect zalouser`.
 
 ## Decision tree
 

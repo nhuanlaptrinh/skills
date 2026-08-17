@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+resolved_script="$(readlink -f "${BASH_SOURCE[0]}")"
+detected_member_home="$(dirname "$(dirname "$(dirname "$resolved_script")")")"
+member_home="${GAN_DOMAIN_MEMBER_HOME:-$detected_member_home}"
+state_root="${GAN_DOMAIN_STATE_ROOT:-${member_home}/.gan-domain}"
+nginx_store="${state_root}/nginx"
+backup_root="${state_root}/backups"
+nginx_active_dir="/etc/nginx/conf.d"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  gan-domain status
+  gan-domain list
+  gan-domain check <domain>
+  gan-domain add <domain> --port <port> [--dry-run]
+  gan-domain add <domain> --root <absolute-path-under-home> [--dry-run]
+  gan-domain remove <domain> --yes
+EOF
+}
+
+validate_domain() {
+  local domain="$1"
+  if [[ ! "$domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
+    echo "Invalid lowercase domain: $domain" >&2
+    exit 2
+  fi
+}
+
+require_root() {
+  if [[ ${EUID} -ne 0 ]]; then
+    echo "This operation requires sudo/root." >&2
+    exit 1
+  fi
+}
+
+find_conflicts() {
+  local domain="$1"
+  local active_path="$2"
+  local candidate
+  for candidate in /etc/nginx/conf.d/*.conf /etc/nginx/sites-enabled/*; do
+    [[ -e "$candidate" ]] || continue
+    [[ "$(readlink -f "$candidate")" == "$(readlink -m "$active_path")" ]] && continue
+    if grep -Fq "$domain" "$candidate"; then
+      printf '%s\n' "$candidate"
+    fi
+  done
+}
+
+command_name="${1:-}"
+case "$command_name" in
+  status)
+    if ! pgrep -f '[c]loudflared.*tunnel.*token-file' >/dev/null; then
+      echo "cloudflared: STOPPED"
+      exit 1
+    fi
+    connections="$(curl -fsS http://127.0.0.1:49312/metrics | awk '$1 == "cloudflared_tunnel_ha_connections" { print $2 }')"
+    echo "cloudflared: RUNNING"
+    echo "ha_connections: ${connections:-unknown}"
+    ;;
+  list)
+    nginx -T 2>/dev/null | awk '
+      $1 == "server_name" {
+        for (field_no = 2; field_no <= NF; field_no++) {
+          gsub(/;/, "", $field_no)
+          if ($field_no != "_") print $field_no
+        }
+      }
+    ' | sort -u
+    ;;
+  check)
+    domain="${2:-}"
+    validate_domain "$domain"
+    curl -fsSIL --max-time 15 -H "Host: $domain" http://127.0.0.1:80/ | sed -n '1,20p'
+    ;;
+  add)
+    require_root
+    domain="${2:-}"
+    validate_domain "$domain"
+    shift 2
+    port=""
+    root_path=""
+    dry_run="false"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --port)
+          port="${2:-}"
+          shift 2
+          ;;
+        --root)
+          root_path="${2:-}"
+          shift 2
+          ;;
+        --dry-run)
+          dry_run="true"
+          shift
+          ;;
+        *)
+          echo "Unknown argument: $1" >&2
+          exit 2
+          ;;
+      esac
+    done
+
+    if [[ -n "$port" && -n "$root_path" ]] || [[ -z "$port" && -z "$root_path" ]]; then
+      echo "Choose exactly one of --port or --root." >&2
+      exit 2
+    fi
+
+    if [[ -n "$port" ]]; then
+      if [[ ! "$port" =~ ^[0-9]{1,5}$ ]] || (( port < 1 || port > 65535 )); then
+        echo "Invalid port." >&2
+        exit 2
+      fi
+    else
+      if [[ "$root_path" != "${member_home}"/* || "$root_path" == *".."* || ! "$root_path" =~ ^/[A-Za-z0-9_./-]+$ ]]; then
+        echo "Static root must be an absolute safe path below $member_home." >&2
+        exit 2
+      fi
+      if [[ ! -d "$root_path" ]]; then
+        echo "Static root does not exist: $root_path" >&2
+        exit 1
+      fi
+    fi
+
+    install -d -m 700 "$nginx_store" "$backup_root"
+    canonical_path="${nginx_store}/${domain}.conf"
+    active_path="${nginx_active_dir}/gan-domain-${domain}.conf"
+    conflicts="$(find_conflicts "$domain" "$active_path")"
+    if [[ -n "$conflicts" ]]; then
+      echo "Domain already appears in another Nginx config:" >&2
+      printf '%s\n' "$conflicts" >&2
+      exit 1
+    fi
+
+    temporary_conf="$(mktemp "${state_root}/.${domain}.XXXXXX.conf")"
+    trap 'rm -f "$temporary_conf"' EXIT
+    if [[ -n "$port" ]]; then
+      cat >"$temporary_conf" <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${domain};
+
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+EOF
+    else
+      cat >"$temporary_conf" <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${domain};
+    root ${root_path};
+    index index.html index.htm;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+}
+EOF
+    fi
+
+    if [[ "$dry_run" == "true" ]]; then
+      cat "$temporary_conf"
+      echo "Dry-run only; no Nginx file changed."
+      exit 0
+    fi
+
+    backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    backup_dir="${backup_root}/${domain}/${backup_stamp}"
+    install -d -m 700 "$backup_dir"
+    [[ -e "$canonical_path" ]] && cp -a "$canonical_path" "$backup_dir/"
+    [[ -e "$active_path" || -L "$active_path" ]] && cp -aL "$active_path" "$backup_dir/active.conf.before"
+
+    install -m 644 "$temporary_conf" "$canonical_path"
+    ln -sfn "$canonical_path" "$active_path"
+    if ! nginx -t; then
+      rm -f "$active_path" "$canonical_path"
+      echo "Nginx validation failed; new config was removed. Backup: $backup_dir" >&2
+      exit 1
+    fi
+    nginx -s reload
+    echo "Local domain is ready: $domain"
+    echo "Cloudflare Public Hostname: $domain"
+    echo "Cloudflare service: HTTP -> localhost:80"
+    echo "Backup: $backup_dir"
+    ;;
+  remove)
+    require_root
+    domain="${2:-}"
+    confirmation="${3:-}"
+    validate_domain "$domain"
+    if [[ "$confirmation" != "--yes" ]]; then
+      echo "Removal requires --yes." >&2
+      exit 2
+    fi
+    canonical_path="${nginx_store}/${domain}.conf"
+    active_path="${nginx_active_dir}/gan-domain-${domain}.conf"
+    if [[ ! -e "$canonical_path" && ! -L "$active_path" ]]; then
+      echo "Domain is not managed by gan-domain: $domain" >&2
+      exit 1
+    fi
+    backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    backup_dir="${backup_root}/${domain}/${backup_stamp}"
+    install -d -m 700 "$backup_dir"
+    [[ -e "$canonical_path" ]] && cp -a "$canonical_path" "$backup_dir/"
+    rm -f "$active_path" "$canonical_path"
+    nginx -t
+    nginx -s reload
+    echo "Removed local Nginx domain: $domain"
+    echo "Remove its Public Hostname separately in Cloudflare."
+    echo "Backup: $backup_dir"
+    ;;
+  -h|--help|help|"")
+    usage
+    ;;
+  *)
+    echo "Unknown command: $command_name" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

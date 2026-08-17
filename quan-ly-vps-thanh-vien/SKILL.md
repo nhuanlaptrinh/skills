@@ -9,9 +9,9 @@ Skill này dùng để tạo, liệt kê, kiểm tra hoặc giới hạn tài ng
 
 ## Source Of Truth
 
-- Project: `/root/docker-users`
-- Script: `/root/docker-users/manage-user.sh`
-- Dữ liệu persistent: `/root/docker-users/data/<username>`; kiểm tra `docker inspect` vì member mới/custom có thể tách `home` và `root` thành các bind mount riêng.
+- Project: `/root/Apps/member_vps/docker-users`
+- Script: `/root/Apps/member_vps/docker-users/manage-user.sh`
+- Dữ liệu persistent: `/root/Apps/member_vps/docker-users/data/<username>`; kiểm tra `docker inspect` vì member mới/custom có thể tách `home` và `root` thành các bind mount riêng.
 - Image fallback hiện hành của `manage-user.sh`: `vps-user-env`; có thể override bằng `MEMBER_VPS_IMAGE`.
 
 ## Giới Hạn Mặc Định
@@ -26,24 +26,25 @@ Container tạo mới mặc định có:
 Ngoại lệ disk guard hiện hành:
 
 - `user-dinh`: `24 GiB`
+- `user-quocphong`: `30 GiB`
 - PMT: `25 GiB`, tính gộp `user-pmt`, writable layer của `n8n-pmt-app`/`n8n-pmt-runners`, bind data và named volume `root_n8n_pmt_data`.
 
 ## Lệnh Quản Lý Chính
 
 1. **Liệt kê danh sách thành viên:**
    ```bash
-   /root/docker-users/manage-user.sh list
+   /root/Apps/member_vps/docker-users/manage-user.sh list
    ```
 
 2. **Tạo thành viên mới:**
    ```bash
-   /root/docker-users/manage-user.sh create <username> <password> <ssh_port> <web_port>
+   /root/Apps/member_vps/docker-users/manage-user.sh create <username> <password> <ssh_port> <web_port>
    ```
    Không ghi mật khẩu thật vào log, tài liệu hoặc câu trả lời.
 
 3. **Xem một thành viên:**
    ```bash
-   /root/docker-users/manage-user.sh show <username>
+   /root/Apps/member_vps/docker-users/manage-user.sh show <username>
    ```
 
 4. **Kiểm tra live resource:**
@@ -63,13 +64,13 @@ Ngoại lệ disk guard hiện hành:
 
 7. **Xem dung lượng mutable của tất cả member:**
    ```bash
-   /root/docker-users/manage-user.sh disk-status
+   /root/Apps/member_vps/docker-users/manage-user.sh disk-status
    ```
 
 ## Disk Guard
 
-- Script: `/root/docker-users/member-vps-disk-guard.sh`
-- Cấu hình: `/root/docker-users/member-vps-disk-guard.conf`
+- Script: `/root/Apps/member_vps/docker-users/member-vps-disk-guard.sh`
+- Cấu hình: `/root/Apps/member_vps/docker-users/member-vps-disk-guard.conf`
 - Trạng thái gần nhất: `/var/lib/member-vps-disk-guard/status.tsv`
 - Systemd timer: `member-vps-disk-guard.timer`, chạy mỗi 5 phút với CPU nice `19` và I/O class `idle`.
 - Tổng dung lượng thông thường được tính bằng writable layer `SizeRw` cộng các bind mount persistent nằm dưới thư mục `data` của project. Shared image layers không tính riêng cho từng member.

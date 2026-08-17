@@ -178,6 +178,81 @@ def main():
         assert not (main_workspace / "training.md").exists()
         assert not list((main_workspace / "memory").glob("merged-from-owner-admin-*-memory_day.md"))
 
+    with tempfile.TemporaryDirectory(prefix="unify-openclaw-normalize-test-") as temporary:
+        root = pathlib.Path(temporary) / ".openclaw"
+        backup = pathlib.Path(temporary) / "backups"
+        workspace = root / "workspace"
+        workspace.mkdir(parents=True)
+        (root / "agents/main/agent").mkdir(parents=True)
+        (workspace / "AGENTS.md").write_text("main rules\n", encoding="utf-8")
+
+        config = {
+            "agents": {
+                "defaults": {"workspace": str(workspace)},
+                "list": [{"id": "main", "default": True}],
+            },
+            "bindings": [
+                {
+                    "agentId": "main",
+                    "match": {
+                        "channel": "telegram",
+                        "accountId": "bot",
+                        "peer": {"kind": "group", "id": "-100111111"},
+                    },
+                }
+            ],
+            "channels": {
+                "telegram": {
+                    "allowFrom": ["111111"],
+                    "accounts": {"bot": {"allowFrom": ["111111"]}},
+                }
+            },
+            "commands": {"ownerAllowFrom": ["telegram:111111"]},
+            "approvals": {"plugin": {"agentFilter": ["main"], "targets": []}},
+        }
+        approvals = {"version": 1, "defaults": {}, "agents": {}}
+        config_path = root / "openclaw.json"
+        approvals_path = root / "exec-approvals.json"
+        write_json(config_path, config)
+        write_json(approvals_path, approvals)
+        before_config = digest(config_path)
+        before_approvals = digest(approvals_path)
+
+        common = [
+            "--openclaw-root",
+            root,
+            "--runtime-openclaw-root",
+            root,
+            "--account-id",
+            "bot",
+            "--target-agent",
+            "main",
+            "--backup-dir",
+            backup,
+        ]
+        dry_run = run(*common)
+        assert "source_agent_count=0" in dry_run.stdout
+        assert digest(config_path) == before_config
+        assert digest(approvals_path) == before_approvals
+
+        applied = run(*common, "--apply", "--gateway-stopped")
+        manifest_line = next(line for line in applied.stdout.splitlines() if line.startswith("manifest="))
+        manifest = pathlib.Path(manifest_line.split("=", 1)[1])
+        updated = json.loads(config_path.read_text(encoding="utf-8"))
+        assert updated["bindings"] == [
+            {"agentId": "main", "match": {"channel": "telegram", "accountId": "bot"}}
+        ]
+        assert updated["agents"]["list"][0]["workspace"] == str(workspace)
+        assert updated["agents"]["list"][0]["tools"]["profile"] == "full"
+        assert updated["agents"]["list"][0]["tools"]["toolsBySender"]["channel:telegram:111111"] == {}
+        assert json.loads(manifest.read_text(encoding="utf-8"))["moved"] == []
+
+        checked = run(*common, "--check")
+        assert "status=compliant" in checked.stdout
+        run("--rollback-manifest", manifest, "--gateway-stopped")
+        assert digest(config_path) == before_config
+        assert digest(approvals_path) == before_approvals
+
     print("unify_bot_workspace_test=ok")
 
 

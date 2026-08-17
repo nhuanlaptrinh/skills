@@ -1,6 +1,6 @@
 ---
 name: unify-openclaw-bot-workspace
-description: Merge and standardize OpenClaw Telegram routing so each bot account uses exactly one agent, one workspace, and one agent state directory for both DMs and groups, while preserving training data and granting every configured owner full guarded access. Use when a bot has separate main/admin agents or workspaces, DM and group knowledge diverge, owner bindings created an extra workspace, or another member VPS needs the same one-bot-one-workspace policy with backup, dry-run, validation, and rollback.
+description: Normalize or merge OpenClaw Telegram routing so each bot account uses exactly one agent, one workspace, and one agent state directory for both DMs and groups, while preserving training data and granting every configured owner full guarded access. Use for a clean new member that needs canonical main/account-level routing, or when a legacy bot has separate main/admin agents, peer bindings, divergent workspaces, or owner routing that needs backup, dry-run, validation, and rollback.
 ---
 
 # Unify OpenClaw Bot Workspace
@@ -36,6 +36,16 @@ python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_work
 
 Dry-run reports sanitized counts only and performs no writes.
 
+For a clean new member with only `main`, omit `--source-agent`. This normalize-only mode rewrites account routing and guarded owner policy without merging or retiring another workspace:
+
+```bash
+python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py \
+  --openclaw-root <HOST_OPENCLAW_ROOT> \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id <TELEGRAM_ACCOUNT_ID> \
+  --target-agent main
+```
+
 ## Apply
 
 1. Stop or quiesce only the Gateway and confirm it cannot write config/session state.
@@ -55,6 +65,8 @@ python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_work
 3. Preserve the returned `manifest` path. It is the rollback source of truth.
 4. Merge useful source control-file rules into the canonical workspace manually only after review. Do not replace the canonical persona or group privacy rules.
 5. Validate config while the Gateway remains stopped, then restart only the Gateway.
+
+For normalize-only on a clean member, use the same apply command without `--source-agent`. The transaction still backs up config and approvals, but has zero moved source workspaces.
 
 The script copies source-only files, skips identical files, namespaces conflicts, retires source workspace/agent state into the transaction, routes the whole account to the target, synchronizes all configured Telegram owners, protects non-owner tools, resets source `allow-always` rules, and writes atomically.
 
@@ -87,7 +99,7 @@ Rollback also refuses to overwrite `openclaw.json` or `exec-approvals.json` if e
 
 ## New Bots
 
-Create a new agent/workspace only when adding a distinct bot/account. Bind the whole new account at account level. Never create an extra agent/workspace merely to grant another owner access to an existing bot.
+Create a new agent/workspace only when adding a distinct bot/account. For a new member with one bot and only `main`, run normalize-only without `--source-agent`, bind the whole account at account level, and verify with `--check`. Never create an extra agent/workspace merely to grant another owner access to an existing bot.
 
 ## Completion
 

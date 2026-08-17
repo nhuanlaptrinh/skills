@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cấp Full Quyền Telegram OpenClaw"
+  short_description: "Chuẩn hóa owner Telegram và bật Full Exec"
+  default_prompt: "Dùng $cap-full-quyen-telegram-openclaw để cấp owner Telegram và Full Exec cho một member OpenClaw."

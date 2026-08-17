@@ -114,8 +114,10 @@ Image đích phải loại user/home nguồn, không chứa secret, pin đúng O
 3. Đồng bộ toàn bộ skill, chạy `--check`, `openclaw skills check` và `openclaw config validate` bằng container tạm.
 4. Chọn cổng chưa dùng; tạo đúng một container `user-<destination>` với giới hạn CPU/RAM/swap/PID chuẩn và restart policy `unless-stopped`.
 5. Mở đúng SSH/web port trong firewall, không restart container khác.
-6. Kiểm tra model catalog, cả ba model chat, vision smoke-test, Gateway, Telegram, dashboard HTTP, SSH/web listener, document modules và disk guard.
-7. Snapshot sau thay đổi; so sánh ID/trạng thái các member cũ với snapshot trước.
+6. Sau khi Telegram account/owner tồn tại, inventory agents/bindings. Với `copy-new-member` sạch chỉ có `main`, chạy unify normalize-only dry-run/apply/check không source; nếu state cùng-member còn `owner-admin` hoặc agent legacy thì dừng Gateway, dry-run/apply/check với đúng source để gộp về `main`.
+7. Chạy `set-openclaw-agent-full-exec` cho `main` sau cùng; dùng `--no-restart` trước lần start đầu và chạy lại `--check` sau khi Gateway lên.
+8. Kiểm tra model catalog, cả ba model chat, vision smoke-test, Gateway, Telegram, dashboard HTTP, SSH/web listener, document modules, one-agent/one-workspace, Full Exec và disk guard.
+9. Snapshot sau thay đổi; so sánh ID/trạng thái các member cũ với snapshot trước.
 
 ## Rerun và rollback
 

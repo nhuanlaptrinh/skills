@@ -26,6 +26,7 @@
 - [ ] `HOME=/root`, OpenClaw root `/root/.openclaw`, workspace `/root/.openclaw/workspace`
 - [ ] Không dùng `--skip-skills`
 - [ ] Toàn bộ folder có `SKILL.md` từ root nguồn đã nằm trực tiếp trong `/root/.openclaw/workspace/skills`
+- [ ] Có `unify-openclaw-bot-workspace` và `set-openclaw-agent-full-exec` ở cả `/root/.agents/skills` host và workspace member
 - [ ] Không còn `.git`, `__pycache__`, `.pyc` hoặc `node_modules` trong các skill đích
 - [ ] `sync_all_skills_to_root.py --check` đạt
 - [ ] `openclaw skills check` đạt trước khi start Gateway
@@ -52,14 +53,16 @@
 - [ ] `commands.ownerDisplay` là `raw`
 - [ ] Khi đổi owner khác vẫn merge giữ `telegram:6980864856`; không ghi đè toàn bộ mảng
 
-## Native exec approval
+## Owner approval và Full Exec cuối
 - [ ] Global và account `channels.telegram.execApprovals.enabled` là `auto`
 - [ ] Global và account `execApprovals.approvers` có `6980864856`
 - [ ] Global và account `execApprovals.target` là `dm`
 - [ ] Telegram DM inline buttons đã bật
-- [ ] Global/agent liên quan dùng `tools.exec.host=gateway`, `tools.exec.mode=auto`, `strictInlineEval=true`
-- [ ] `exec-approvals.json` có `security=allowlist`, `ask=on-miss`, `askFallback=deny` cho default và agent liên quan
-- [ ] `openclaw exec-policy show` xác nhận effective policy không phải `full/off`
+- [ ] `ensure_default_telegram_owner.py` đã chạy trước bước unify/Full Exec
+- [ ] Agent `main` dùng `tools.exec.host=gateway`, `tools.exec.mode=full`, `strictInlineEval=false`
+- [ ] `exec-approvals.json` của `main` có `security=full`, `ask=off`, `askFallback=full`, `autoAllowSkills=true`
+- [ ] `set-openclaw-agent-full-exec --check` xác nhận effective runtime `full/off`
+- [ ] Hiểu rõ Full Exec không hiện approval prompt cho lệnh Exec; approver vẫn dùng cho plugin/Skill Workshop theo policy riêng
 
 ## Forwarded exec approval
 - [ ] `approvals.exec.enabled` true
@@ -75,8 +78,8 @@
 - [ ] Target Telegram `6980864856` qua đúng account member
 - [ ] Target Telegram `8342048167` qua đúng account member
 - [ ] `skills.workshop.approvalPolicy` là `pending`, không phải `auto`
-- [ ] `6980864856` nhận và xử lý được approval exec/plugin/Skill Workshop
-- [ ] Hướng dẫn dùng Allow once hoặc `/approve <id> allow-once`
+- [ ] `6980864856` nhận và xử lý được approval plugin/Skill Workshop
+- [ ] Chỉ hướng dẫn Allow once hoặc `/approve <id> allow-once` cho approval còn tồn tại; không nói Exec Full cần duyệt
 - [ ] Không dùng proposal ID thay approval ID
 
 ## Telegram group
@@ -85,8 +88,8 @@
 - [ ] Group allowFrom là `["*"]` ở top-level và account scope
 - [ ] Không để group thiếu allowFrom vì sẽ fallback về DM owner allowlist
 - [ ] requireMention mặc định false, trừ khi user yêu cầu true
-- [ ] Binding riêng đúng account và group
-- [ ] Không binding trùng
+- [ ] Toàn Telegram account có đúng một account-level binding tới `main`, không có `match.peer`
+- [ ] Không còn peer-specific binding hoặc binding sang agent khác
 
 ## Không cần mention
 - [ ] requireMention false
@@ -100,7 +103,7 @@
 - [ ] Xác định `HOME` và config hiệu lực từ process `openclaw-gateway`
 - [ ] So sánh `channels.telegram` và `bindings` với member cùng version đang chạy tốt
 - [ ] Top-level và account scope đều có đúng Group ID, enabled, requireMention và allowFrom
-- [ ] Có binding `telegram + accountId + peer group ID -> main`
+- [ ] Có đúng một binding `telegram + accountId -> main`, không có peer
 - [ ] `openclaw agents bindings` hiển thị route cần thiết, không trùng binding
 - [ ] Không dùng `docker restart` thay cho restart Gateway nếu supervisor không quản lý OpenClaw
 - [ ] Sau restart có process `openclaw-gateway` và cổng Gateway đang listen
@@ -110,7 +113,12 @@
 
 ## Runtime
 - [ ] `openclaw --version` đúng `2026.7.1-2`
-- [ ] `ensure_default_telegram_owner.py --check` đạt sau khi Telegram account tồn tại
+- [ ] `ensure_default_telegram_owner.py --check` đạt sau khi Telegram account tồn tại và trước Full Exec
+- [ ] Member sạch đã chạy unify normalize-only dry-run/apply/check; member legacy đã chạy merge với đúng source agent
+- [ ] `unify-openclaw-bot-workspace --check` đạt trước Full Exec: một account, một `main`, một workspace, một agent state
+- [ ] Nếu có `owner-admin`/workspace legacy: dry-run, apply khi Gateway stopped và lưu manifest rollback
+- [ ] `set-openclaw-agent-full-exec` đã chạy sau cùng và `--check` đạt sau khi Gateway lên
+- [ ] Sau Full Exec không chạy ngược owner/unify check; dùng `openclaw agents list --bindings --json` để audit kiến trúc read-only
 - [ ] config validate
 - [ ] Restart tmux sau khi source `token-codex.env`
 - [ ] gateway status OK
@@ -149,6 +157,8 @@
 - [ ] Proxy direct-first
 
 ## Hoàn tất
+- [ ] Agent cuối là `main`, workspace `/root/.openclaw/workspace`, agent state `/root/.openclaw/agents/main/agent`
+- [ ] Full Exec cuối là `gateway/full`, `security=full`, `ask=off`, `strictInlineEval=false`
 - [ ] Chỉ gửi email/mật khẩu Token Codex khi tài khoản thực tế đã được tạo
 - [ ] Gửi link xem credit `https://codex.anhlaptrinh.vn/`
 - [ ] Không gửi full API key

@@ -70,7 +70,7 @@ MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /roo
 - Watchdog coi cả listener exit và `Zalouser final reply failed: OutboundDeliveryError` là lỗi cần phục hồi. Container chạy gateway bằng `supervisord`; gửi `SIGTERM` cho `openclaw-gateway` hoặc fallback `openclaw` để supervisor tự khởi động lại, không dùng `tmux` hoặc chạy thêm gateway trùng port.
 - Validator có thể chạy lại nhiều lần sau mỗi lần tối ưu file.
 - Session audit mặc định chỉ đọc; chỉ dùng `--apply` sau backup.
-- Sau khi OpenClaw/plugin Zalo được cập nhật, chạy dry-run script patch; nếu bundle mới chưa có marker `ZALO_SEND_MAX_ATTEMPTS` thì chạy lại với `--apply` và restart gateway.
+- Sau khi OpenClaw/plugin Zalo được cập nhật, chạy dry-run script patch; script chọn bundle tương thích mới nhất để không nhầm generation cũ. Đối chiếu target với source từ `openclaw plugins inspect zalouser`; nếu bundle active chưa có marker `ZALO_SEND_MAX_ATTEMPTS` thì chạy lại với `--apply` và restart gateway.
 - Với group cần lưu tin nhưng không được phản hồi, dùng skill `zalo-silent-group-archive`; sau mỗi lần cập nhật plugin Zalo phải chạy lại dry-run patch silent archive.
 - Nếu compact trả `No compaction needed` nhưng session vẫn gây lỗi, backup session index rồi tạo session mới; không xóa transcript cũ.
 

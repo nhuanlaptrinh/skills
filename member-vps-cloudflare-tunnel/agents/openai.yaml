@@ -1,0 +1,4 @@
+interface:
+  display_name: "Member VPS Cloudflare Tunnel"
+  short_description: "Gan domain Cloudflare Tunnel cho member VPS"
+  default_prompt: "Use $member-vps-cloudflare-tunnel to connect and manage a member VPS domain through Cloudflare Tunnel."
