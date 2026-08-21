@@ -1,41 +1,37 @@
 ---
 name: cai-dat-audio-local-openclaw
-description: "Cài đặt bổ sung khả năng đọc voice Telegram/Zalo cho OpenClaw bằng faster-whisper local, không dùng API transcription trả phí. Use cho member VPS Docker gọi Shared Local STT trên VPS chính hoặc VPS riêng cài model local độc lập; bao gồm backup, dry-run, apply, test, đo CPU/RAM và rollback."
+description: "Cai dat, van hanh, kiem tra, sua loi hoac rollback toan bo audio cho OpenClaw tren Telegram va Zalo: nhan mic/voice bang faster-whisper local hoac Shared Local STT, xu ly URL voice Zalo zdn.vn AAC, va tra loi bang text kem voice Microsoft Edge TTS. Use cho VPS chinh, VPS rieng hoac member Docker; bao gom backup, dry-run, gioi han pham vi agent/account, test CPU/RAM va bao ve credential."
 ---
 
-# Cài Audio Local OpenClaw
+# Cai Dat Audio OpenClaw
 
-Skill này bổ sung speech-to-text tiếng Việt cho OpenClaw bằng `faster-whisper small`, CPU INT8. Khi cần bot trả thêm voice, kết hợp với `/root/.agents/skills/cai-dat-tra-loi-audio-openclaw/SKILL.md`.
+Dung mot skill nay cho toan bo luong audio Telegram/Zalo. Khong can goi rieng cac skill cu `openclaw-local-voice-stt`, `openclaw-shared-voice-stt`, `zalo-voice-transcription` hoac `cai-dat-tra-loi-audio-openclaw`.
 
-## Hai Trường Hợp Triển Khai
+## Chon Luong
 
-1. **VPS thành viên Docker:** ưu tiên gọi Shared Local STT trên VPS chính. Với outbound TTS, config có thể nằm trên bind mount hoặc nằm legacy trong container; dùng installer tương ứng của skill `cai-dat-tra-loi-audio-openclaw`.
-2. **VPS riêng hoặc OpenClaw VPS chính:** dùng Shared Local STT nếu service đã có trên cùng VPS, hoặc cài standalone local nếu máy độc lập. Outbound TTS patch trực tiếp `openclaw.json` trên host.
+| Nhu cau | Luong can dung |
+|---|---|
+| Telegram/Zalo gui file voice vao bot | STT local hoac shared |
+| Zalo Personal dua vao URL `zdn.vn/*.aac` | Tai URL an toan, sau do goi shared STT |
+| Telegram bot tra text kem voice | Microsoft Edge TTS theo agent |
+| Van han dich vu faster-whisper dung chung | Dung them skill `shared-local-stt-service` |
 
-Ba lệnh bên dưới là các biến thể kỹ thuật thuộc hai trường hợp triển khai này, không phải ba loại VPS khác nhau.
+Khong bat TTS khi nguoi dung chi can bot hieu mic. Khong them provider STT tra phi khi yeu cau la local/khong ton API.
 
-## Chọn Chế Độ
+## Kiem Tra Truoc Khi Sua
 
-- **Member VPS Docker:** dùng `member-shared`. Container chỉ cài client nhỏ và gọi Shared Local STT tại VPS chính. Đây là chế độ ưu tiên khi VPS chính đã có `/root/AI_Runtime/shared_local_stt`.
-- **OpenClaw trên VPS chính:** dùng `host-shared`. Runtime `/root/.openclaw` gọi Shared Local STT trên cùng VPS, áp dụng toàn bộ bot dùng chung `tools.media.audio`.
-- **VPS riêng:** dùng `standalone-local`. Cài venv, thư viện và model ngay trên VPS đó; không phụ thuộc VPS chính.
+1. Doc quy dinh VPS, project note, `AGENTS.md` gan project va checklist production.
+2. Xac dinh config that nam tren host, bind mount hay chi nam trong container.
+3. Xac dinh dung agent/account Telegram va cac channel dung chung runtime.
+4. Chay dry-run, backup config vao `/root/_Backups`, sau do moi apply.
+5. Khong in `.env`, token, cookie, credential hoac noi dung transcript.
 
-Không cấu hình provider `gpt-4o-mini-transcribe` hoặc paid fallback khi yêu cầu là STT không tốn API.
+## Cai STT Cho Member Docker
 
-## Điều Kiện Chung
-
-- Linux x86_64, Python 3, `ffmpeg`, `ffprobe`, `jq` và `curl`.
-- Khuyến nghị từ 4 vCPU, 4 GB RAM và 2 GB disk trống.
-- Lần cài/model đầu cần Internet; sau khi model cache xong có thể phiên âm offline.
-- Audio mặc định tối đa 20 MB và 10 phút.
-- Backup production trước khi apply; không in `.env`, token, cookie hoặc credential.
-
-## Member VPS Dùng Shared STT
-
-Trước khi chạy installer, xác định config thật. Nếu gateway chạy `HOME=/root` và `/root` được bind-mount persistent từ member root, đây là **runtime legacy persistent**: dùng installer không restart container, validate, rồi chỉ respawn gateway. Không dùng `install_member_shared.sh --apply` vì lệnh đó restart toàn container.
+Uu tien Shared Local STT tren VPS chinh. Voi member co config persistent theo layout chuan, chay dry-run:
 
 ```bash
-bash /root/Automation/openclaw_member_assistant/scripts/install_member_shared_stt_without_container_restart.sh \
+bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_member_shared.sh \
   --container user-member \
   --member-root /root/Apps/member_vps/docker-users/data/member/root \
   --member-id member \
@@ -43,59 +39,11 @@ bash /root/Automation/openclaw_member_assistant/scripts/install_member_shared_st
   --dry-run
 ```
 
-Đổi thành `--apply`, validate config, rồi signal riêng gateway để Supervisor tự respawn:
+Doi `--dry-run` thanh `--apply` sau khi endpoint health, config path va owner deu dung. Script se restart container sau apply; voi member legacy can respawn gateway rieng, dung quy trinh da duoc backup va kiem tra rieng. Installer tao client tai `workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py`.
 
-```bash
-docker exec user-member sh -lc 'kill -TERM "$(pgrep -xo openclaw-gateway)"'
-```
+## Cai STT Cho OpenClaw Host
 
-Nếu `/root` không persistent, backup bằng `docker cp`, cài trực tiếp trong container và vẫn chỉ respawn gateway. Sau respawn, phải kiểm tra startup log và kết nối Telegram/Zalo.
-
-Dry-run:
-
-```bash
-bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_member_shared.sh \
-  --container user-member \
-  --member-root /root/Apps/member_vps/docker-users/data/member \
-  --member-id member \
-  --container-openclaw-home /home/member/.openclaw \
-  --dry-run
-```
-
-Apply:
-
-```bash
-bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_member_shared.sh \
-  --container user-member \
-  --member-root /root/Apps/member_vps/docker-users/data/member \
-  --member-id member \
-  --container-openclaw-home /home/member/.openclaw \
-  --apply
-```
-
-Mặc định installer dùng endpoint `http://172.17.0.1:18080`, đọc token từ `/root/AI_Runtime/shared_local_stt/.env`, copy token vào credential member, tạo client workspace, patch `tools.media.audio.models`, test health và restart container. Luôn truyền đúng `--container-openclaw-home`; tên project/member có thể khác username bên trong container.
-
-## VPS Riêng Cài Local
-
-Dry-run:
-
-```bash
-bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_standalone_local.sh \
-  --openclaw-home /root/.openclaw \
-  --dry-run
-```
-
-Apply:
-
-```bash
-bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_standalone_local.sh \
-  --openclaw-home /root/.openclaw \
-  --apply
-```
-
-Installer tạo venv tại `<openclaw-home>/tools/local-stt-venv`, model cache tại `~/.cache/faster-whisper`, copy script vào workspace, cài `faster-whisper`, warm model `small`, rồi patch audio CLI local. Installer không tự đoán/cài lại OpenClaw và không sửa provider/model chat.
-
-## OpenClaw VPS Chính Dùng Shared STT
+Neu host goi Shared Local STT:
 
 ```bash
 bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_host_shared.sh \
@@ -104,53 +52,89 @@ bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_host_shar
   --dry-run
 ```
 
-Đổi thành `--apply` sau khi dry-run đạt. Installer patch một cấu hình `tools.media.audio` toàn cục nên tất cả Telegram/Zalo bot trong runtime đó cùng chuyển sang Shared Local STT.
-
-## Kiểm Tra
-
-Shared member:
+Neu VPS doc lap va can model local:
 
 ```bash
-docker exec user-member curl -fsS http://172.17.0.1:18080/health
-docker exec user-member python3 /home/member/.openclaw/workspace/skills/openclaw-shared-voice-stt/scripts/transcribe_shared.py /path/to/audio.ogg
+bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_standalone_local.sh \
+  --openclaw-home /root/.openclaw \
+  --dry-run
 ```
 
-Standalone:
+Installer standalone tao venv trong `<openclaw-home>/tools/local-stt-venv`, warm model `small`, va cau hinh CLI local. Lan dau can Internet; sau khi model da cache co the phien am offline.
+
+## Xu Ly Voice URL Zalo
+
+Khi plugin `zalouser` dua vao mot URL HTTPS `zdn.vn` ket thuc bang `.aac` thay vi media attachment, chay:
 
 ```bash
+python3 /root/.openclaw/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_zalo_voice.py '<URL_VOICE_ZALO>'
+```
+
+Script chi chap nhan `zdn.vn` va subdomain, gioi han 25 MB, dung thu muc tam, goi client shared cung skill va xoa audio sau khi xong. Dung stdout lam noi dung nguoi dung da noi; khong tra lai URL neu phien am thanh cong.
+
+## Bat Bot Tra Loi Bang Voice
+
+Voi config tren host, giu TTS global `off` va chi bat agent Telegram can dung:
+
+```bash
+bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/enable_edge_tts_agent.sh \
+  --config /root/.openclaw/openclaw.json \
+  --agent main \
+  --voice vi-VN-NamMinhNeural \
+  --auto-mode inbound \
+  --dry-run
+```
+
+Voi member legacy co config that trong container:
+
+```bash
+bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/enable_edge_tts_container.sh \
+  --container user-member \
+  --auto-mode always \
+  --dry-run
+```
+
+- `inbound`: chi tra voice khi input la voice.
+- `always`: ca input chu va voice deu tra text kem voice.
+- Giong nam: `vi-VN-NamMinhNeural`.
+- Giong nu: `vi-VN-HoaiMyNeural`.
+- Neu runtime co nhieu agent/channel, khong bat `always` toan cuc.
+
+Doc `references/telegram-scope.md` truoc khi bat TTS tren runtime dung chung Telegram va Zalo.
+
+## Kiem Tra
+
+Chay cac test phu hop, khong gui tin that neu chua duoc phep:
+
+```bash
+curl -fsS http://172.17.0.1:18080/health
+python3 /root/.openclaw/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py /path/to/audio.ogg
 /root/.openclaw/tools/local-stt-venv/bin/python \
-  /root/.openclaw/workspace/skills/openclaw-local-voice-stt/scripts/transcribe_local.py \
+  /root/.openclaw/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_local.py \
   /path/to/audio.ogg
 ```
 
-## Input Và Output
+Sau apply:
 
-- Input: container/member root hoặc OpenClaw home, cùng file audio khi test.
-- Output: OpenClaw tự thay voice bằng transcript; script CLI chỉ in transcript trên stdout.
-- Metrics local: `<openclaw-home>/logs/local-stt-metrics.jsonl`.
-- Metrics shared: `/root/AI_Runtime/shared_local_stt/logs/metrics.jsonl`.
-- Không ghi transcript text vào metrics, skill hoặc change log.
+1. Validate `openclaw.json` bang CLI cua runtime.
+2. Respawn/restart dung gateway, khong mac dinh restart ca container legacy.
+3. Kiem tra startup log, Telegram/Zalo channel status va Microsoft plugin neu dung TTS.
+4. Test bang fixture audio noi bo; chi test mic that khi duoc phep.
+5. Xac nhan bot/channel khac khong bi bat TTS ngoai y muon.
 
-## CPU Và RAM
+## Gioi Han Tai Nguyen
 
-- Mặc định giới hạn bốn CPU threads và một transcription hoạt động.
-- `400% CPU` của tiến trình tương đương bốn core; trên VPS 8 vCPU là khoảng 50% tổng CPU trong thời gian phiên âm.
-- Model `small` thường giữ khoảng 500–800 MB RSS; cần benchmark lại trên từng VPS.
-- Shared service nên giữ `CPUQuota=400%`, `MemoryMax=3G`, queue tối đa 20.
+- Audio STT mac dinh toi da 20 MB va 10 phut; Zalo URL toi da 25 MB truoc khi gui STT.
+- Local STT dung `faster-whisper small`, CPU INT8, bon CPU threads va mot transcription dong thoi.
+- `400% CPU` cua process tuong duong bon core; model thuong can khoang 500-1000 MB RSS tuy may.
+- Shared service giu `CPUQuota=400%`, `MemoryMax=3G`, mot worker va queue toi da 20 tru khi da benchmark lai.
+- Metrics chi ghi thoi gian, CPU/RAM va do dai transcript; khong ghi noi dung noi.
 
 ## Rollback
 
-- Installer luôn backup config vào `/root/_Backups` trước khi apply.
-- Member shared: phục hồi `openclaw.json` backup, credential backup nếu có, rồi restart container.
-- Standalone: phục hồi `openclaw.json` backup; venv/model có thể giữ lại để dùng sau, không cần xóa ngay.
-- Không xóa model cache, venv hoặc transcript khi chưa có yêu cầu rõ.
+- Khoi phuc `openclaw.json` va credential tu backup, validate, sau do restart/respawn gateway bang cach dang dung cua runtime.
+- Voi TTS, khoi phuc config va xac nhan text reply van hoat dong.
+- Co the giu venv/model cache de rollback nhanh; khong xoa audio, transcript, model hoac credential neu chua co yeu cau ro.
+- Neu token shared bi lo, dung quy trinh rotate trong skill `shared-local-stt-service`; khong in token ra terminal/log.
 
-## An Toàn
-
-- Đọc quy trình VPS, project note, AGENTS và production checklist trước khi apply.
-- Shared endpoint chỉ bind Docker gateway và chỉ allow subnet Docker bằng firewall.
-- Token phải nằm trong `.env`/credential mode `600`, không ghi inline vào JSON hay script.
-- Không gửi audio ra Internet, không thêm paid fallback và không log nội dung người nói.
-- Sau thay đổi production, cập nhật `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.
-
-Chi tiết kiến trúc và checklist xem `references/architecture.md`.
+Chi tiet kien truc va validation xem `references/architecture.md`.

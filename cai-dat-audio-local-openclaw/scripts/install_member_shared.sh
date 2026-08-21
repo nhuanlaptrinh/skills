@@ -33,7 +33,7 @@ done
 CONFIG="$MEMBER_ROOT/.openclaw/openclaw.json"
 WORKSPACE="$MEMBER_ROOT/.openclaw/workspace"
 CREDENTIALS="$MEMBER_ROOT/.openclaw/credentials"
-CLIENT_DIR="$WORKSPACE/skills/openclaw-shared-voice-stt/scripts"
+CLIENT_DIR="$WORKSPACE/skills/cai-dat-audio-local-openclaw/scripts"
 OWNER="$(stat -c '%u:%g' "$CONFIG")"
 
 docker inspect "$CONTAINER" >/dev/null
@@ -56,16 +56,17 @@ TOKEN="$(sed -n 's/^SHARED_STT_TOKEN=//p' "$SERVICE_ENV" | head -1)"
 [[ -n "$TOKEN" ]] || { echo "SHARED_STT_TOKEN missing" >&2; exit 1; }
 mkdir -p "$CLIENT_DIR" "$CREDENTIALS"
 cp "$SCRIPT_DIR/transcribe_shared.py" "$CLIENT_DIR/transcribe_shared.py"
-sed -i "s|^ENDPOINT = .*|ENDPOINT = \"${ENDPOINT}/v1/audio/transcriptions\"|; s|X-Member-Id: anhlaptrinhthu|X-Member-Id: ${MEMBER_ID}|" "$CLIENT_DIR/transcribe_shared.py"
+cp "$SCRIPT_DIR/transcribe_zalo_voice.py" "$CLIENT_DIR/transcribe_zalo_voice.py"
+sed -i "s|^ENDPOINT = .*|ENDPOINT = \"${ENDPOINT}/v1/audio/transcriptions\"|; s|^MEMBER_ID = .*|MEMBER_ID = \"${MEMBER_ID}\"|" "$CLIENT_DIR/transcribe_shared.py"
 printf '%s\n' "$TOKEN" > "$CREDENTIALS/shared-local-stt.token"
 unset TOKEN
-chmod 755 "$CLIENT_DIR/transcribe_shared.py"
+chmod 755 "$CLIENT_DIR/transcribe_shared.py" "$CLIENT_DIR/transcribe_zalo_voice.py"
 chmod 600 "$CREDENTIALS/shared-local-stt.token"
-chown -R "$OWNER" "$WORKSPACE/skills/openclaw-shared-voice-stt"
+chown -R "$OWNER" "$WORKSPACE/skills/cai-dat-audio-local-openclaw"
 chown "$OWNER" "$CREDENTIALS/shared-local-stt.token"
 
 TMP="$(mktemp)"
-jq --arg script "$CONTAINER_OPENCLAW_HOME/workspace/skills/openclaw-shared-voice-stt/scripts/transcribe_shared.py" '
+jq --arg script "$CONTAINER_OPENCLAW_HOME/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py" '
   .tools.media.audio.enabled = true |
   .tools.media.audio.language = "vi" |
   .tools.media.audio.models = [{

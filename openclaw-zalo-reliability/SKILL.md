@@ -22,7 +22,7 @@ description: Vận hành và sửa độ ổn định Zalo Personal cho OpenClaw
 - Vá retry/delay gửi nhiều đoạn: `/root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh`
 - Vá lưu group im lặng: `/root/Automation/openclaw_member_assistant/scripts/patch_zalouser_silent_archive.py`
 - Skill trong workspace: `/home/anhlaptrinh/.openclaw/workspace/skills/zalo-reliable-task-delivery/SKILL.md`
-- Skill voice AAC dùng chung: `/root/.agents/skills/zalo-voice-transcription/SKILL.md`
+- Skill audio dùng chung: `/root/.agents/skills/cai-dat-audio-local-openclaw/SKILL.md`
 
 ## Dry-run
 
@@ -62,7 +62,7 @@ MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /roo
 - Bộ cài tạo venv tại `/home/anhlaptrinh/.openclaw/tools/document-venv`.
 - Pipeline tạo member mới gọi bộ cài này mặc định, nên Python và document toolchain có sẵn ngay sau khi tạo VPS.
 - Plugin `zalouser` có thể đưa voice Zalo vào session dưới dạng URL `zdn.vn/*.aac` thay vì media attachment, nên `tools.media.audio` không tự kích hoạt.
-- Với voice AAC của Zalo, cài riêng `ffmpeg` trên VPS có dùng Zalo Personal và dùng skill `zalo-voice-transcription` để tải AAC, chuyển MP3 rồi gọi 9Router STT. Không áp dụng yêu cầu này cho VPS chỉ dùng Telegram.
+- Với voice AAC của Zalo, dùng luồng URL trong skill `cai-dat-audio-local-openclaw` để tải tạm AAC và gọi Shared Local STT. Không áp dụng yêu cầu này cho VPS chỉ dùng Telegram.
 
 ## Rerun
 

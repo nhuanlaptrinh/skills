@@ -15,8 +15,8 @@ description: Operate, benchmark, repair, extend, or connect member OpenClaw cont
 - Service: `/etc/systemd/system/shared-local-stt.service`
 - Health timer: `shared-local-stt-healthcheck.timer`
 - Internal endpoint: `http://172.17.0.1:18080/v1/audio/transcriptions`
-- Member client example: `/home/anhlaptrinh/.openclaw/workspace/skills/openclaw-shared-voice-stt/scripts/transcribe_shared.py`
-- Main OpenClaw client: `/root/.openclaw/workspace/skills/openclaw-shared-voice-stt/scripts/transcribe_shared.py`
+- Canonical member client: `<openclaw-home>/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py`
+- Existing deployments may retain the legacy `openclaw-shared-voice-stt/scripts/transcribe_shared.py` path until a separately tested migration.
 
 ## Architecture
 
@@ -34,7 +34,7 @@ systemctl is-active shared-local-stt-healthcheck.timer
 
 ```bash
 systemctl restart shared-local-stt.service
-docker exec user-anhlaptrinhthu python3 /home/anhlaptrinh/.openclaw/workspace/skills/openclaw-shared-voice-stt/scripts/transcribe_shared.py /path/to/audio.ogg
+docker exec user-member python3 /home/member/.openclaw/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py /path/to/audio.ogg
 ```
 
 ## Input And Output

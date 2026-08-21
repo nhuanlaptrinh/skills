@@ -23,7 +23,8 @@ done
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 WORKSPACE="$OPENCLAW_HOME/workspace"
 VENV="$OPENCLAW_HOME/tools/local-stt-venv"
-TARGET="$WORKSPACE/skills/openclaw-local-voice-stt/scripts/transcribe_local.py"
+TARGET="$WORKSPACE/skills/cai-dat-audio-local-openclaw/scripts/transcribe_local.py"
+ZALO_TARGET="$WORKSPACE/skills/cai-dat-audio-local-openclaw/scripts/transcribe_zalo_voice.py"
 RUNTIME_HOME="$(dirname "$OPENCLAW_HOME")"
 OWNER="$(stat -c '%u:%g' "$CONFIG")"
 
@@ -42,12 +43,13 @@ mkdir -p "$BACKUP"
 cp -a "$CONFIG" "$BACKUP/openclaw.json"
 mkdir -p "$(dirname "$TARGET")" "$OPENCLAW_HOME/tools"
 cp "$SCRIPT_DIR/transcribe_local.py" "$TARGET"
-chmod 755 "$TARGET"
+cp "$SCRIPT_DIR/transcribe_zalo_voice.py" "$ZALO_TARGET"
+chmod 755 "$TARGET" "$ZALO_TARGET"
 python3 -m venv "$VENV"
 "$VENV/bin/pip" install --upgrade pip
 "$VENV/bin/pip" install faster-whisper==1.2.1
 HOME="$RUNTIME_HOME" "$VENV/bin/python" -c 'import os; from pathlib import Path; from faster_whisper import WhisperModel; WhisperModel("small", device="cpu", compute_type="int8", cpu_threads=4, num_workers=1, download_root=str(Path.home()/".cache"/"faster-whisper"))'
-chown -R "$OWNER" "$WORKSPACE/skills/openclaw-local-voice-stt" "$OPENCLAW_HOME/tools/local-stt-venv" "$RUNTIME_HOME/.cache/faster-whisper"
+chown -R "$OWNER" "$WORKSPACE/skills/cai-dat-audio-local-openclaw" "$OPENCLAW_HOME/tools/local-stt-venv" "$RUNTIME_HOME/.cache/faster-whisper"
 
 TMP="$(mktemp)"
 jq --arg python "$VENV/bin/python" --arg script "$TARGET" '

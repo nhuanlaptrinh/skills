@@ -28,7 +28,7 @@ done
 [[ -n "$OPENCLAW_HOME" && -n "$MODE" ]] || { usage >&2; exit 2; }
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 CREDENTIALS="$OPENCLAW_HOME/credentials"
-CLIENT_DIR="$OPENCLAW_HOME/workspace/skills/openclaw-shared-voice-stt/scripts"
+CLIENT_DIR="$OPENCLAW_HOME/workspace/skills/cai-dat-audio-local-openclaw/scripts"
 [[ -f "$CONFIG" && -f "$SERVICE_ENV" ]] || { echo "Required config/service env missing" >&2; exit 1; }
 jq empty "$CONFIG"
 curl -fsS --max-time 5 "$ENDPOINT/health" >/dev/null
@@ -44,14 +44,15 @@ TOKEN="$(sed -n 's/^SHARED_STT_TOKEN=//p' "$SERVICE_ENV" | head -1)"
 [[ -n "$TOKEN" ]] || { echo "SHARED_STT_TOKEN missing" >&2; exit 1; }
 mkdir -p "$CLIENT_DIR" "$CREDENTIALS"
 cp "$SCRIPT_DIR/transcribe_shared.py" "$CLIENT_DIR/transcribe_shared.py"
-sed -i "s|^ENDPOINT = .*|ENDPOINT = \"${ENDPOINT}/v1/audio/transcriptions\"|; s|X-Member-Id: anhlaptrinhthu|X-Member-Id: ${MEMBER_ID}|" "$CLIENT_DIR/transcribe_shared.py"
+cp "$SCRIPT_DIR/transcribe_zalo_voice.py" "$CLIENT_DIR/transcribe_zalo_voice.py"
+sed -i "s|^ENDPOINT = .*|ENDPOINT = \"${ENDPOINT}/v1/audio/transcriptions\"|; s|^MEMBER_ID = .*|MEMBER_ID = \"${MEMBER_ID}\"|" "$CLIENT_DIR/transcribe_shared.py"
 printf '%s\n' "$TOKEN" > "$CREDENTIALS/shared-local-stt.token"
 unset TOKEN
-chmod 755 "$CLIENT_DIR/transcribe_shared.py"
+chmod 755 "$CLIENT_DIR/transcribe_shared.py" "$CLIENT_DIR/transcribe_zalo_voice.py"
 chmod 600 "$CREDENTIALS/shared-local-stt.token"
 
 TMP="$(mktemp)"
-jq --arg script "$OPENCLAW_HOME/workspace/skills/openclaw-shared-voice-stt/scripts/transcribe_shared.py" '
+jq --arg script "$OPENCLAW_HOME/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py" '
   .tools.media.audio.enabled = true |
   .tools.media.audio.language = "vi" |
   .tools.media.audio.timeoutSeconds = 180 |
