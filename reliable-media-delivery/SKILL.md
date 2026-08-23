@@ -28,6 +28,10 @@ Append this block:
 - Before sending media, confirm the intended local file exists, is readable, and is correct.
 - Send with the platform-native tool to the explicit recipient, group, channel, and thread when applicable.
 - Consider delivery successful only when the platform returns a real `messageId` and matching destination metadata.
+- For media work expected to finish in under 10 seconds, skip a separate future-tense progress message; finish the work, then send the verified completion text and media together.
+- If progress acknowledgement is needed, send it with the platform-native `message` tool and require a real `messageId` before starting `exec`, `process`, generation, conversion, or other file work.
+- Never put future-tense progress text in normal assistant content in the same turn that launches tools and later sends media; channel runtimes may buffer and replay that text after the media.
+- After the `message` tool successfully sends the completion text and media, respond with exactly `NO_REPLY` and no other assistant text.
 - If delivery fails or is ambiguous, do not claim success; inspect safely, avoid duplicates, retry once when safe, then report the verified state.
 - Follow workspace-specific delivery rules when they are more specific.
 <!-- reliable-media-delivery:end -->
