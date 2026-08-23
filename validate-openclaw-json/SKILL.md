@@ -1,6 +1,6 @@
 ---
 name: validate-openclaw-json
-description: Kiểm tra, sửa và mở rộng file openclaw.json cho hệ thống OpenClaw (Trợ Lý AI Telegram), gồm thêm bot/account/workspace, cấu hình group không cần mention, và đối chiếu các file mẫu tham khảo đã khử secret.
+description: Kiểm tra, sửa và mở rộng file openclaw.json cho hệ thống OpenClaw (Trợ Lý AI Telegram), gồm thêm bot/account/workspace, cấu hình group không cần mention, và đối chiếu các file mẫu tham khảo đã khử secret. Khi tạo agent/workspace mới, bắt buộc cài reliable-media-delivery, thêm policy vào workspace AGENTS.md và hoàn tất checklist nghiệm thu.
 ---
 
 # Skill: Kiểm Tra & Sửa File openclaw.json
@@ -153,6 +153,13 @@ openclaw.json
 - Chỉ tạo agent/workspace mới khi thêm một bot/account mới thật sự.
 - `channels.telegram.commands` chỉ dùng các field được schema hiện hành chấp nhận; luôn chạy `openclaw config validate` và không tự thêm field không có trong schema.
 
+#### Quy tắc 8: Agent/workspace mới phải có Reliable Media Delivery
+- Khi task thực sự tạo thêm agent/workspace, bắt buộc đồng bộ global skill `reliable-media-delivery` vào `<workspace>/skills/reliable-media-delivery`.
+- Đọc mục `Apply this skill to an agent` trong skill đó và append managed block vào `<workspace>/AGENTS.md`; không ghi đè nội dung sẵn có và không thêm block trùng marker.
+- Mỗi workspace mới phải được áp dụng riêng. Không dùng policy của workspace khác để thay thế.
+- Nếu task chỉ audit/validate JSON và không tạo workspace, báo mục này là `N/A`; không tự sửa filesystem ngoài phạm vi.
+- Nếu đã thêm config nhưng chưa thể tạo hoặc kiểm tra workspace, không được báo agent đã hoàn tất.
+
 ### Bước 5: Báo cáo kết quả
 Báo cáo cho user theo format:
 
@@ -173,12 +180,19 @@ Báo cáo cho user theo format:
 ⚠️ Cảnh báo (nên sửa):
 1. ...
 2. ...
+
+✅ Checklist agent/workspace mới:
+- [ ] N/A vì chỉ audit, không tạo agent/workspace; hoặc đã xác nhận đúng workspace mới.
+- [ ] reliable-media-delivery đã có trong workspace/skills.
+- [ ] AGENTS.md có đúng một cặp marker reliable-media-delivery.
+- [ ] Nội dung AGENTS.md cũ được giữ nguyên.
+- [ ] openclaw skills check và openclaw config validate đạt.
 ```
 
 ## Cách sửa file
 
 ### Thêm agent mới
-Khi user muốn thêm agent mới, cần sửa **3 chỗ đồng thời**:
+Khi user muốn thêm agent mới, cần sửa **3 phần config đồng thời** và hoàn tất **bước workspace bắt buộc**:
 
 1. Thêm vào `agents.list`:
 ```json
@@ -213,6 +227,25 @@ Khi user muốn thêm agent mới, cần sửa **3 chỗ đồng thời**:
   }
 }
 ```
+
+4. Tạo và chuẩn hóa workspace của agent:
+   - Tạo đúng đường dẫn khai báo trong `agents.list` nếu chưa tồn tại.
+   - Đồng bộ nguyên folder global skill `reliable-media-delivery` vào `<workspace>/skills/reliable-media-delivery`.
+   - Áp dụng skill để append managed block vào `<workspace>/AGENTS.md`; tạo file nếu chưa có, giữ nguyên nội dung cũ và không thêm trùng.
+   - Xác nhận hai marker `reliable-media-delivery:start` và `reliable-media-delivery:end` đều xuất hiện đúng một lần.
+   - Chạy `openclaw skills check` và `openclaw config validate` bằng đúng runtime trước khi báo hoàn tất.
+
+Checklist bàn giao bắt buộc cho agent mới:
+
+- [ ] Agent có ID unique và workspace riêng đúng config.
+- [ ] Account và account-level binding cùng trỏ đúng agent.
+- [ ] `<workspace>/skills/reliable-media-delivery/SKILL.md` tồn tại, đọc được.
+- [ ] `<workspace>/AGENTS.md` có đúng một managed block Reliable Media Delivery.
+- [ ] Nội dung sẵn có trong `AGENTS.md` không bị ghi đè.
+- [ ] Skill check, config validate và routing/binding check đạt.
+- [ ] Báo cáo cuối ghi đường dẫn workspace đã áp dụng nhưng không lộ secret/private identifier.
+
+Không được báo agent mới đã hoàn tất nếu checklist còn mục chưa đạt.
 
 ### Xóa agent
 Xóa khỏi cả 3 chỗ: `agents.list`, `bindings`, `channels.telegram.accounts`.
@@ -316,6 +349,7 @@ Lưu ý khi sửa:
 - **⚠️ Owner không tạo workspace**: DM owner và group của cùng bot phải cùng route vào canonical agent/workspace. Bot thứ hai mới tạo workspace thứ hai.
 - **Workspace trên Windows**: Dùng `\\` (double backslash), VD: `C:\\Users\\user\\.openclaw\\workspace_agentname`
 - **Workspace trên Linux**: Dùng `/`, VD: `/root/.openclaw/workspace_agentname`
+- **Reliable Media Delivery bắt buộc**: Mọi agent/workspace mới phải có skill dưới `workspace/skills`, policy trong `AGENTS.md` và checklist hoàn thành đã kiểm tra.
 - **Account `default`** là cấu hình fallback, luôn giữ và KHÔNG cần botToken
 - **`plugins.entries.telegram.enabled`** phải là `true` để Telegram hoạt động
 - **Không copy secret vào skill/examples**: token Telegram, API key, owner user ID riêng và group ID riêng trong file mẫu phải dùng placeholder.

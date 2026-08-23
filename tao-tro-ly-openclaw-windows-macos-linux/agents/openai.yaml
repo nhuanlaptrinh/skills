@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenClaw Windows, macOS, Linux"
-  short_description: "Cài OpenClaw và finalize main Full Exec"
-  default_prompt: "Dùng $tao-tro-ly-openclaw-windows-macos-linux để tạo hoặc sửa OpenClaw; với VPS member, chuẩn hóa Telegram về một agent main/workspace rồi bật Full Exec cho main trước khi bàn giao."
+  short_description: "Tạo OpenClaw kèm media policy và Full Exec"
+  default_prompt: "Dùng $tao-tro-ly-openclaw-windows-macos-linux để tạo hoặc sửa OpenClaw, áp dụng reliable-media-delivery vào từng workspace mới, hoàn tất checklist rồi mới bàn giao."

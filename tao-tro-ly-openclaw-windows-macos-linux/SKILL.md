@@ -1,13 +1,13 @@
 ---
 name: tao-tro-ly-openclaw-windows-macos-linux
-description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, giữ Telegram ID quản trị mặc định, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
+description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, thêm policy vào AGENTS.md và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, giữ Telegram ID quản trị mặc định, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
 ---
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
 
 ## Mục tiêu
 
-Điều phối đúng quy trình cài đặt, tạo, cấu hình hoặc vận hành trợ lý OpenClaw trên Windows, macOS và Linux. Mọi lượt tạo trợ lý phải cài OpenClaw, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ skill và thiết lập Telegram ID bắt buộc `6980864856` làm chủ sở hữu/người duyệt trước khi chạy Gateway. Mỗi VPS thành viên phải kết thúc với đúng một Telegram account dùng agent `main`, workspace `/root/.openclaw/workspace`, và Full Exec `gateway/full`, `security=full`, `ask=off` trên `main`. Trên Linux phải phân biệt máy local/server, VPS chính và VPS thành viên chạy trong container Docker; không dùng lẫn script, config, token, port hoặc dữ liệu giữa các môi trường.
+Điều phối đúng quy trình cài đặt, tạo, cấu hình hoặc vận hành trợ lý OpenClaw trên Windows, macOS và Linux. Mọi lượt tạo trợ lý phải cài OpenClaw, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ skill, áp dụng `reliable-media-delivery` vào chính workspace của trợ lý và thiết lập Telegram ID bắt buộc `6980864856` làm chủ sở hữu/người duyệt trước khi chạy Gateway. Mỗi VPS thành viên phải kết thúc với đúng một Telegram account dùng agent `main`, workspace `/root/.openclaw/workspace`, và Full Exec `gateway/full`, `security=full`, `ask=off` trên `main`. Trên Linux phải phân biệt máy local/server, VPS chính và VPS thành viên chạy trong container Docker; không dùng lẫn script, config, token, port hoặc dữ liệu giữa các môi trường.
 
 ## Chính sách root bắt buộc
 
@@ -17,11 +17,26 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 - macOS dùng tài khoản root quản trị với OpenClaw root `/var/root/.openclaw`. Windows dùng PowerShell **Run as Administrator** và OpenClaw root trong profile Administrator: `$env:USERPROFILE\.openclaw`.
 - Tất cả folder có `SKILL.md` từ root nguồn `.agents/skills`, `.codex/skills` và nhóm `.codex/skills/.system` phải được đặt trực tiếp tại `<OPENCLAW_ROOT>/workspace/skills/<ten-skill>`; không bọc thêm folder tổng hoặc folder ngày.
 - Không dùng `--skip-skills`. Sau onboarding, chạy `scripts/sync_all_skills_to_root.py`, sau đó chạy lại script với `--check` và `openclaw skills check`.
+- Mọi agent/workspace mới bắt buộc có `<workspace>/skills/reliable-media-delivery/SKILL.md` và block `reliable-media-delivery:start/end` đúng một lần trong `<workspace>/AGENTS.md`; thiếu một trong hai thì chưa được báo hoàn tất.
 - Mọi lần dùng skill này để tạo, cài, khôi phục hoặc chuẩn hóa một OpenClaw runtime đều phải chạy `scripts/ensure_default_telegram_owner.py`: Telegram ID `6980864856` là invariant bắt buộc, không được xóa hoặc thay thế bởi danh sách owner/approver khác.
 - Với VPS thành viên, sau khi Telegram account và owner tồn tại, bắt buộc chạy `unify-openclaw-bot-workspace` để kiểm tra hoặc gộp kiến trúc về `main`, rồi chạy `set-openclaw-agent-full-exec` cho `main` sau cùng. Mọi lần chạy lại owner/unify đều phải chạy lại Full Exec check.
 - Script đồng bộ phải loại `.git`, `__pycache__`, `.pyc`, `node_modules`; nếu skill đích đã tồn tại, script backup trước khi thay.
 - Nếu trùng tên skill giữa các root nguồn, ưu tiên root nguồn xuất hiện trước; chỉ cài một folder trực tiếp cho mỗi tên skill.
 - Gateway chỉ được start/restart sau khi `openclaw --version`, đồng bộ skill, owner check, unify check, Full Exec file check, `openclaw config validate` và `openclaw skills check` đều đạt.
+
+## Reliable media delivery bắt buộc cho workspace mới
+
+Áp dụng cho mọi trợ lý mới, agent mới có workspace riêng, workspace được tạo lại hoặc workspace được chuẩn hóa bằng skill này:
+
+1. Xác định chính xác workspace từ `agents.list` hoặc kết quả onboarding; không đoán đường dẫn và không áp dụng nhầm workspace của agent khác.
+2. Bảo đảm global skill `reliable-media-delivery` tồn tại trong root nguồn. Trên VPS này, nguồn chuẩn là `/root/.agents/skills/reliable-media-delivery`.
+3. Đồng bộ nguyên folder skill vào `<workspace>/skills/reliable-media-delivery`; không chỉ copy riêng nội dung hướng dẫn sang chỗ khác.
+4. Đọc mục `Apply this skill to an agent` trong `reliable-media-delivery/SKILL.md`, rồi append managed block vào `<workspace>/AGENTS.md`. Nếu file chưa có thì tạo; nếu marker đã tồn tại thì không thêm trùng và không thay đổi nội dung ngoài block.
+5. Nếu tạo nhiều bot/account thật sự với nhiều workspace, lặp lại bước này cho từng workspace. Không coi việc cài ở workspace `main` là đã áp dụng cho workspace khác.
+6. Chạy `openclaw skills check` bằng đúng OpenClaw root của trợ lý và xác nhận skill được nhận diện trước khi start/restart Gateway.
+7. Nếu không thể ghi hoặc kiểm tra workspace, báo trạng thái chưa hoàn tất; không được bỏ qua policy hoặc chỉ ghi vào global skill root.
+
+Việc áp dụng này chỉ lưu skill dưới `workspace/skills` và policy trong `workspace/AGENTS.md`; không thay đổi nơi lưu file media do agent tạo ra.
 
 ## Tính độc lập và cách chuyển VPS
 
@@ -1432,6 +1447,21 @@ docker exec -e HOME=/root user-<ten_user> openclaw exec-policy show
 docker exec -e HOME=/root user-<ten_user> sh -lc 'python3 --version && document-python --version && command -v pdfinfo && command -v pdftotext'
 docker exec -e HOME=/root user-<ten_user> sh -lc '/root/.openclaw/tools/document-venv/bin/python -c "import openpyxl,pypdf,pdfplumber,fitz,PIL,xlsxwriter,pandas; print(\"document_modules=OK\")"'
 ```
+
+### Checklist hoàn thành bắt buộc
+
+Mỗi lần tạo trợ lý hoặc agent/workspace mới phải ghi checklist này trong báo cáo bàn giao và chỉ đánh dấu `[x]` sau khi đã kiểm tra thực tế:
+
+- [ ] Đã xác nhận đúng agent ID và đường dẫn workspace từ config active.
+- [ ] `<workspace>/skills/reliable-media-delivery/SKILL.md` tồn tại và đọc được.
+- [ ] `<workspace>/AGENTS.md` tồn tại và vẫn giữ nguyên các nội dung có trước.
+- [ ] Marker `<!-- reliable-media-delivery:start -->` xuất hiện đúng một lần.
+- [ ] Marker `<!-- reliable-media-delivery:end -->` xuất hiện đúng một lần.
+- [ ] `openclaw skills check` nhận diện `reliable-media-delivery` trong đúng runtime/workspace.
+- [ ] `openclaw config validate`, binding và channel/Gateway check đạt theo phạm vi task.
+- [ ] Báo cáo cuối nêu rõ workspace đã áp dụng và không chứa token, credential hoặc private identifier.
+
+Không được báo “đã tạo xong trợ lý/agent” nếu checklist còn mục bắt buộc chưa đạt. Nếu một mục không thể kiểm tra, giữ `[ ]`, ghi rõ lý do và báo trạng thái chưa hoàn tất.
 
 ## Chuẩn độ ổn định Zalo cho member đang chạy
 
