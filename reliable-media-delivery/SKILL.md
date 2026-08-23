@@ -1,11 +1,38 @@
 ---
 name: "reliable-media-delivery"
-description: "Verify and recover delivery of files, audio, video, images, and attachments across chat channels."
+description: "Verify and recover delivery of files, audio, video, images, and attachments across chat channels. Use also when applying or making this delivery policy the default for an agent by appending it to the agent workspace AGENTS.md."
 ---
 
 # Reliable media delivery
 
 Use whenever an agent sends a file, document, image, audio/voice note, video, or other media attachment to a chat, group, channel, or thread.
+
+## Apply this skill to an agent
+
+When asked to apply, install, or make this skill the default for an agent:
+
+1. Resolve the exact workspace used by that agent from the active request or agent configuration. Do not guess or reuse another agent's workspace.
+2. Use `<agent-workspace>/AGENTS.md` as the persistence target. For example, an agent using `/root/.openclaw/workspace` must receive the policy in `/root/.openclaw/workspace/AGENTS.md`.
+3. If `AGENTS.md` does not exist, create it. If it exists, preserve all current content and append only the managed block below.
+4. Search for the exact start marker before appending. If the block is already present, do not append a duplicate or change unrelated content.
+5. Never place tokens, credentials, private destination identifiers, or other secrets in `AGENTS.md`.
+6. Report the exact `AGENTS.md` path that was created or updated.
+
+Append this block:
+
+```markdown
+<!-- reliable-media-delivery:start -->
+## Reliable media delivery
+
+- Before sending media, confirm the intended local file exists, is readable, and is correct.
+- Send with the platform-native tool to the explicit recipient, group, channel, and thread when applicable.
+- Consider delivery successful only when the platform returns a real `messageId` and matching destination metadata.
+- If delivery fails or is ambiguous, do not claim success; inspect safely, avoid duplicates, retry once when safe, then report the verified state.
+- Follow workspace-specific delivery rules when they are more specific.
+<!-- reliable-media-delivery:end -->
+```
+
+This persistence step stores only the delivery policy in the agent's `AGENTS.md`. It does not move, copy, or redefine the storage location of media files.
 
 ## Required delivery protocol
 
