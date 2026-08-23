@@ -55,7 +55,7 @@ node /path/to/send_zalo_qr_to_telegram_owner.mjs \
 Input/output:
 
 - Input: Telegram user ID đã có đủ các lớp quyền trên; account Zalo mặc định là `default`; timeout mặc định 180 giây.
-- Output: ảnh QR được gửi vào DM Telegram của owner; sau khi quét, helper gửi tin xác nhận và channel Zalo được start lại.
+- Output: ảnh QR được stage tạm trong `~/.openclaw/media/outbound/` rồi gửi vào DM Telegram của owner; helper vẫn tạo QR khi Zalo đã `stopped` sau lỗi listener, sau khi quét kênh Zalo được start lại.
 - Backup: `~/.openclaw/backups/zalo-qr-<timestamp>/` với mode riêng tư; không in nội dung credential.
 - Rerun: nếu QR hết hạn, chạy lại lệnh `--apply`; mỗi lượt tạo QR mới và xóa ảnh tạm sau khi kết thúc.
 - An toàn: `--apply` sẽ thay phiên Zalo hiện tại, vì vậy không chạy khi owner chỉ muốn kiểm tra trạng thái.

@@ -97,6 +97,36 @@ For `Invalid data length or missing cipher key`, align the plugin with core, res
 
 ## Prevent recurrence
 
+### Persist the Gateway across container restarts
+
+Legacy member images may write `/etc/supervisor/conf.d/member-vps.conf` from
+`/usr/local/bin/member-vps-entrypoint.sh` on every container start. If the
+Gateway was previously kept in `tmux`, migrate it to one Supervisor program:
+
+1. Backup both the active Supervisor config and the entrypoint that generates it.
+2. Add the same `openclaw-gateway` block to both files, using the exact member HOME:
+
+```ini
+[program:openclaw-gateway]
+command=/usr/bin/openclaw gateway run
+environment=HOME="<member-home>"
+user=root
+autorestart=true
+startsecs=5
+startretries=20
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stdout_logfile=/tmp/openclaw-supervisor.log
+stderr_logfile=/tmp/openclaw-supervisor.log
+```
+
+Use the existing OpenClaw data owner instead of `root` when the member data is
+not root-owned. Reload Supervisor once, then confirm there is exactly one
+`openclaw-gateway` and its parent is `supervisord`. Test recovery by terminating
+only that Gateway PID and confirming Supervisor creates a different PID. Do not
+restart the whole container just to test this path.
+
 Add two unique Shared Watchdog Center projects:
 
 - `openclaw_channel`: health check every 5 minutes, detect listener exits and outbound delivery failures, source gateway auth, and restart with a 10-minute cooldown.
@@ -119,6 +149,11 @@ openclaw channels status --probe
 ```
 
 Confirm the channel is `configured, running, works`, the target session is below its preventive threshold, cron is active, and no new listener/outbound error appears after restart. Do not send a real test message unless the user authorizes it; passive `in:` and `out:` activity is acceptable evidence.
+
+For a stuck oversized session whose summary compaction repeatedly times out,
+backup the current session index and target transcript, stop or freeze the
+Gateway so it cannot rewrite the index, remove only the affected key, preserve
+the transcript, and let Supervisor create one fresh Gateway process.
 
 ## Safety
 

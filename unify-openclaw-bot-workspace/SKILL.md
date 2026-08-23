@@ -46,6 +46,8 @@ python3 /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_work
   --target-agent main
 ```
 
+If the account has no configured Telegram owner yet, add each verified bootstrap owner with `--owner-id <TELEGRAM_USER_ID>`. The script synchronizes those IDs across the owner policy in the same candidate and never accepts a wildcard owner.
+
 ## Apply
 
 1. Stop or quiesce only the Gateway and confirm it cannot write config/session state.

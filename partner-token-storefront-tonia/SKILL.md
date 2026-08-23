@@ -7,17 +7,18 @@ description: Operate, verify, repair, deploy, or update the independent Django T
 
 ## Scope
 
-- Project: `/root/Apps/partner_token_storefront_lethang`
+- Project: `/root/Apps/member_vps/docker-users/data/lethangholand/root/Apps/partner_token_storefront_lethang` (inside container: `/root/Apps/partner_token_storefront_lethang`)
+- Container: `user-lethangholand`
+- Process manager: Supervisor in container (`lethang-storefront`, `lethang-credit-guard`)
 - Domain: `https://tonia.hocvienai.org`
-- Service: `lethang-token-storefront.service`
-- Local port: `127.0.0.1:8872`
+- Local port: Container port `8872` exposed to host port `127.0.0.1:8872`
 - Nginx: `/etc/nginx/sites-available/tonia.hocvienai.org`
 - Legacy redirect/webhook compatibility: `/etc/nginx/sites-available/lethang.anhlaptrinh.vn`
 - Static root: `/var/www/lethang-static`
-- Database: `/root/Apps/partner_token_storefront_lethang/db.sqlite3`
+- Database: `/root/Apps/member_vps/docker-users/data/lethangholand/root/Apps/partner_token_storefront_lethang/db.sqlite3`
 - Project note: `/root/_Second_AI_Brain/projects/partner_token_storefront_tonia.md`
 - Coupon administration: `https://tonia.hocvienai.org/coupon/` (superuser only)
-- Học Viện AI logo: `/root/Apps/partner_token_storefront_lethang/static/img/logo-hoc-vien-ai.png`
+- Học Viện AI logo: `/root/Apps/member_vps/docker-users/data/lethangholand/root/Apps/partner_token_storefront_lethang/static/img/logo-hoc-vien-ai.png`
 
 Keep this storefront independent from `/root/Apps/9router_usage_dashboard` and `/root/Apps/partner_token_billing`. Do not reuse or edit their Django databases.
 

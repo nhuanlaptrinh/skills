@@ -48,16 +48,32 @@ python3 scripts/apply_owner_full_access.py \
 
 Lặp `--telegram-id` để cấp nhiều owner trong cùng transaction. Script tự suy ra Telegram account khi member chỉ có một account hoặc account key trùng tên member. Dùng `--account-id` nếu cấu hình có nhiều account.
 
+Với member dùng layout trực tiếp `data/<member>/.openclaw` thay vì `data/<member>/root/.openclaw`, chỉ định cả host/runtime path thực tế:
+
+```bash
+python3 scripts/apply_owner_full_access.py \
+  --member <MEMBER> \
+  --openclaw-root /root/Apps/member_vps/docker-users/data/<MEMBER>/.openclaw \
+  --runtime-openclaw-root /home/<MEMBER>/.openclaw \
+  --runtime-home /home/<MEMBER> \
+  --telegram-id <TELEGRAM_USER_ID> \
+  --dry-run
+```
+
+`--openclaw-root` phải là đường dẫn tuyệt đối, không phải symlink và nằm bên trong data directory của member đã chọn.
+
 ## Trình tự áp dụng
 
 1. Kiểm tra target, binding, agent path, dependency scripts và trạng thái cuối hiện tại.
 2. Chạy dry-run đã khử ID; cấu hình legacy chỉ hoãn owner dry-run tới sau bước unify.
-3. Backup root-only ngoài persistent member data và quiesce riêng Gateway dưới Supervisor.
+3. Backup root-only ngoài persistent member data và quiesce riêng Gateway dưới Supervisor. Với `tmux`, chỉ dùng đúng pane đang quản lý Gateway: giữ pane tạm thời, gửi `Ctrl-C` để Gateway thoát sạch, rồi respawn chính pane đó; không tạo session/pane Gateway mới.
 4. Chạy normalize/merge bằng `unify-openclaw-bot-workspace`.
 5. Cấp owner bằng `cap-quyen-telegram-admin-openclaw` và kiểm tra policy guarded.
 6. Bật Full Exec bằng `set-openclaw-agent-full-exec --no-restart`.
 7. Đồng bộ bốn skill liên quan vào workspace, validate config, respawn Gateway một lần và probe Telegram.
 8. Nếu lỗi trước khi hoàn tất, khôi phục skill, config và workspace/source agent bằng transaction unify rồi đưa Gateway lên lại.
+
+`channels status --probe` được giới hạn thời gian. Nếu đúng CLI probe này treo nhưng status thường vẫn báo Telegram `configured`, `running`, `connected`, workflow chấp nhận kiểm tra fallback đó thay vì để transaction treo vô hạn.
 
 Policy cuối của `main`:
 

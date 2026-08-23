@@ -89,7 +89,12 @@ function runOpenClaw(args, timeoutMs = 60_000) {
     fail(`OpenClaw command failed to start: ${result.error.message}`);
   }
   if (result.status !== 0) {
-    fail(`OpenClaw command failed with exit code ${result.status}`);
+    const details = `${result.stdout}\n${result.stderr}`
+      .replace(/(token|secret|password|cookie|authorization)[=: ]+[^\s,}]*/gi, "$1=[redacted]")
+      .replace(/\b\d{7,}\b/g, "[redacted-number]")
+      .trim()
+      .slice(0, 500);
+    fail(`OpenClaw command failed with exit code ${result.status}${details ? `: ${details}` : ""}`);
   }
   return result.stdout.trim();
 }
@@ -229,17 +234,23 @@ async function main() {
   }
 
   const backupDir = createBackup(stateDir, configPath);
-  const qrPath = path.join("/tmp", `openclaw-zalouser-owner-qr-${process.pid}.png`);
+  // OpenClaw only permits outbound media from its managed media directory.
+  const qrDir = path.join(stateDir, "media", "outbound");
+  fs.mkdirSync(qrDir, { recursive: true, mode: 0o700 });
+  const qrPath = path.join(qrDir, `openclaw-zalouser-owner-qr-${process.pid}.png`);
   let channelStopped = false;
   let loginConnected = false;
 
   try {
-    gatewayCall(
-      "channels.stop",
-      { channel: "zalouser", accountId: options.accountId },
-      30_000,
-    );
-    channelStopped = true;
+    // A kicked Zalo listener may already be stopped; only stop a running channel.
+    if (status.channels?.zalouser?.running === true) {
+      gatewayCall(
+        "channels.stop",
+        { channel: "zalouser", accountId: options.accountId },
+        30_000,
+      );
+      channelStopped = true;
+    }
 
     const started = await zalouserPlugin.gateway.loginWithQrStart({
       accountId: options.accountId,

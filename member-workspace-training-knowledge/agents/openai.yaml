@@ -1,0 +1,4 @@
+interface:
+  display_name: "Member Training Knowledge"
+  short_description: "Build and use workspace training knowledge"
+  default_prompt: "Use $member-workspace-training-knowledge to make this member training source searchable and answer from it."

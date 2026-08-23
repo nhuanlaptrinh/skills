@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zalo Web Telegram QR"
+  short_description: "Gửi QR Zalo Web an toàn tới Telegram owner"
+  default_prompt: "Use $zalo-auto-send-contact to send a fresh Zalo Web login QR to the configured Telegram owner and safely release the shared profile after login."

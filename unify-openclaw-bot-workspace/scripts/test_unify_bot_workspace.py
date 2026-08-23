@@ -203,11 +203,11 @@ def main():
             ],
             "channels": {
                 "telegram": {
-                    "allowFrom": ["111111"],
-                    "accounts": {"bot": {"allowFrom": ["111111"]}},
+                    "allowFrom": [],
+                    "accounts": {"bot": {"allowFrom": []}},
                 }
             },
-            "commands": {"ownerAllowFrom": ["telegram:111111"]},
+            "commands": {"ownerAllowFrom": []},
             "approvals": {"plugin": {"agentFilter": ["main"], "targets": []}},
         }
         approvals = {"version": 1, "defaults": {}, "agents": {}}
@@ -227,6 +227,8 @@ def main():
             "bot",
             "--target-agent",
             "main",
+            "--owner-id",
+            "333333",
             "--backup-dir",
             backup,
         ]
@@ -244,7 +246,7 @@ def main():
         ]
         assert updated["agents"]["list"][0]["workspace"] == str(workspace)
         assert updated["agents"]["list"][0]["tools"]["profile"] == "full"
-        assert updated["agents"]["list"][0]["tools"]["toolsBySender"]["channel:telegram:111111"] == {}
+        assert updated["agents"]["list"][0]["tools"]["toolsBySender"]["channel:telegram:333333"] == {}
         assert json.loads(manifest.read_text(encoding="utf-8"))["moved"] == []
 
         checked = run(*common, "--check")

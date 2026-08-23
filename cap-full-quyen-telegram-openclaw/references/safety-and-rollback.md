@@ -44,7 +44,7 @@ Dừng trước apply khi:
 - Telegram account không suy ra duy nhất.
 - `main` không dùng `/root/.openclaw/workspace` và `/root/.openclaw/agents/main/agent`.
 - Có nhiều source agent, source không phải `owner-admin` mà chưa chỉ định rõ, hoặc config có symlink/path escape.
-- Gateway không do Supervisor quản lý.
-- Candidate validation, guarded check, Full Exec check, skill sync hoặc Telegram probe lỗi.
+- Gateway không do Supervisor quản lý hoặc không có đúng một pane `tmux` live khớp Gateway PID. Với `tmux`, chỉ được giữ tạm pane hiện có, cho Gateway thoát sạch rồi respawn chính pane đó; không tạo session/pane Gateway mới để vượt qua kiểm tra này.
+- Candidate validation, guarded check, Full Exec check, skill sync hoặc cả Telegram probe và status fallback đều lỗi.
 
 Không restart/recreate container, không sửa Docker Compose, token, model, provider, `.env`, auth profile, session store hoặc raw transcript.

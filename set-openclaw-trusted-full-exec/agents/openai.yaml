@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Trusted Full Exec"
+  short_description: "Full Exec for trusted Telegram senders"
+  default_prompt: "Use $set-openclaw-trusted-full-exec to enable Full Exec for all agents while limiting Telegram group access to trusted DM and owner IDs."

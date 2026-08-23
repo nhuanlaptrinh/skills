@@ -58,6 +58,12 @@ def parse_args():
     parser.add_argument("--account-id")
     parser.add_argument("--target-agent", default="main")
     parser.add_argument("--source-agent", action="append", default=[])
+    parser.add_argument(
+        "--owner-id",
+        action="append",
+        default=[],
+        help="Verified Telegram owner ID to include when bootstrapping an account with no owners",
+    )
     parser.add_argument("--backup-dir", default="/root/_Backups/openclaw-bot-workspace")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--check", action="store_true")
@@ -229,7 +235,7 @@ def unique_strings(values):
     return result
 
 
-def telegram_owner_ids(config):
+def telegram_owner_ids(config, requested_owners=()):
     commands = config.get("commands")
     entries = commands.get("ownerAllowFrom", []) if isinstance(commands, dict) else []
     owners = []
@@ -237,9 +243,19 @@ def telegram_owner_ids(config):
         match = re.fullmatch(r"telegram:([1-9][0-9]*)", str(entry))
         if match:
             owners.append(match.group(1))
-    owners = unique_strings(owners)
+    owners = unique_strings(owners + list(requested_owners))
     if not owners:
         raise ValueError("No Telegram owner IDs found in commands.ownerAllowFrom")
+    return owners
+
+
+def require_telegram_owner_ids(values):
+    owners = []
+    for value in values:
+        if not re.fullmatch(r"[1-9][0-9]{4,19}", value or ""):
+            raise ValueError("Telegram owner ID must be a positive numeric value")
+        if value not in owners:
+            owners.append(value)
     return owners
 
 
@@ -306,10 +322,12 @@ def find_scalar_references(value, needles, prefix=()):
     return matches
 
 
-def transform_config(config, account_id, target_id, source_ids, runtime_root):
+def transform_config(
+    config, account_id, target_id, source_ids, runtime_root, requested_owners=()
+):
     updated = copy.deepcopy(config)
     source_set = set(source_ids)
-    owners = telegram_owner_ids(updated)
+    owners = telegram_owner_ids(updated, requested_owners)
 
     target = find_agent(updated, target_id)
     if target is None and target_id != "main":
@@ -369,6 +387,12 @@ def transform_config(config, account_id, target_id, source_ids, runtime_root):
     account = accounts[account_id]
     telegram["allowFrom"] = unique_strings(list(telegram.get("allowFrom", [])) + owners)
     account["allowFrom"] = unique_strings(list(account.get("allowFrom", [])) + owners)
+
+    commands = ensure_object(updated, "commands")
+    command_owners = ensure_array(commands, "ownerAllowFrom")
+    commands["ownerAllowFrom"] = unique_strings(
+        command_owners + [f"telegram:{owner}" for owner in owners]
+    )
 
     exec_approvals = ensure_object(telegram, "execApprovals")
     exec_approvals["enabled"] = "auto"
@@ -609,9 +633,19 @@ def copy_backup(source, destination):
     os.chmod(destination, stat.S_IRUSR | stat.S_IWUSR)
 
 
-def check_config(config, exec_value, account_id, target_id, source_ids, runtime_root):
+def check_config(
+    config,
+    exec_value,
+    account_id,
+    target_id,
+    source_ids,
+    runtime_root,
+    requested_owners=(),
+):
     violations = []
     owners = telegram_owner_ids(config)
+    if not set(requested_owners).issubset(owners):
+        violations.append("requested owner missing")
     target = find_agent(config, target_id)
     if target is None:
         violations.append("target agent missing")
@@ -778,6 +812,7 @@ def main():
     account_id = require_identifier(args.account_id, "Account ID")
     target_id = require_identifier(args.target_agent, "Target agent ID")
     source_ids = [require_identifier(value, "Source agent ID") for value in args.source_agent]
+    requested_owners = require_telegram_owner_ids(args.owner_id)
     if target_id in source_ids:
         raise ValueError("Target agent cannot also be a source agent")
     if len(set(source_ids)) != len(source_ids):
@@ -797,7 +832,13 @@ def main():
 
     if args.check:
         violations, owner_count = check_config(
-            config, exec_value, account_id, target_id, source_ids, runtime_root
+            config,
+            exec_value,
+            account_id,
+            target_id,
+            source_ids,
+            runtime_root,
+            requested_owners,
         )
         print("mode=check")
         print(f"account_id={account_id}")
@@ -810,7 +851,12 @@ def main():
         return 0 if not violations else 2
 
     updated_config, owners, target_workspace_runtime, _ = transform_config(
-        config, account_id, target_id, source_ids, runtime_root
+        config,
+        account_id,
+        target_id,
+        source_ids,
+        runtime_root,
+        requested_owners,
     )
     updated_exec = transform_exec_approvals(exec_value, target_id, source_ids)
     validate_candidate_config(config_path, updated_config)

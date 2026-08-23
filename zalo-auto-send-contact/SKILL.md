@@ -1,6 +1,6 @@
 ---
 name: zalo-auto-send-contact
-description: Vận hành, sửa lỗi và tái sử dụng dự án /root/Automation/zalo/01_zalo_lg_se để tự động gửi tin nhắn Zalo Web từ Google Sheet bằng Python trực tiếp, Chrome profile cố định, RDP login thủ công khi cần, và Selenium attach qua debugger 127.0.0.1:9223.
+description: Vận hành, sửa lỗi và tái sử dụng dự án /root/Automation/zalo/01_zalo_lg_se để gửi tin nhắn Zalo Web từ Google Sheet, sửa N8N/OpenClaw 401 hoặc exec bị blocked, đăng nhập bằng QR gửi tới Telegram private chat của chủ sở hữu không cần Remote Desktop, quản lý Chrome profile cố định, và Selenium attach qua debugger 127.0.0.1:9223.
 ---
 
 # Zalo Auto Send Contact
@@ -31,6 +31,64 @@ cd /root/Automation/zalo/01_zalo_lg_se
 - Before opening QR login, clear old Chrome session tabs under `zalo-login-profile/Default/Sessions/` to prevent many restored `chat.zalo.me` tabs. Multiple Zalo Web tabs cause Zalo to show "Bạn đang mở Zalo trên một Tab khác..." and block automation.
 - Launch QR Chrome with `nohup setsid` or another detached method so the window survives after the desktop launcher exits.
 
+## N8N OpenClaw 401 And Exec Repair
+
+Use this when N8N reports `401 Unauthorized` for:
+
+```text
+POST http://172.18.0.1/openclaw/v1/chat/completions
+```
+
+The production workflow is `01_RegistrationNotification_Kết Nối Web`, ID `IQSLZpjfCa6AOcl9`. It has four HTTP Request nodes named `Openclaw3`, `Openclaw`, `Openclaw2`, and `Openclaw1`.
+
+A successful Zalo QR login does not fix this error. The running gateway reads `/root/.openclaw/openclaw.json`; do not copy the legacy token from `/root/AI_Runtime/openclaw/.openclaw/openclaw.json`.
+
+If the response is `[blocked] ... không có công cụ exec`, do not remove the wildcard deny from agent `main`. OpenAI-compatible HTTP sessions match the wildcard sender policy on this installed OpenClaw version, so `main.tools.toolsBySender["*"]` intentionally removes runtime tools for non-owner channel senders.
+
+The workflow must target the dedicated runner:
+
+```text
+Agent: zalo-n8n-runner
+Workspace: /root/.openclaw/workspace_zalo_n8n_runner
+Wrapper: /root/Automation/zalo/01_zalo_lg_se/script/run_zalo_send_contact_from_n8n.sh
+```
+
+Runner security:
+
+- Tool profile is `minimal` with only `exec` and `process` added through `alsoAllow`.
+- Exec mode and approval security are `allowlist`; `ask=off`, `askFallback=deny`.
+- The only approved executable is the fixed wrapper above.
+- The wrapper rejects unexpected arguments, uses a non-blocking process lock, and supports `--check` without sending Zalo.
+- Never set this runner to Full Exec and never point these four HTTP nodes back to agent `main`.
+
+Dry-run:
+
+```bash
+/root/Automation/zalo/01_zalo_lg_se/venv/bin/python \
+  /root/Automation/zalo/01_zalo_lg_se/script/sync_n8n_openclaw_token.py \
+  --dry-run
+```
+
+Apply and run a harmless auth test from the N8N container:
+
+```bash
+/root/Automation/zalo/01_zalo_lg_se/venv/bin/python \
+  /root/Automation/zalo/01_zalo_lg_se/script/sync_n8n_openclaw_token.py \
+  --apply --test-auth
+```
+
+The helper:
+
+- Reads the active gateway token and N8N owner API key at runtime without printing either value.
+- Requires exactly four matching HTTP Request nodes and fails closed if the workflow shape changes.
+- Creates a consistent SQLite backup under `/root/_Backups/n8n/` before any update.
+- Synchronizes the bearer token, `x-openclaw-agent-id=zalo-n8n-runner`, and the fixed wrapper prompt in all four nodes.
+- Uses the N8N public API, which creates a new version and automatically republishes an active workflow without restarting `n8nalt-app`.
+- Prints only token fingerprints, node names, version state, and backup path.
+- With `--test-auth`, runs only the wrapper `--check` path and expects `N8N_ZALO_RUNNER_CHECK_OK`; it never runs `OpenZaloSendContact.py`, sends Zalo messages, changes Sheet rows, or touches the Zalo browser profile.
+
+Do not validate this repair by manually triggering the real webhook unless the owner explicitly wants to process current `UNAPPROVED` rows.
+
 ## Google Sheet Flow
 
 Expected columns:
@@ -46,9 +104,68 @@ Processing rules:
 - If contact is not found, update `NOT_FOUND`.
 - On other errors, update `FAILED`.
 
-## Login Flow
+## Telegram Owner QR Flow
 
-Preferred flow: use the web QR page instead of Remote Desktop.
+Use this flow when the user asks to send the Zalo Web login QR to the Telegram owner without opening Remote Desktop.
+
+Configuration is read at runtime from the existing root-only project file:
+
+```text
+/root/Automation/zalo/01_zalo_lg_se/.env
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
+
+Never print, copy into source, or document the actual values. `TELEGRAM_CHAT_ID` must resolve to a Telegram `private` chat, not a group or channel.
+
+Dry-run:
+
+```bash
+/root/Automation/zalo/01_zalo_lg_se/venv/bin/python \
+  /root/Automation/zalo/01_zalo_lg_se/script/send_zalo_qr_to_telegram_owner.py \
+  --dry-run
+```
+
+Run for real with a five-minute wait:
+
+```bash
+/root/Automation/zalo/01_zalo_lg_se/venv/bin/python \
+  /root/Automation/zalo/01_zalo_lg_se/script/send_zalo_qr_to_telegram_owner.py \
+  --timeout 300
+```
+
+Inputs:
+
+- Existing profile: `/root/Automation/zalo/01_zalo_lg_se/zalo-login-profile`.
+- Existing Telegram credential names in `.env`.
+- Optional `--timeout 30-900`; default `300` seconds.
+- Optional `--keep-qr`; omit it normally so the sensitive QR photo is deleted after completion.
+
+Outputs and behavior:
+
+- Validates the Telegram bot and requires the target to be a private owner chat.
+- Refuses to run if `OpenZaloSendContact.py`, project Chrome, another QR worker, or manual login is active; it never steals the shared profile.
+- Starts the existing Xvfb/Chrome QR worker, sends the fresh screenshot with Telegram `protect_content=true`, and waits for `https://chat.zalo.me/`.
+- On success, sends a confirmation, deletes the QR photo, closes Chrome, and releases the manual-login flag and profile locks.
+- If Zalo is already logged in, sends a short owner notification and does not send a QR.
+- On timeout, deletes the QR photo, closes Chrome, releases the profile, and tells the owner to rerun.
+- Does not read or update Google Sheet rows and does not run the message-sending automation.
+
+Runtime files:
+
+```text
+/root/Automation/zalo/01_zalo_lg_se/script/send_zalo_qr_to_telegram_owner.py
+/root/Automation/zalo/01_zalo_lg_se/zalo_telegram_qr.lock
+/root/Automation/zalo/01_zalo_lg_se/zalo_telegram_qr_worker.out
+/root/Automation/zalo/01_zalo_lg_se/zalo_telegram_qr_worker.err
+/var/www/html/zalo-login/screen.png
+```
+
+If the QR expires, rerun the same real command. Do not reuse or forward an old QR screenshot. The owner should open the Telegram image on another screen/device when the Zalo app cannot scan an image displayed on the same phone.
+
+## Web QR Login Flow
+
+Use the web QR page as a fallback when Telegram delivery is unavailable.
 
 1. Read the token from `/root/Automation/zalo/01_zalo_lg_se/.zalo_web_qr_token`.
 2. Open `http://187.127.177.163/zalo-login/<token>/` in a browser.

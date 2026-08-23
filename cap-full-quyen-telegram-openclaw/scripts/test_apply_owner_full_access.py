@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import importlib.util
 import json
 import pathlib
@@ -110,6 +111,61 @@ class WorkflowTests(unittest.TestCase):
             "channels": {"telegram": {"accounts": {"demo": {}, "other": {}}}}
         }
         self.assertEqual(MODULE.infer_account_id(config, "demo", None), "demo")
+
+    def test_build_context_accepts_nonstandard_member_layout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            data_root = root / "data"
+            openclaw_root = data_root / "demo" / ".openclaw"
+            (openclaw_root / "workspace").mkdir(parents=True)
+            config, approvals = compliant_fixture()
+            agent = config["agents"]["list"][0]
+            agent["workspace"] = "/home/demo/.openclaw/workspace"
+            agent["agentDir"] = "/home/demo/.openclaw/agents/main/agent"
+            (openclaw_root / "openclaw.json").write_text(
+                json.dumps(config), encoding="utf-8"
+            )
+            (openclaw_root / "exec-approvals.json").write_text(
+                json.dumps(approvals), encoding="utf-8"
+            )
+            skills_root = root / "skills"
+            for skill_name in MODULE.SKILL_NAMES:
+                skill_dir = skills_root / skill_name
+                skill_dir.mkdir(parents=True)
+                (skill_dir / "SKILL.md").write_text("fixture\n", encoding="utf-8")
+            args = argparse.Namespace(
+                member="demo",
+                telegram_id=["123456789"],
+                account_id=None,
+                agent_id="main",
+                source_agent="auto",
+                member_data_root=str(data_root),
+                openclaw_root=str(openclaw_root),
+                container="user-demo",
+                runtime_openclaw_root="/home/demo/.openclaw",
+                runtime_home="/home/demo",
+                skills_root=str(skills_root),
+                backup_root=str(root / "backups"),
+            )
+            context = MODULE.build_context(args)
+            self.assertEqual(context.openclaw_root, openclaw_root)
+            self.assertEqual(
+                context.workspace_host, openclaw_root / "workspace"
+            )
+
+    def test_tmux_target_matches_only_one_live_gateway_pane(self):
+        output = "openclaw:0.0|1234|0\nother:0.0|4567|0\n"
+        self.assertEqual(MODULE.tmux_target_for_gateway(output, "1234"), "openclaw:0.0")
+        self.assertIsNone(MODULE.tmux_target_for_gateway(output, "9999"))
+        self.assertIsNone(
+            MODULE.tmux_target_for_gateway("openclaw:0.0|1234|0\nopenclaw:1.0|1234|0\n", "1234")
+        )
+        self.assertTrue(MODULE.tmux_pane_is_dead("openclaw:0.0|1234|1\n", "openclaw:0.0"))
+        self.assertFalse(MODULE.tmux_pane_is_dead("openclaw:0.0|1234|0\n", "openclaw:0.0"))
+
+    def test_telegram_status_line_accepts_current_cli_account_format(self):
+        output = "- Telegram demo (demo): enabled, configured, running, connected\n"
+        self.assertIn("connected", MODULE.telegram_status_line(output, "demo"))
 
     def test_detects_owner_admin_legacy(self):
         config = {

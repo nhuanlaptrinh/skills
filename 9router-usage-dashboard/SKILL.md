@@ -10,11 +10,13 @@ description: Operate, verify, repair, or update the Django dashboard at altcp.an
 - Project: `/root/Apps/9router_usage_dashboard`
 - Usage and API-name input: `/root/.9router/db/data.sqlite`
 - Service: `altcp-dashboard.service`
+- Bulk email worker: `altcp-bulk-email-worker.service`
 - Telegram bot service: `altcp-telegram-bot.service`
 - Nginx: `/etc/nginx/sites-available/altcp.anhlaptrinh.vn` and `/etc/nginx/sites-available/codex.anhlaptrinh.vn`
 - Domains: `https://altcp.anhlaptrinh.vn` and `https://codex.anhlaptrinh.vn`
 - Credentials file: `/root/.altcp_dashboard_credentials` with mode `600`
 - Coupon administration: `https://codex.anhlaptrinh.vn/coupon/` (superuser only)
+- Member email administration: `https://codex.anhlaptrinh.vn/gui-email/` (superuser only)
 
 ## Public Landing Page
 
@@ -26,7 +28,7 @@ The public route `/huong-dan-tich-hop/` documents the OpenAI-compatible Base URL
 
 Authenticate login emails case-insensitively through `dashboard.auth_backends.CaseInsensitiveEmailBackend`. Keep Django's default backend listed second so sessions created before this change remain valid. Registration and account-creation flows must continue storing normalized lowercase email values.
 
-Read the active 9Router SQLite database directly in read-only mode without modifying it. Map `usageHistory.apiKey` to `apiKeys.name`. Aggregate three displayed columns: API name, request count, and USD cost. Interpret date filters in `Asia/Ho_Chi_Minh`. Default to the complete history view; also support today, current month, and a custom date range. Show the latest available record timestamp so stale source data is explicit.
+Read the active 9Router SQLite database directly in read-only mode without modifying it. Map `usageHistory.apiKey` to `apiKeys.name`. Aggregate three displayed columns: API name, request count, and USD cost. Interpret date filters in `Asia/Ho_Chi_Minh`. Default to the complete history view; also support today, current month, and a custom date range. On the superuser dashboard, support server-side `api_search` filtering by partial API name; normalize Vietnamese accents, spaces, separators, and `đ`/`d`, and apply the same search to the aggregate table and request ledger while preserving date and pagination parameters. Show the latest available record timestamp so stale source data is explicit.
 
 The authenticated dashboard also includes a paginated request activity ledger using the same date filter. Each row may show the internal usage row ID, Vietnam timestamp to the second, assigned API name, provider/model, endpoint, status, prompt/completion token counts, and USD cost. Keep it at 50 rows per page. Never expose the complete API key in usage reports, connection ID, prompt, response, `meta`, or other request content.
 
@@ -90,6 +92,7 @@ set -a; . ./.env; set +a
 ```bash
 systemctl restart altcp-dashboard
 systemctl status altcp-dashboard --no-pager
+systemctl status altcp-bulk-email-worker.service --no-pager
 curl -I http://127.0.0.1:8870/dang-nhap/
 curl -I https://altcp.anhlaptrinh.vn/dang-nhap/
 curl -I https://codex.anhlaptrinh.vn/dang-nhap/
@@ -97,7 +100,7 @@ curl -I https://codex.anhlaptrinh.vn/dang-nhap/
 
 ## Customer Accounts
 
-Use the superuser-only page `/nguoi-dung/` for normal account operations. It supports creating a customer with email/password, assigning one or more APIs, changing the name/email/password, replacing API assignments, locking or reopening the account, deleting a customer, and filtering each member's assigned-API cost by today, current month, all time, or custom dates. The member list can be sorted by all-time usage, selected-period cost, newest or oldest registration, and name. The API checklist reads active names and UUIDs from the 9Router SQLite database.
+Use the superuser-only page `/nguoi-dung/` for normal account operations. It supports creating a customer with email/password, assigning one or more APIs, changing the name/email/password, replacing API assignments, locking or reopening the account, deleting a customer, and filtering each member's assigned-API cost by today, current month, all time, or custom dates. The member list can be sorted by all-time usage, selected-period cost, newest or oldest registration, and name. The API checklist reads active names and UUIDs from the 9Router SQLite database. Its `Tìm kiếm` action filters only after click or Enter, matches normalized partial names, preserves checked values, hides the complete Django checkbox wrapper (`[id$="api_ids"] > div`) for non-matches, and resets the checklist scroll position so matching rows appear immediately.
 
 Deleting a customer is a destructive POST action with browser confirmation. Before deleting the Django user, revoke every active `ManagedApiKey` owned by that user through the local 9Router API. Do not revoke APIs that were only assigned through `UserApiAccess`. If any owned API cannot be revoked, keep the user account and show an error so the admin can retry safely.
 
@@ -108,6 +111,26 @@ Customers can self-register at `/dang-ky/`; new accounts start with zero credit.
 Public website registration requires a Vietnamese phone number. Accept `0...`, `84...`, or `+84...`, normalize it to exactly 10 digits beginning with `0`, store it in `CustomerAccount.phone_number`, and include it in the admin registration notification. Existing accounts and non-public administrative/Telegram creation flows may keep the field blank. The superuser customer page may display, edit, and search the stored phone number.
 
 Every standalone website page includes the shared partial `dashboard/templates/dashboard/includes/zalo_contact.html` exactly once. It renders the fixed bottom-right Zalo support button for `https://zalo.me/0854838394`, with mobile positioning preserved in `static/css/app.css`. Change the number only in the shared partial and update coverage tests; do not paste independent Zalo widgets into individual templates.
+
+## Member Email Campaigns
+
+Use the superuser-only `/gui-email/` page when an administrator needs to send one announcement to registered members. Regular users must receive HTTP 403. The form supports a sender display name, subject, plain-text body, all-member delivery, or filters by account status, partial name/email, registration date range, month, and year. The sender email is fixed to `DJANGO_DEFAULT_FROM_EMAIL`; never allow arbitrary From addresses because they can break SMTP authorization and deliverability.
+
+The safe preview step is mandatory. It signs the message, filters, and recipient snapshot for a limited time; changing any of them requires a new preview. Exclude superusers, invalid addresses, and duplicate lowercase addresses. Support `{{ ten }}` and `{{ email }}` placeholders, escape the HTML alternative, and send a separate message to each recipient so no customer can see another customer's address.
+
+`dashboard.EmailCampaign` stores the campaign, filters, counts, status, and safe last error. Migration `dashboard.0017_emailcampaign_preview_token_hash` stores a unique hash of the signed preview token, so a double-click cannot create duplicate campaigns. `dashboard.EmailDelivery` stores each recipient snapshot and delivery state. Do not place SMTP credentials, API keys, prompts, cookies, or other secrets in either model. A worker interruption marks in-flight deliveries failed and deliberately does not auto-retry them, preventing accidental duplicate email. The UI may retry ordinary failed deliveries only.
+
+Paths and commands:
+
+- Worker source: `dashboard/management/commands/process_bulk_email_queue.py`
+- Worker unit source: `deploy/altcp-bulk-email-worker.service`
+- Installed unit: `/etc/systemd/system/altcp-bulk-email-worker.service`
+- Dry run: use the UI `Xem trước người nhận` action or `.venv/bin/python manage.py test dashboard.tests.BulkEmailTests`; neither sends production email.
+- Real worker run: `.venv/bin/python manage.py process_bulk_email_queue` processes all currently queued campaigns once. Use only when queued production email is intentionally ready.
+- Continuous production worker: `.venv/bin/python manage.py process_bulk_email_queue --loop`, normally managed only by systemd.
+- Verify: `systemctl is-active altcp-bulk-email-worker.service` and inspect a sanitized `journalctl -u altcp-bulk-email-worker.service`; never create a real campaign merely as a smoke test.
+
+Inputs are Django users and the administrator's message/filter fields. Outputs are SMTP messages plus `EmailCampaign`/`EmailDelivery` audit rows; there is no Sheet or external API write other than SMTP. Batch size, poll interval, delay, stale timeout, and preview lifetime may be adjusted through `BULK_EMAIL_*` environment variables without changing SMTP credentials. To rerun after an ordinary SMTP failure, use `Gửi lại email lỗi`; never reset sent deliveries to queued.
 
 Customers can buy additional Token Codex credit at `/mua-token/`. Packages are fixed from 10 USD through 1000 USD in 10 USD steps; arbitrary values are rejected. The customer payment rate is fixed at 25,000 VND per purchased USD, and each purchased USD adds 10 USD of provider credit to the existing `CustomerAccount.credit_limit`. Example: a 10 USD package costs 250,000 VND and adds 100 USD of Token Codex credit.
 

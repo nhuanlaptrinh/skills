@@ -88,6 +88,14 @@ class Context:
     workspace_host: pathlib.Path
 
 
+@dataclass
+class GatewayHandle:
+    pid: str
+    manager: str
+    tmux_target: str | None = None
+    tmux_remain_on_exit: str | None = None
+
+
 class Runner:
     def run(self, command: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(
@@ -117,6 +125,13 @@ def parse_args() -> argparse.Namespace:
         "--member-data-root",
         default=os.environ.get(
             "OPENCLAW_MEMBER_DATA_ROOT", "/root/Apps/member_vps/docker-users/data"
+        ),
+    )
+    parser.add_argument(
+        "--openclaw-root",
+        help=(
+            "Host OpenClaw root for a nonstandard member layout; it must be "
+            "inside the selected member data directory."
         ),
     )
     parser.add_argument("--container")
@@ -274,7 +289,19 @@ def build_context(args: argparse.Namespace) -> Context:
         member_root.relative_to(member_data_root)
     except ValueError as error:
         raise WorkflowError("Member path escapes member data root") from error
-    openclaw_root = member_root / "root" / ".openclaw"
+    if args.openclaw_root:
+        requested_root = pathlib.Path(args.openclaw_root).expanduser()
+        if not requested_root.is_absolute() or requested_root.is_symlink():
+            raise WorkflowError("Custom OpenClaw root must be an absolute non-symlink path")
+        openclaw_root = requested_root.resolve()
+        try:
+            openclaw_root.relative_to(member_root)
+        except ValueError as error:
+            raise WorkflowError(
+                "Custom OpenClaw root must stay inside the selected member data directory"
+            ) from error
+    else:
+        openclaw_root = member_root / "root" / ".openclaw"
     config_path = openclaw_root / "openclaw.json"
     approvals_path = openclaw_root / "exec-approvals.json"
     config = load_json(config_path)
@@ -469,6 +496,8 @@ def unify_command(ctx: Context, action: str, backup_dir: pathlib.Path | None = N
         "--target-agent",
         ctx.agent_id,
     ]
+    for telegram_id in ctx.telegram_ids:
+        command.extend(["--owner-id", telegram_id])
     if ctx.source_agent:
         command.extend(["--source-agent", ctx.source_agent])
     if action == "apply":
@@ -724,7 +753,69 @@ def restore_skills(ctx: Context, records: list[dict]) -> None:
             shutil.copytree(backup, target)
 
 
-def quiesce_gateway(ctx: Context, runner: Runner) -> str:
+def tmux_target_for_gateway(panes_output: str, pid: str) -> str | None:
+    matches = []
+    for line in panes_output.splitlines():
+        parts = line.strip().split("|")
+        if len(parts) != 3:
+            continue
+        target, pane_pid, pane_dead = parts
+        if (
+            pane_pid == pid
+            and pane_dead == "0"
+            and re.fullmatch(r"[A-Za-z0-9_.:-]+", target)
+        ):
+            matches.append(target)
+    return matches[0] if len(matches) == 1 else None
+
+
+def tmux_pane_is_dead(panes_output: str, target: str) -> bool:
+    matches = []
+    for line in panes_output.splitlines():
+        parts = line.strip().split("|")
+        if len(parts) == 3 and parts[0] == target:
+            matches.append(parts[2] == "1")
+    return matches == [True]
+
+
+def tmux_panes(ctx: Context, runner: Runner) -> str:
+    result = runner.run(
+        [
+            "docker",
+            "exec",
+            ctx.container,
+            "tmux",
+            "list-panes",
+            "-a",
+            "-F",
+            "#{session_name}:#{window_index}.#{pane_index}|#{pane_pid}|#{pane_dead}",
+        ],
+        check=False,
+    )
+    return result.stdout if result.returncode == 0 else ""
+
+
+def tmux_remain_on_exit(ctx: Context, runner: Runner, target: str) -> str | None:
+    result = runner.run(
+        [
+            "docker",
+            "exec",
+            ctx.container,
+            "tmux",
+            "show-options",
+            "-w",
+            "-v",
+            "-t",
+            target,
+            "remain-on-exit",
+        ],
+        check=False,
+    )
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and value in {"on", "off"} else None
+
+
+def quiesce_gateway(ctx: Context, runner: Runner) -> GatewayHandle:
     inspect = runner.run(
         ["docker", "inspect", ctx.container, "--format", "{{.State.Running}}"],
         check=False,
@@ -747,22 +838,128 @@ def quiesce_gateway(ctx: Context, runner: Runner) -> str:
             f"parent=$(ps -o ppid= -p '{pid}' | tr -d ' '); ps -o comm= -p \"$parent\" | tr -d ' '",
         ]
     )
-    if "supervisord" not in parent_result.stdout.strip():
-        raise WorkflowError("Gateway is not managed by Supervisor")
+    if "supervisord" in parent_result.stdout.strip():
+        handle = GatewayHandle(pid=pid, manager="supervisor")
+    else:
+        target = tmux_target_for_gateway(tmux_panes(ctx, runner), pid)
+        if not target:
+            raise WorkflowError("Gateway is not managed by Supervisor or a matching tmux pane")
+        handle = GatewayHandle(pid=pid, manager="tmux", tmux_target=target)
     runner.run(["docker", "exec", ctx.container, "kill", "-STOP", pid])
-    state = runner.run(
-        ["docker", "exec", ctx.container, "sh", "-lc", f"ps -o stat= -p '{pid}' | tr -d ' '"]
-    ).stdout.strip()
-    if "T" not in state:
+    state = ""
+    for _ in range(10):
+        state = runner.run(
+            ["docker", "exec", ctx.container, "sh", "-lc", f"ps -o stat= -p '{pid}' | tr -d ' '"]
+        ).stdout.strip()
+        if "T" in state:
+            break
+        time.sleep(0.2)
+    if "T" in state:
+        print("gateway=quiesced")
+        return handle
+    if handle.manager != "tmux" or not handle.tmux_target:
         runner.run(["docker", "exec", ctx.container, "kill", "-CONT", pid], check=False)
         raise WorkflowError("Gateway could not be quiesced")
+
+    handle.tmux_remain_on_exit = tmux_remain_on_exit(
+        ctx, runner, handle.tmux_target
+    )
+    if not handle.tmux_remain_on_exit:
+        raise WorkflowError("tmux remain-on-exit option is unavailable")
+
+    # Keep the existing pane while its foreground Gateway exits cleanly.
+    runner.run(
+        [
+            "docker",
+            "exec",
+            ctx.container,
+            "tmux",
+            "set-option",
+            "-w",
+            "-t",
+            handle.tmux_target,
+            "remain-on-exit",
+            "on",
+        ]
+    )
+    runner.run(
+        [
+            "docker",
+            "exec",
+            ctx.container,
+            "tmux",
+            "send-keys",
+            "-t",
+            handle.tmux_target,
+            "C-c",
+        ]
+    )
+    stopped = False
+    for _ in range(30):
+        result = runner.run(
+            ["docker", "exec", ctx.container, "sh", "-lc", "pgrep -o -f '^openclaw-gateway$' || true"],
+            check=False,
+        )
+        if not result.stdout.strip() and tmux_pane_is_dead(
+            tmux_panes(ctx, runner), handle.tmux_target
+        ):
+            stopped = True
+            break
+        time.sleep(1)
+    if not stopped:
+        runner.run(
+            [
+                "docker",
+                "exec",
+                ctx.container,
+                "tmux",
+                "set-option",
+                "-w",
+                "-t",
+                handle.tmux_target,
+                "remain-on-exit",
+                handle.tmux_remain_on_exit,
+            ],
+            check=False,
+        )
+        raise WorkflowError("tmux Gateway could not be quiesced")
     print("gateway=quiesced")
-    return pid
+    return handle
 
 
-def respawn_gateway(ctx: Context, runner: Runner, old_pid: str) -> str:
-    runner.run(["docker", "exec", ctx.container, "kill", "-CONT", old_pid], check=False)
-    runner.run(["docker", "exec", ctx.container, "kill", old_pid], check=False)
+def respawn_gateway(ctx: Context, runner: Runner, old: GatewayHandle) -> GatewayHandle:
+    runner.run(["docker", "exec", ctx.container, "kill", "-CONT", old.pid], check=False)
+    if old.manager == "supervisor":
+        runner.run(["docker", "exec", ctx.container, "kill", old.pid], check=False)
+    elif old.manager == "tmux" and old.tmux_target:
+        runner.run(
+            [
+                "docker",
+                "exec",
+                ctx.container,
+                "tmux",
+                "respawn-pane",
+                "-k",
+                "-t",
+                old.tmux_target,
+            ]
+        )
+        runner.run(
+            [
+                "docker",
+                "exec",
+                ctx.container,
+                "tmux",
+                "set-option",
+                "-w",
+                "-t",
+                old.tmux_target,
+                "remain-on-exit",
+                old.tmux_remain_on_exit or "off",
+            ]
+        )
+    else:
+        raise WorkflowError("Gateway manager is invalid")
     new_pid = ""
     for _ in range(30):
         result = runner.run(
@@ -770,14 +967,16 @@ def respawn_gateway(ctx: Context, runner: Runner, old_pid: str) -> str:
             check=False,
         )
         candidate = result.stdout.strip()
-        if candidate.isdigit() and candidate != old_pid:
+        if candidate.isdigit() and candidate != old.pid:
             new_pid = candidate
             break
         time.sleep(1)
     if not new_pid:
-        raise WorkflowError("Gateway did not respawn under Supervisor")
+        raise WorkflowError("Gateway did not respawn under its process manager")
+    if old.manager == "tmux" and tmux_target_for_gateway(tmux_panes(ctx, runner), new_pid) != old.tmux_target:
+        raise WorkflowError("tmux did not respawn the original Gateway pane")
     print("gateway=respawned")
-    return new_pid
+    return GatewayHandle(new_pid, old.manager, old.tmux_target)
 
 
 def validate_config(ctx: Context, runner: Runner) -> None:
@@ -820,11 +1019,54 @@ def skills_check(ctx: Context, runner: Runner) -> None:
         raise WorkflowError("Composite skill is not visible after sync")
 
 
+def telegram_status_line(output: str, account_id: str) -> str:
+    return next(
+        (
+            item
+            for item in output.splitlines()
+            if f"Telegram {account_id}" in item
+        ),
+        "",
+    )
+
+
 def probe_telegram(ctx: Context, runner: Runner) -> None:
-    last_output = ""
+    probe_result = runner.run(
+        [
+            "timeout",
+            "15s",
+            "docker",
+            "exec",
+            "-e",
+            f"HOME={ctx.runtime_home}",
+            ctx.container,
+            "openclaw",
+            "channels",
+            "status",
+            "--probe",
+        ],
+        check=False,
+    )
+    probe_output = probe_result.stdout
+    line = telegram_status_line(probe_output, ctx.account_id)
+    if probe_result.returncode == 0 and all(
+        marker in line for marker in ("running", "connected", "works", "audit ok")
+    ):
+        print("telegram_probe=connected_works_audit_ok")
+        return
+    if probe_result.returncode not in (0, 124):
+        raise WorkflowError(
+            "Telegram probe failed\n"
+            + sanitize_output(probe_output[-3000:], ctx.telegram_ids)
+        )
+
+    # Some OpenClaw builds block indefinitely in --probe even while polling is healthy.
+    last_output = probe_output
     for _ in range(30):
         result = runner.run(
             [
+                "timeout",
+                "10s",
                 "docker",
                 "exec",
                 "-e",
@@ -833,27 +1075,19 @@ def probe_telegram(ctx: Context, runner: Runner) -> None:
                 "openclaw",
                 "channels",
                 "status",
-                "--probe",
             ],
             check=False,
         )
         last_output = result.stdout
-        line = next(
-            (
-                item
-                for item in last_output.splitlines()
-                if f"Telegram {ctx.account_id}:" in item
-            ),
-            "",
-        )
+        line = telegram_status_line(last_output, ctx.account_id)
         if result.returncode == 0 and all(
-            marker in line for marker in ("running", "connected", "works", "audit ok")
+            marker in line for marker in ("configured", "running", "connected")
         ):
-            print("telegram_probe=connected_works_audit_ok")
+            print("telegram_probe=normal_status_connected_after_probe_timeout")
             return
         time.sleep(1)
     raise WorkflowError(
-        "Telegram probe did not become healthy\n"
+        "Telegram status did not become connected after probe timeout\n"
         + sanitize_output(last_output[-3000:], ctx.telegram_ids)
     )
 
@@ -940,8 +1174,14 @@ def apply_workflow(ctx: Context, runner: Runner) -> None:
         print(f"final_violation={violation}")
     dry_run_stages(ctx, runner)
     operation_dir, manifest_path, manifest = create_operation(ctx)
-    old_pid = quiesce_gateway(ctx, runner)
-    current_pid = old_pid
+    try:
+        old_gateway = quiesce_gateway(ctx, runner)
+    except Exception:
+        manifest["status"] = "preflight-failed"
+        manifest["failed_at"] = utc_stamp()
+        atomic_write_json(manifest_path, manifest)
+        raise
+    current_gateway = old_gateway
     gateway_quiesced = True
     try:
         unify_output = run_stage(
@@ -994,7 +1234,7 @@ def apply_workflow(ctx: Context, runner: Runner) -> None:
         atomic_write_json(manifest_path, manifest)
         skills_check(ctx, runner)
         validate_config(ctx, runner)
-        current_pid = respawn_gateway(ctx, runner, old_pid)
+        current_gateway = respawn_gateway(ctx, runner, old_gateway)
         gateway_quiesced = False
         runtime_check(ctx, runner)
         manifest["status"] = "applied"
@@ -1006,10 +1246,10 @@ def apply_workflow(ctx: Context, runner: Runner) -> None:
         print(f"apply_error={type(error).__name__}", file=sys.stderr)
         try:
             if not gateway_quiesced:
-                current_pid = quiesce_gateway(ctx, runner)
+                current_gateway = quiesce_gateway(ctx, runner)
                 gateway_quiesced = True
             rollback_files_and_unify(ctx, runner, manifest, operation_dir)
-            respawn_gateway(ctx, runner, current_pid)
+            respawn_gateway(ctx, runner, current_gateway)
             print("automatic_rollback=pass", file=sys.stderr)
         except Exception as rollback_error:
             print(
