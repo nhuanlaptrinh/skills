@@ -1,4 +1,4 @@
 interface:
-  display_name: "Cấu hình ALT Codex và sửa Webview"
-  short_description: "Cấu hình Codex/OpenClaw và sửa lỗi Webview"
-  default_prompt: "Dùng $cau-hinh-alt-codex để cấu hình model ALT hoặc chẩn đoán lỗi Codex Extension không nạp được Webview."
+  display_name: "Cấu hình ALT Codex và sửa lỗi 401"
+  short_description: "Cài Codex ALT, kiểm tra auth và sửa 401"
+  default_prompt: "Dùng $cau-hinh-alt-codex để cài Codex ALT trong Antigravity và chặn lỗi 401 do thiếu OPENAI_API_KEY."

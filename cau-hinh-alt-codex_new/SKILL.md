@@ -1,6 +1,6 @@
 ---
 name: cau-hinh-alt-codex
-description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config của Codex, khắc phục lỗi "Codex could not start - The extension couldn't load its resources" trên Antigravity IDE/VS Code Server, phân loại Webview timeout/CSP với app-server hoặc plugin manifest lỗi, xử lý crossorigin/modulepreload/fetch polyfill, đổi model mặc định hoặc model ghim theo agent trong OpenClaw, kiểm tra /v1/models, backup config, hoặc xử lý lỗi provider/model mà không làm lộ API key.
+description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần cài Codex trong Antigravity, bắt lỗi 401 "API key required for remote API access", xác minh OPENAI_API_KEY/auth.json và đúng CODEX_HOME, chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config, khắc phục lỗi "The extension couldn't load its resources", phân loại Webview timeout/CSP với app-server hoặc plugin manifest, đổi model OpenClaw, kiểm tra /v1/models, backup config hoặc xử lý provider/model mà không làm lộ API key.
 ---
 
 # Cấu Hình Codex Qua ALT Gateway Đa Nền Tảng
@@ -10,17 +10,43 @@ description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension
 Cấu hình Codex Extension trong Antigravity và Codex CLI trên máy khác theo mẫu đang dùng trên VPS:
 
 ```toml
-model_provider = "alt"
+model_provider = "router"
 model = "GPT-5.6-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "xhigh"
+preferred_auth_method = "apikey"
+cli_auth_credentials_store = "file"
 
-[model_providers.alt]
-name = "ALT"
+[model_providers.router]
+name = "router"
 base_url = "https://codex.anhlaptrinh.vn/v1"
-env_key = "ALT_KEY"
+wire_api = "responses"
+# For Extension auth, use auth.json below; do not replace it with ALT_KEY.
+# If an environment-only CLI provider is explicitly required, use:
+# env_key = "OPENAI_API_KEY"
 ```
 
-Trường hợp cấu hình Codex Extension: API key được cập nhật trực tiếp vào file `auth.json` (hai file `auth.json` và `config.toml` luôn nằm cùng folder với `SKILL.md`) theo định dạng `{"OPENAI_API_KEY": "<API_KEY>"}` rồi copy trực tiếp vào thư mục `.codex` (`%USERPROFILE%\.codex` hoặc `$CODEX_HOME`), không cần tạo hay thiết lập biến môi trường hệ thống. API key không ghi trực tiếp vào `config.toml`.
+Trường hợp cấu hình Codex Extension: credential canonical là khóa `OPENAI_API_KEY` trong `auth.json` (hai file `auth.json` và `config.toml` luôn nằm cùng folder với `SKILL.md`) rồi copy trực tiếp vào `CODEX_HOME` (`%USERPROFILE%\.codex` hoặc `$CODEX_HOME`). Không coi `ALT_KEY` là alias của `OPENAI_API_KEY`, không đặt API key vào `config.toml`, và không hoàn tất cài đặt nếu preflight chưa xác nhận key với gateway.
+
+## Preflight Bắt Buộc Khi Cài Extension
+
+Lỗi `401 Unauthorized: {"error":"API key required for remote API access"}` nghĩa là request remote không có bearer key. Với Antigravity, hai nguyên nhân cần chặn trước khi copy là:
+
+1. `auth.json` nguồn hoặc đích thiếu khóa `OPENAI_API_KEY`, rỗng hoặc còn placeholder.
+2. Extension chạy bằng `CODEX_HOME`/tài khoản khác với nơi đã copy credential, không ép `cli_auth_credentials_store = "file"`, hoặc workflow chỉ đặt `ALT_KEY` trong shell; khi đó app-server không đọc đúng `auth.json` và Codex không xem `ALT_KEY` là `OPENAI_API_KEY`.
+
+Không chẩn đoán bằng cách in key. Luôn chạy script preflight/cài đặt đi kèm skill; script sẽ resolve đường dẫn, kiểm tra JSON/TOML, gọi `base_url + /models` và kiểm tra auth trên `/responses` bằng key trong bộ nhớ, rồi mới backup/copy:
+
+```bash
+skill_dir="<thư-mục-chứa-SKILL.md>"
+codex_home="${CODEX_HOME:-$HOME/.codex}"
+python3 "$skill_dir/scripts/install_extension_config.py" \
+  --source-dir "$skill_dir" \
+  --target-dir "$codex_home"
+```
+
+Script dừng trước khi ghi nếu thiếu key, `/models` hoặc `/responses` trả `401`, `CODEX_HOME` không hợp lệ hoặc config sai. Probe `/responses` gửi body rỗng nên HTTP `400`/`422` được xem là xác thực đã qua và không phát sinh lượt model. Nếu máy tạm thời không có mạng, chỉ được dùng `--skip-gateway-check` để kiểm tra/copy ngoại tuyến; phải chạy lại preflight có gateway trước khi báo hoàn tất. Trên Windows PowerShell, dùng cùng script với `python` và truyền `$sourceDir`, `$codexHome` đã resolve bằng `Resolve-Path`/`$env:CODEX_HOME`.
+
+Sau copy, kiểm tra lại `auth.json` đích có `OPENAI_API_KEY` không rỗng (chỉ báo `present/missing`), kiểm tra `codex login status`, rồi thoát hoàn toàn và mở lại Antigravity. Không chỉ reload cửa sổ khi app-server còn giữ `CODEX_HOME` cũ.
 
 ## Quy Tắc Đường Dẫn Mềm
 
@@ -188,7 +214,8 @@ Không in `auth.json`, API key hoặc toàn bộ `openclaw.json` trong báo cáo
 
 - Không đọc hoặc in toàn bộ file cấu hình nếu file có thể chứa secret; chỉ lấy các khóa cần thiết và che giá trị nhạy cảm.
 - Không ghi API key thật vào skill, tài liệu, repo, shell history hoặc câu trả lời cuối.
-- `env_key` phải là tên biến môi trường `ALT_KEY`, tuyệt đối không phải API key thật.
+- Với bộ file cài Extension, credential phải nằm ở `auth.json` dưới khóa `OPENAI_API_KEY`; không thay bằng khóa JSON `ALT_KEY`.
+- Nếu dùng `env_key` cho workflow CLI riêng, giá trị phải là tên biến `OPENAI_API_KEY`, tuyệt đối không phải API key thật; không dùng `ALT_KEY` trong cấu hình chuẩn của skill này.
 - Luôn backup `config.toml` trước khi sửa nếu file đã tồn tại.
 - Luôn backup `openclaw.json` trước khi sửa và chạy `openclaw config validate` sau thay đổi.
 - Không đổi `imageModel`, fallback hoặc provider khác nếu người dùng chỉ yêu cầu đổi model chat mặc định.
@@ -209,17 +236,18 @@ VPS chạy user nào thì dùng home của user đó; không thay `$HOME` bằng
 > [!IMPORTANT]
 > Hai file `auth.json` và `config.toml` **luôn nằm cùng folder với `SKILL.md`** trong thư mục của skill. Khi tham chiếu hay copy, luôn lấy trực tiếp từ cùng thư mục chứa `SKILL.md`.
 
-Trường hợp cấu hình Codex Extension, khi có API key người dùng cung cấp:
+Trường hợp cấu hình Codex Extension, khi API key đã được người dùng nhập trực tiếp trên máy đích hoặc đã có sẵn trong file nguồn được cấp quyền:
 1. Cập nhật API key vào file `auth.json` tại thư mục skill (luôn nằm cùng folder với `SKILL.md`):
    ```json
    {
      "OPENAI_API_KEY": "<API_KEY>"
    }
    ```
-2. Copy nguyên trạng hai file (`auth.json` và `config.toml` luôn nằm cùng folder với `SKILL.md`) từ thư mục skill sang thư mục `.codex` của tài khoản đích:
+2. Chạy `scripts/install_extension_config.py`; không copy thủ công trước khi script xác nhận `OPENAI_API_KEY` không rỗng và gateway chấp nhận key.
+3. Script backup rồi copy nguyên trạng hai file (`auth.json` và `config.toml` luôn nằm cùng folder với `SKILL.md`) từ thư mục skill sang thư mục `.codex` của tài khoản đích:
    - `<skill-dir>\auth.json`
    - `<skill-dir>\config.toml`
-3. Không cần khởi tạo hay cấu hình biến môi trường hệ thống cho Codex Extension.
+4. Không cần khởi tạo hay cấu hình biến môi trường hệ thống cho Codex Extension.
 
 Copy hai file vào thư mục `.codex` của tài khoản Windows đích. Với user hiện tại, lấy profile từ `$env:USERPROFILE`; với user khác, dùng profile path do hệ điều hành trả về hoặc do người dùng chỉ định. Không tự ghép ổ đĩa và tên user. Nếu cấu hình user hiện tại và `CODEX_HOME` đã được đặt, ưu tiên `CODEX_HOME`.
 
@@ -231,7 +259,7 @@ Phân biệt rõ yêu cầu cập nhật skill và yêu cầu áp dụng cấu h
 
 ### Windows PowerShell
 
-Đặt biến `ALT_CODEX_SKILL_DIR` thành thư mục chứa `auth.json`, `config.toml` và `SKILL.md`, hoặc chạy PowerShell ngay trong thư mục skill. Mặc định `$targetProfile` là profile của user đang chạy; khi chọn tài khoản khác, lấy profile path thực tế từ hệ điều hành hoặc từ người dùng.
+Đặt biến `ALT_CODEX_SKILL_DIR` thành thư mục chứa `auth.json`, `config.toml` và `SKILL.md`, hoặc chạy PowerShell ngay trong thư mục skill. Mặc định `$targetProfile` là profile của user đang chạy; khi chọn tài khoản khác, lấy profile path thực tế từ hệ điều hành hoặc từ người dùng. Dùng script cài đặt để tránh bỏ sót `auth.json` hoặc copy vào sai `CODEX_HOME`:
 
 ```powershell
 $sourceDir = if ($env:ALT_CODEX_SKILL_DIR) {
@@ -248,24 +276,12 @@ $codexHome = if (($targetProfile -eq $env:USERPROFILE) -and $env:CODEX_HOME) {
 } else {
     Join-Path $targetProfile ".codex"
 }
-$fileNames = @("auth.json", "config.toml")
-$stamp = Get-Date -Format yyyyMMdd-HHmmss
-
-New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
-foreach ($fileName in $fileNames) {
-    $sourcePath = Join-Path $sourceDir $fileName
-    $destinationPath = Join-Path $codexHome $fileName
-    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-        throw "Không tìm thấy file nguồn: $sourcePath"
-    }
-    if (Test-Path -LiteralPath $destinationPath -PathType Leaf) {
-        Copy-Item -LiteralPath $destinationPath -Destination "$destinationPath.bak-$stamp"
-    }
-    Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
-}
+python (Join-Path $sourceDir "scripts\install_extension_config.py") `
+  --source-dir $sourceDir `
+  --target-dir $codexHome
 ```
 
-Sau khi chạy, chỉ xác nhận hai file đích tồn tại; không đọc hoặc in giá trị trong `auth.json`. Báo cáo đường dẫn đích thực tế từ `$codexHome`, không giả định tên user hoặc ổ đĩa.
+Sau khi chạy, xác nhận script báo `OPENAI_API_KEY: present`, gateway HTTP 2xx và hai file đích hợp lệ; không đọc hoặc in giá trị trong `auth.json`. Báo cáo đường dẫn đích thực tế từ `$codexHome`, không giả định tên user hoặc ổ đĩa.
 
 ## Workflow Chuẩn
 
@@ -276,8 +292,8 @@ Sau khi chạy, chỉ xác nhận hai file đích tồn tại; không đọc ho�
 5. Xác định đường dẫn user config và tạo thư mục `.codex` nếu chưa có.
 6. Backup từng file đích đã tồn tại với timestamp trước khi copy hoặc sửa.
 7. Chỉ khi người dùng yêu cầu chỉnh thủ công, cập nhật các khóa cần thiết trong `config.toml` và giữ nguyên cấu hình không liên quan.
-8. Trường hợp cấu hình Codex Extension: khi có API key, cập nhật vào file `auth.json` (luôn nằm cùng folder với `SKILL.md`) rồi copy cả `auth.json` và `config.toml` sang thư mục `.codex`, không cần tạo biến môi trường hệ thống. Đảm bảo không làm lộ key trong chat/log.
-9. Khi người dùng yêu cầu kiểm tra, test endpoint `/v1/models`, rồi restart hoàn toàn Antigravity/Codex Extension.
+8. Trường hợp cấu hình Codex Extension: cập nhật `OPENAI_API_KEY` trong `auth.json` rồi bắt buộc chạy `scripts/install_extension_config.py` để preflight, test `/v1/models`, backup và copy cả `auth.json`/`config.toml`; không cần tạo biến môi trường hệ thống. Đảm bảo không làm lộ key trong chat/log.
+9. Thoát hoàn toàn và mở lại Antigravity/Codex Extension để app-server nhận đúng `CODEX_HOME` và credential.
 10. Mở phiên Codex mới và xác nhận provider/model hoạt động.
 
 Khi đổi model, chuẩn hóa cách viết không phân biệt hoa/thường và chấp nhận dấu gạch ngang hoặc khoảng trắng như mô tả ở mục **Model Được Hỗ Trợ**. Chỉ ghi tên chính thức `GPT-5.6-sol`, `GPT-5.6-terra` hoặc `GPT-5.6-luna` vào khóa `model`. Nếu không thể chuẩn hóa yêu cầu thành một trong ba model này, thông báo danh sách model được hỗ trợ và dừng trước khi sửa cấu hình.
@@ -308,14 +324,14 @@ Trường hợp cấu hình Codex Extension, cập nhật API key vào file `aut
 }
 ```
 
-Sau đó copy file `auth.json` cùng `config.toml` vào thư mục `.codex` (ví dụ `%USERPROFILE%\.codex`). **Không cần tạo biến môi trường hệ thống.**
+Sau đó chạy `scripts/install_extension_config.py` để kiểm tra và copy `auth.json` cùng `config.toml` vào thư mục `.codex` (ví dụ `%USERPROFILE%\.codex`). **Không cần tạo biến môi trường hệ thống.**
 
-If saved via environment variables (e.g. for CLI or shared scripts):
+Nếu dùng CLI riêng và muốn đăng nhập bằng biến môi trường, dùng đúng tên chuẩn `OPENAI_API_KEY`, không dùng `ALT_KEY`:
 
 ```powershell
-$secureKey = Read-Host "Nhap ALT API key" -AsSecureString
+$secureKey = Read-Host "Nhap API key" -AsSecureString
 $plainKey = [System.Net.NetworkCredential]::new("", $secureKey).Password
-[Environment]::SetEnvironmentVariable("ALT_KEY", $plainKey, "User")
+[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", $plainKey, "User")
 Remove-Variable plainKey, secureKey
 ```
 
@@ -324,7 +340,7 @@ Remove-Variable plainKey, secureKey
 ### Kiểm tra không lộ key
 
 ```powershell
-if ([Environment]::GetEnvironmentVariable("ALT_KEY", "User")) { "ALT_KEY=set" } else { "ALT_KEY=missing" }
+if ([Environment]::GetEnvironmentVariable("OPENAI_API_KEY", "User")) { "OPENAI_API_KEY=set" } else { "OPENAI_API_KEY=missing" }
 ```
 
 ### Test gateway
@@ -332,7 +348,7 @@ if ([Environment]::GetEnvironmentVariable("ALT_KEY", "User")) { "ALT_KEY=set" } 
 Chạy trong cửa sổ PowerShell mới sau khi restart terminal:
 
 ```powershell
-$key = [Environment]::GetEnvironmentVariable("ALT_KEY", "User")
+$key = [Environment]::GetEnvironmentVariable("OPENAI_API_KEY", "User")
 curl.exe -sS -o NUL -w "%{http_code}`n" -H "Authorization: Bearer $key" --max-time 20 "https://codex.anhlaptrinh.vn/v1/models"
 Remove-Variable key
 ```
@@ -354,19 +370,19 @@ ${EDITOR:-nano} "$config_path"
 Nhập ẩn, sau đó thêm dòng export vào file shell profile phù hợp mà không in key ra màn hình:
 
 ```bash
-read -rsp 'Nhap ALT API key: ' ALT_KEY; echo
-export ALT_KEY
+read -rsp 'Nhap API key: ' OPENAI_API_KEY; echo
+export OPENAI_API_KEY
 ```
 
-Để dùng sau khi đăng nhập lại, lưu bằng trình quản lý secret của hệ điều hành nếu có. Nếu buộc phải dùng shell profile, thêm thủ công `export ALT_KEY="..."` vào `~/.bashrc`, `~/.zshrc` hoặc file môi trường của desktop session, đặt quyền file `600`, và không commit file đó.
+Để dùng sau khi đăng nhập lại, lưu bằng trình quản lý secret của hệ điều hành nếu có. Nếu buộc phải dùng shell profile, thêm thủ công `export OPENAI_API_KEY="..."` vào `~/.bashrc`, `~/.zshrc` hoặc file môi trường của desktop session, đặt quyền file `600`, và không commit file đó.
 
 Antigravity mở từ desktop có thể không đọc `~/.bashrc`. Khi đó đặt biến trong môi trường desktop/login session hoặc khởi động Antigravity từ terminal đã có biến.
 
 ### Kiểm tra và test
 
 ```bash
-[ -n "${ALT_KEY:-}" ] && echo 'ALT_KEY=set' || echo 'ALT_KEY=missing'
-status=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ALT_KEY" --max-time 20 'https://codex.anhlaptrinh.vn/v1/models')
+[ -n "${OPENAI_API_KEY:-}" ] && echo 'OPENAI_API_KEY=set' || echo 'OPENAI_API_KEY=missing'
+status=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $OPENAI_API_KEY" --max-time 20 'https://codex.anhlaptrinh.vn/v1/models')
 printf 'HTTP %s\n' "$status"
 ```
 
@@ -377,15 +393,15 @@ File cấu hình giống Linux: `${CODEX_HOME:-$HOME/.codex}/config.toml`.
 Antigravity mở từ Finder/Dock thường không nhận biến chỉ khai báo trong `~/.zshrc`. Dùng Keychain hoặc đặt biến cho GUI session. Cách tạm thời cho phiên đăng nhập hiện tại:
 
 ```bash
-read -rsp 'Nhap ALT API key: ' ALT_KEY; echo
-launchctl setenv ALT_KEY "$ALT_KEY"
-unset ALT_KEY
+read -rsp 'Nhap API key: ' OPENAI_API_KEY; echo
+launchctl setenv OPENAI_API_KEY "$OPENAI_API_KEY"
+unset OPENAI_API_KEY
 ```
 
 Sau đó thoát hoàn toàn và mở lại Antigravity. Kiểm tra tên biến mà không in key:
 
 ```bash
-[ -n "$(launchctl getenv ALT_KEY)" ] && echo 'ALT_KEY=set' || echo 'ALT_KEY=missing'
+[ -n "$(launchctl getenv OPENAI_API_KEY)" ] && echo 'OPENAI_API_KEY=set' || echo 'OPENAI_API_KEY=missing'
 ```
 
 Lưu ý: `launchctl setenv` không phải cơ chế lưu secret bền vững qua mọi lần đăng nhập. Với máy dùng lâu dài, ưu tiên macOS Keychain hoặc cơ chế quản lý môi trường doanh nghiệp của máy.
@@ -398,7 +414,8 @@ Nếu file đã có nhiều cấu hình, không thay toàn bộ file bằng mộ
 - Đảm bảo `model` là model người dùng đã chọn trong danh sách hỗ trợ; mặc định là `GPT-5.6-sol`.
 - Chuẩn hóa cách viết của người dùng về `GPT-5.6-sol`, `GPT-5.6-terra` hoặc `GPT-5.6-luna`; không ghi model khác, tên chữ thường hoặc tên có khoảng trắng vào config.
 - Đảm bảo `model_reasoning_effort = "medium"`, trừ khi người dùng yêu cầu mức khác.
-- Tạo hoặc cập nhật `[model_providers.alt]` với `name`, `base_url`, `env_key` như mẫu.
+- Đảm bảo `preferred_auth_method = "apikey"` và `cli_auth_credentials_store = "file"` để Extension/app-server đọc `auth.json` trong đúng `CODEX_HOME`.
+- Tạo hoặc cập nhật `[model_providers.router]` với `name`, `base_url` và `wire_api = "responses"`; chỉ thêm `env_key = "OPENAI_API_KEY"` khi người dùng chọn workflow biến môi trường CLI, không thêm để thay thế `auth.json` của Extension.
 - Giữ nguyên mọi bảng `[projects."..."]`, MCP và cấu hình khác.
 
 ## Xử Lý Lỗi
@@ -411,19 +428,22 @@ Sai:
 env_key = "sk-..."
 ```
 
-Đúng:
+Đúng cho CLI dùng biến môi trường:
 
 ```toml
-env_key = "ALT_KEY"
+env_key = "OPENAI_API_KEY"
 ```
 
 Nếu phát hiện lỗi này, không nhắc lại giá trị key trong output. Hướng dẫn người dùng xoay vòng key nếu key từng bị lưu vào repo, log hoặc chat.
 
 ### HTTP `401`
 
-- Không gửi Authorization mà nhận `401`: gateway có thể vẫn hoạt động bình thường.
-- Đã gửi key mà vẫn `401`: key thiếu, sai, hết hạn hoặc không có quyền.
-- Kiểm tra process Antigravity có thực sự nhận `ALT_KEY` sau khi restart.
+- Với thông báo `API key required for remote API access`, coi đây là lỗi cài đặt và không báo hoàn tất: request tới `/v1/responses` không có bearer key.
+- Kiểm tra `auth.json` trong đúng `CODEX_HOME` của process Antigravity có khóa `OPENAI_API_KEY` không rỗng; không chỉ kiểm tra file nằm cạnh `SKILL.md`.
+- Nếu chỉ có `ALT_KEY`, chuyển sang `OPENAI_API_KEY`/`auth.json`; `ALT_KEY` không được workflow Extension chuẩn sử dụng.
+- Chạy lại `scripts/install_extension_config.py --check-only` hoặc cài lại không có `--skip-gateway-check`. Nếu `/models` vẫn `401`, key sai, hết hạn hoặc chưa được gateway cấp quyền.
+- Sau khi sửa, thoát hoàn toàn Antigravity, mở lại, kiểm tra process có đúng `CODEX_HOME`, rồi thử một request `/v1/responses`; chỉ kiểm tra `/models` là chưa đủ để chứng minh phiên Extension đã nạp credential.
+- `401` ở `chatgpt.com/backend-api/plugins/*`, `/wham/*` hoặc `/settings/user` là control-plane/plugin của ChatGPT; API-key auth có thể không được hỗ trợ ở các route đó và không chứng minh gateway ALT bị lỗi. Chỉ kết luận lỗi credential ALT khi endpoint trong `base_url` (ví dụ `/v1/models` hoặc `/v1/responses`) trả `401`.
 
 ### HTTP `404`
 
@@ -458,7 +478,7 @@ Extension có thể chạy trong môi trường GUI khác terminal. Kiểm tra b
 Đã cấu hình Codex Extension/Codex CLI dùng ALT Gateway trên <Windows|Linux|macOS>.
 File cấu hình: <đường dẫn config.toml>.
 Model: <GPT-5.6-sol|GPT-5.6-terra|GPT-5.6-luna>.
-API key được lưu qua biến ALT_KEY, không ghi vào config hoặc báo cáo.
+API key được lưu trong `auth.json` dưới khóa `OPENAI_API_KEY`, không ghi vào config hoặc báo cáo.
 Kiểm tra gateway: HTTP <mã>.
 Đã yêu cầu restart hoàn toàn Antigravity và mở phiên Codex mới.
 ```
