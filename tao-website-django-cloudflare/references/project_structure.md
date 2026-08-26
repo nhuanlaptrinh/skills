@@ -17,6 +17,7 @@
 ├── website/
 ├── templates/website/
 ├── static/website/css/
+├── static/website/img/logo-anh-lap-trinh.png
 ├── staticfiles/
 ├── data/
 ├── deploy/nginx.conf.example

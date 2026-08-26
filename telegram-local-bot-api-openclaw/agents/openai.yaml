@@ -1,0 +1,4 @@
+interface:
+  display_name: "Telegram Local Bot API for OpenClaw"
+  short_description: "Deploy large-media Telegram Bot API locally"
+  default_prompt: "Use $telegram-local-bot-api-openclaw to install and verify Telegram Local Bot API for an OpenClaw VPS."

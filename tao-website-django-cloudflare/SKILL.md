@@ -13,6 +13,12 @@ description: Tạo, scaffold, triển khai hoặc chuẩn hóa website Python Dj
 - App chỉ publish `127.0.0.1:<host-port>:8000`; không public trực tiếp cổng Django.
 - Khi có domain/subdomain, bắt buộc dùng skill `cloudflare-subdomain` qua CLI `/root/.agents/skills/cloudflare-subdomain/tao_ten_mien` thay vì tự viết lại Cloudflare API.
 
+## Nhận diện mặc định
+
+- Dùng logo Anh Lập Trình chuẩn tại `/logo-anh-lap-trinh.png` cho website/web app Django mới, trừ khi người dùng yêu cầu nhận diện khác.
+- Scaffold tự chép logo vào `static/website/img/logo-anh-lap-trinh.png`; template phải tham chiếu asset bằng `{% static %}` thay vì đường dẫn filesystem.
+- Giữ logo ngang đúng tỉ lệ: `width:auto`, chiều cao cố định và `object-fit:contain`; không ép cặp kích thước vuông.
+
 Nếu yêu cầu là website khóa học ALT có nội dung, Second Brain, thanh toán hoặc cập nhật ALT portal, dùng thêm skill `tao-website-khoa-hoc-alt`. Skill này phụ trách scaffold Django và hạ tầng chung, không thay thế logic khóa học chuyên biệt.
 
 ## Đọc trước khi làm
@@ -78,7 +84,7 @@ Script không ghi đè destination đã tồn tại. Dùng `--destination /tmp/.
 ## Hoàn thiện code
 
 1. Đọc `README.md` và `AGENTS.md` vừa sinh.
-2. Sửa nội dung trong `templates/website/home.html` và `static/website/css/style.css`.
+2. Sửa nội dung trong `templates/website/home.html` và `static/website/css/style.css`; giữ logo mặc định trong `static/website/img/logo-anh-lap-trinh.png`.
 3. Thêm model/view/form theo yêu cầu; không đưa secret vào source.
 4. Chạy `bash scripts/prepare_env.sh`; script tạo `.env` mode `600` và không in secret.
 5. Chạy kiểm tra trước deploy:

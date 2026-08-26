@@ -14,6 +14,14 @@ PROJECT_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 DOMAIN_RE = re.compile(
     r"^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"
 )
+BRAND_LOGO_SOURCE = Path("/logo-anh-lap-trinh.png")
+BRAND_LOGO_FALLBACK = Path(__file__).resolve().parents[1] / "assets" / "logo-anh-lap-trinh.png"
+BRAND_LOGO_TARGET = "static/website/img/logo-anh-lap-trinh.png"
+
+
+def brand_logo_source() -> Path:
+    """Prefer the VPS-wide canonical logo, with a bundled skill fallback."""
+    return BRAND_LOGO_SOURCE if BRAND_LOGO_SOURCE.is_file() else BRAND_LOGO_FALLBACK
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,6 +101,7 @@ def project_files(args: argparse.Namespace) -> dict[str, str]:
             - Đọc `/root/_Second_AI_Brain/START_HERE.md` và project note trước khi sửa production.
             - Không in hoặc commit `.env`, database, token, password hay credential.
             - Backup Nginx/Compose/config quan trọng vào `/root/_Backups` trước khi sửa production.
+            - Dùng logo Anh Lập Trình trong `static/website/img/logo-anh-lap-trinh.png`, giữ đúng tỉ lệ ngang.
             - Giữ Docker bind `127.0.0.1:__PORT__:8000`; không public trực tiếp cổng Django.
             - Chạy `python manage.py check`, tests liên quan, `docker compose config` và `nginx -t` sau thay đổi.
             - Ghi thay đổi quan trọng vào `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.
@@ -141,6 +150,7 @@ def project_files(args: argparse.Namespace) -> dict[str, str]:
             # __TITLE__
 
             Django website profile `__PROFILE__` for `__DOMAIN__`.
+            Logo mặc định: `static/website/img/logo-anh-lap-trinh.png`.
 
             ## Chuẩn bị
 
@@ -380,6 +390,9 @@ def project_files(args: argparse.Namespace) -> dict[str, str]:
               <link rel="stylesheet" href="{% static 'website/css/style.css' %}">
             </head>
             <body>
+              <header class="site-header">
+                <a href="/" aria-label="Anh Lập Trình"><img src="{% static 'website/img/logo-anh-lap-trinh.png' %}" alt="Anh Lập Trình" width="289" height="55"></a>
+              </header>
               <main class="hero">
                 <p class="eyebrow">Django Website</p>
                 <h1>{{ site_title }}</h1>
@@ -417,6 +430,20 @@ def project_files(args: argparse.Namespace) -> dict[str, str]:
               background: rgba(255, 255, 255, 0.92);
               box-shadow: 0 24px 80px rgba(20, 33, 61, 0.12);
               text-align: center;
+            }
+
+            .site-header {
+              display: flex;
+              justify-content: center;
+              margin-bottom: 26px;
+            }
+
+            .site-header img {
+              display: block;
+              width: auto;
+              height: 34px;
+              max-width: min(190px, 70vw);
+              object-fit: contain;
             }
 
             .eyebrow {
@@ -492,21 +519,30 @@ def project_files(args: argparse.Namespace) -> dict[str, str]:
             echo "Created $ENV_FILE with mode 600"
         """,
         "data/.gitkeep": "",
+        BRAND_LOGO_TARGET: "",
         "staticfiles/.gitkeep": "",
     }
     return {path: render(template, replacements) for path, template in templates.items()}
 
 
 def write_project(destination: Path, files: dict[str, str]) -> None:
+    logo_source = brand_logo_source()
+    if not logo_source.is_file():
+        fail(f"brand logo is missing: {BRAND_LOGO_SOURCE}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = destination.parent / f".{destination.name}.tmp-{os.getpid()}"
     if staging.exists():
         fail(f"temporary path already exists: {staging}")
     try:
         for relative_path, content in files.items():
+            if relative_path == BRAND_LOGO_TARGET:
+                continue
             target = staging / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
+        logo_target = staging / BRAND_LOGO_TARGET
+        logo_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(logo_source, logo_target)
         (staging / "manage.py").chmod(0o755)
         (staging / "scripts/prepare_env.sh").chmod(0o755)
         staging.replace(destination)
@@ -523,6 +559,8 @@ def main() -> None:
         fail(f"destination already exists: {destination}")
     if not port_is_available(args.port):
         fail(f"port is already in use: 127.0.0.1:{args.port}")
+    if not brand_logo_source().is_file():
+        fail(f"brand logo is missing: {BRAND_LOGO_SOURCE}")
 
     files = project_files(args)
     print(f"Mode: {'apply' if args.apply else 'dry-run'}")
