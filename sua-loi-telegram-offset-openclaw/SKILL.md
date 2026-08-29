@@ -1,0 +1,62 @@
+---
+name: sua-loi-telegram-offset-openclaw
+description: Diagnose and safely repair OpenClaw Telegram bots that stop replying when a persisted polling offset is stale or higher than current Cloud Bot API updates; use for offset, polling, and Local-to-Cloud migration incidents, not general agent routing or video delivery.
+---
+
+# Sua Loi Telegram Offset Openclaw
+
+Use this skill when a Telegram bot is configured and its agent/model appears healthy, but new DM or group messages do not reach OpenClaw after a polling restart or a Local Bot API to Cloud API migration.
+
+## Core diagnosis
+
+- Confirm the account, agent, workspace, `apiRoot`, webhook state, and bot identity without printing a token.
+- Treat `https://api.telegram.org` with `getUpdates` as Cloud API polling. Polling mode is not the same as Local Bot API.
+- Read the account's persisted row in the OpenClaw state database: namespace `telegram.update-offsets`, key equal to the Telegram account ID.
+- Compare its `lastUpdateId` with update IDs returned by Cloud API. A stored offset greater than current Cloud update IDs causes Telegram to skip every new update.
+
+## Safety rules
+
+- Never call `getUpdates` while the Gateway is running. It can create a 409 conflict, consume/advance updates, or hide the real owner of the polling session.
+- Stop the relevant Gateway before a direct Cloud API queue check or state-database mutation. Start it again even when a diagnostic command fails.
+- Do not print bot tokens, full update payloads, message text, media IDs, or credential files.
+- Default to dry-run. Apply only after the user explicitly authorizes the repair and the observed offset is passed as `--expected-offset`.
+- Back up the SQLite database and its `-wal`/`-shm` companions before deleting anything.
+- Delete only the target `telegram.update-offsets` row. Preserve sessions, message cache, workspace files, training data, routing, and configuration.
+
+## Repair workflow
+
+1. Check `openclaw channels status --channel telegram --probe --json`, the Gateway service, and the target account's effective routing. Record only redacted metadata.
+2. Stop `openclaw-gateway.service` (or the actual service unit) and verify it is inactive.
+3. Run the helper in dry-run mode with `--cloud-check`. It reports the stored offset, Cloud update ID range, bot ID, and whether a mismatch is proven.
+4. If the stored offset is stale/high, rerun with `--apply --expected-offset <value>`. The helper refuses an active Gateway, an unexpected offset, or an unproven mismatch unless `--force` is explicitly supplied.
+5. Start the Gateway and wait until the target account is connected. Send a fresh unique DM test and verify both `Inbound message` and outbound success in the log.
+6. For a group, test with an explicit bot mention first. If unmentioned messages must trigger the bot, check BotFather Privacy Mode; OpenClaw `requireMention:false` cannot override Telegram privacy filtering.
+
+## Helper
+
+Resolve the helper relative to this skill directory. It is intentionally standard-library-only:
+
+```bash
+python3 scripts/repair_telegram_offset.py \
+  --account-id <telegram-account-id> \
+  --cloud-check
+```
+
+After reviewing the dry-run output while the Gateway is stopped:
+
+```bash
+python3 scripts/repair_telegram_offset.py \
+  --account-id <telegram-account-id> \
+  --cloud-check \
+  --apply \
+  --expected-offset <stored-lastUpdateId> \
+  --backup-dir /root/_Backups
+```
+
+Use `--force` only when the mismatch was independently proven from logs or a known update ID but the Cloud queue is empty. Never use it to bypass an active-Gateway check or an unexpected offset.
+
+## If no mismatch is found
+
+Investigate, in order: a duplicate poller or 409 conflict, webhook still configured, wrong bot token/account, DM or group allowlist, Telegram Privacy Mode, dispatch/session errors, and only then model/provider latency. Use `unify-openclaw-bot-workspace` for divergent routing and the relevant OpenClaw permission skill for owner policy; this skill does not change agent/workspace architecture.
+
+If a token was printed to a terminal, history, or log, recommend rotating it with BotFather and updating the account after the offset repair. Do not copy the token into this skill or any diagnostic output.

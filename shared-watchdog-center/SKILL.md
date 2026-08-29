@@ -66,11 +66,14 @@ Use these labels in config:
 - `crawler`: scraper/crawler jobs.
 - `python`: generic Python automation.
 - `openclaw_channel`: health/recovery check for an OpenClaw channel such as Zalo Personal.
+- `openclaw_gateway`: host-side guard for the member Supervisor Gateway block and Gateway process.
 - `openclaw_session`: scheduled OpenClaw session audit/compaction with an explicit channel-key filter.
 
 For OpenClaw session maintenance, set the token threshold comfortably below the effective context limit. For a member configured with `contextTokens=64000` and `reserveTokensFloor=40000`, use a preventive threshold around `45000`, not `60000`. Enable `agents.defaults.contextPruning` separately when large tool results are the main source of context growth, because line-count compaction may not shrink a short transcript containing one very large tool result.
 
 For OpenClaw channel watchdogs, do not rely only on a healthy gateway process. Combine `openclaw channels status --probe` with the latest channel listener events, use a restart cooldown, and notify through a different healthy channel only when an incident or recovery occurs.
+
+For `openclaw_gateway`, run the guard on the main VPS rather than inside the member Supervisor it protects. Use `scripts/check_member_gateway_supervisor.py`, compare both the active Supervisor config and persistent entrypoint, back up before repair, and set `ai_on_failure=false`. This prevents infrastructure drift from calling an AI repair agent or consuming tokens.
 
 The `type` is used to create better OpenClaw prompts and classify errors.
 
@@ -91,6 +94,10 @@ Each project config should look like:
   }
 }
 ```
+
+Optional registry key:
+
+- `ai_on_failure`: defaults to enabled. Set to `false` for deterministic infrastructure guards that must log and exit without invoking OpenClaw on failure.
 
 Rules:
 

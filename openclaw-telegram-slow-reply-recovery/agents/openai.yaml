@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Telegram Slow-Reply Recovery"
+  short_description: "Diagnose and recover slow or silent OpenClaw Telegram bots."
+  default_prompt: "Use $openclaw-telegram-slow-reply-recovery to diagnose and safely recover this OpenClaw Telegram bot."

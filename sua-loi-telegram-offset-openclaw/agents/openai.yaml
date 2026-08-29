@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sửa lỗi Telegram Offset OpenClaw"
+  short_description: "Reset offset Telegram bị lệch an toàn"
+  default_prompt: "Use $sua-loi-telegram-offset-openclaw to diagnose and safely repair a silent OpenClaw Telegram polling bot."

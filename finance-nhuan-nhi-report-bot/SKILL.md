@@ -85,6 +85,15 @@ Báo cáo gồm:
 - Lũy kế tháng.
 - Top danh mục chi tháng.
 
+## Fast Path cho bot Telegram
+
+- Với yêu cầu tài chính thông thường, chỉ chọn đúng tháng/ngày và các file cần thiết; không quét toàn bộ workspace, lịch sử phiên hoặc thư mục skill.
+- Gom các thao tác đọc độc lập vào cùng một lượt tool; ưu tiên đọc `chi_tieu.csv`, `doanh_thu_cong_ty.csv` và `bao_cao_thang.md` theo lô trước khi tính toán.
+- Ưu tiên tool đọc/ghi file. Không dùng `exec` để đọc, tìm kiếm, parse hoặc cập nhật CSV/XLSX nếu tool file hoặc script chuyên dụng trong skill đã đáp ứng.
+- Chỉ dùng `exec` cho dry-run được nêu trong skill, hoặc khi người dùng yêu cầu kiểm tra hệ thống/không có tool tương đương; không chạy healthcheck VPS diện rộng cho câu hỏi tài chính đơn giản.
+- Sau khi gom dữ liệu, trả lời trong ít lượt model/tool nhất có thể; nếu cần cập nhật thì ghi một lần và chạy kiểm tra cần thiết một lần.
+- Nếu người dùng hỏi đồng thời nghiệp vụ tài chính và tình trạng VPS, tách hai phần; không để chẩn đoán hệ thống làm chậm phản hồi tài chính.
+
 ## Quy tắc an toàn
 
 - Không ghi Telegram bot token, mật khẩu, cookie, OTP, private key vào skill, README, log hoặc câu trả lời.

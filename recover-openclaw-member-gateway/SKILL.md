@@ -85,7 +85,16 @@ whole container only to test this path.
 
 ## Install self-healing
 
-Add two unique Shared Watchdog Center entries and preserve all unrelated entries:
+When the incident involved a missing, commented, or drifted Supervisor Gateway
+block, first install the host-side `$openclaw-member-gateway-supervisor-guard`:
+
+- add `member_<name>_gateway_supervisor` to Shared Watchdog Center;
+- set `ai_on_failure=false`;
+- run it every minute from root cron;
+- verify its dry-run reports `HEALTHY` before enabling cron.
+
+For members using Zalo Personal, also add two unique Shared Watchdog Center
+entries and preserve all unrelated entries:
 
 - `member_<name>_zalouser`: every 5 minutes, probe the live Zalo listener and restart only the Supervisor-managed Gateway with a 10-minute cooldown.
 - `member_<name>_sessions`: every 2 hours, target `agent:main:zalouser:`, require 10 idle minutes, summary-compact at most one session per run, and use 18k/64k or 40k/128k thresholds.
@@ -137,6 +146,7 @@ timeout 60s openclaw channels status --probe"
 Confirm:
 
 - exactly one Gateway exists and its parent is Supervisor;
+- the host-side Gateway Supervisor guard is `HEALTHY` when installed;
 - Telegram is `running, connected, works, audit ok`;
 - Zalo Personal is `configured, running, works`;
 - no new listener, outbound, cipher, or long-running event appears after the latest provider start;
