@@ -1,90 +1,95 @@
 ---
 name: openclaw-zalo-reliability
-description: Vận hành và sửa độ ổn định Zalo Personal cho OpenClaw member VPS, gồm watchdog, phản hồi sớm, kiểm tra file, môi trường PDF/Excel, compact session và tách tác vụ nặng sang worker.
+description: Diagnose, recover, harden, and operate OpenClaw Zalo Personal on Docker member VPS systems. Use when Zalo receives no reply, inbound or outbound delivery fails, the listener exits, sessions become long-running or oversized, both Telegram and Zalo stop because the member Gateway is absent or unmanaged, Supervisor configuration drifts, recurring failures need Shared Watchdog prevention, files or heavy tasks are delivered unreliably, or Zalo QR login is required as a last resort.
 ---
 
 # OpenClaw Zalo Reliability
 
-## Khi nào dùng
+Use this as the single entry point for Zalo Personal incidents and prevention on
+OpenClaw member VPS containers. Diagnose the failure layer before changing
+production, preserve pairing and transcripts, and use QR login only after safer
+recovery paths fail.
 
-- Zalo lâu lâu không nhận hoặc không trả lời trong khi Telegram vẫn chạy.
-- Tác vụ file/ảnh/video làm bot im lâu.
-- File gửi qua Zalo lỗi, quá nặng hoặc không mở được trên điện thoại.
-- Session Zalo quá dài hoặc worker không bàn giao ổn định.
+## Boundaries
 
-## Đường dẫn
+- Keep `/root/Automation/watchdog/shared_self_healing` as the shared runtime and
+  registry for all projects. Do not copy or merge that center into this skill.
+- Use `/root/.agents/skills/shared-watchdog-center/SKILL.md` only when changing
+  the generic center architecture or adding non-OpenClaw projects.
+- Do not modify `/root/.agents/skills/self-healing-watchdog` as part of a Zalo
+  incident.
+- Use this skill for member data under
+  `/root/Apps/member_vps/docker-users/data`, not automatically for the root
+  OpenClaw runtime.
 
-- Watchdog: `/root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh`
-- Wrapper cron: `/root/Automation/watchdog/shared_self_healing/run_project.sh member_anhlaptrinh_zalouser`
-- Cài tool tài liệu: `/root/Automation/openclaw_member_assistant/scripts/setup_member_document_tools.sh`
-- Kiểm tra file: `/root/Automation/openclaw_member_assistant/scripts/validate_zalo_file.py`
-- Audit/compact session: `/root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh`
-- Vá retry/delay gửi nhiều đoạn: `/root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh`
-- Vá lưu group im lặng: `/root/Automation/openclaw_member_assistant/scripts/patch_zalouser_silent_archive.py`
-- Skill trong workspace: `/home/anhlaptrinh/.openclaw/workspace/skills/zalo-reliable-task-delivery/SKILL.md`
-- Skill audio dùng chung: `/root/.agents/skills/cai-dat-audio-local-openclaw/SKILL.md`
+## Required Preflight
 
-## Dry-run
+1. Read the VPS Second AI Brain, production checklist, nearest `AGENTS.md`, and
+   the affected member project note.
+2. Resolve the exact `CONTAINER`, internal `MEMBER_HOME`, host directory that
+   directly contains `.openclaw`, member label, and unique watchdog keys.
+3. Confirm whether the Gateway parent is Supervisor, tmux, systemd, or absent.
+4. Back up every file that may change, the session index, affected plugin
+   bundle, watchdog registry, cron, and relevant project note.
+5. Never print `.env`, tokens, cookies, passwords, QR payloads, pairing data,
+   private sender/group IDs, or message contents.
 
-```bash
-bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
-bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-anhlaptrinhthu
-MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh
-CONTAINER=user-nguyendinhtan MEMBER_HOME=/root MEMBER_LABEL=nguyendinhtan PROJECT_KEY=member_nguyendinhtan_zalouser bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
-MEMBER_HOME=/root SESSION_PATTERN='agent:main:zalouser:direct:<zalo-id>' COMPACTION_MODE=summary bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-nguyendinhtan
-MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/nguyendinhtan/root bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh
-python3 /root/Automation/openclaw_member_assistant/scripts/validate_zalo_file.py /path/to/file.xlsx
-```
-
-## Chạy thật
+## Start With Read-Only Diagnosis
 
 ```bash
-bash /root/Automation/watchdog/shared_self_healing/run_project.sh member_anhlaptrinh_zalouser
-/root/Automation/watchdog/shared_self_healing/run_project.sh member_nguyendinhtan_zalouser
-/root/Automation/watchdog/shared_self_healing/run_project.sh member_nguyendinhtan_sessions
-bash /root/Automation/openclaw_member_assistant/scripts/setup_member_document_tools.sh user-anhlaptrinhthu /home/anhlaptrinh
-SESSION_PATTERN='agent:main:zalouser:' TOKEN_THRESHOLD_64K=18000 TOKEN_THRESHOLD_128K=40000 SESSION_IDLE_SECONDS=600 MAX_LINES=300 bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-anhlaptrinhthu --apply
-MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/anhlaptrinhthu bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh --apply
+bash /root/.agents/skills/openclaw-zalo-reliability/scripts/diagnose.sh \
+  <container> <member-home> [zalo-id]
 ```
 
-## Input/Output
+The diagnostic loads Gateway auth internally, redacts common secrets, checks
+core/plugin versions, probes Zalo, inspects only recent provider logs, detects
+listener/outbound/cipher/session symptoms, and does not change production.
 
-- Watchdog đọc trạng thái channel và log `/tmp/openclaw/openclaw-*.log`, ghi log tập trung và chỉ gửi Telegram khi có sự cố/phục hồi.
-- Validator nhận một đường dẫn file, trả JSON gồm dung lượng, MIME, trạng thái XLSX và mức phù hợp điện thoại.
-- Session audit đọc store OpenClaw, liệt kê session vượt ngưỡng; `--apply` compact còn số dòng cấu hình.
-- Shared watchdog chạy `member_anhlaptrinh_sessions` mỗi 2 giờ, compact session Zalo đã idle ít nhất 10 phút theo ngưỡng 18.000 token với context 64K và 40.000 token với context 128K.
-- Member có HOME khác `/home/anhlaptrinh` phải truyền `MEMBER_HOME`; với transcript ít dòng nhưng tool output lớn, dùng `COMPACTION_MODE=summary` thay vì truncate theo `MAX_LINES`.
-- `member_nguyendinhtan_zalouser` kiểm tra mỗi 5 phút và `member_nguyendinhtan_sessions` summary-compact riêng DM owner mỗi 2 giờ sau ít nhất 10 phút idle.
-- Phản hồi Zalo thông thường giới hạn 1.800 ký tự; nội dung dài phải tóm tắt trước hoặc chuyển thành file.
-- Plugin Zalo chia tin ở 2.000 ký tự, nghỉ 600 ms giữa các đoạn và retry tối đa 3 lần với backoff khi gửi lỗi.
-- Với model/provider không tự bật session pruning, cấu hình `agents.defaults.contextPruning.mode=cache-ttl` và `ttl=5m` để soft-trim/hard-clear tool output cũ trong context gửi model; transcript trên đĩa vẫn được giữ nguyên.
-- Cấu hình phòng ngừa compaction chuẩn cho member này là `mode=safeguard`, `reserveTokensFloor=40000` và `maxHistoryShare=0.5`.
-- Bộ cài tạo venv tại `/home/anhlaptrinh/.openclaw/tools/document-venv`.
-- Pipeline tạo member mới gọi bộ cài này mặc định, nên Python và document toolchain có sẵn ngay sau khi tạo VPS.
-- Plugin `zalouser` có thể đưa voice Zalo vào session dưới dạng URL `zdn.vn/*.aac` thay vì media attachment, nên `tools.media.audio` không tự kích hoạt.
-- Với voice AAC của Zalo, dùng luồng URL trong skill `cai-dat-audio-local-openclaw` để tải tạm AAC và gọi Shared Local STT. Không áp dụng yêu cầu này cho VPS chỉ dùng Telegram.
+## Route The Incident
 
-## Rerun
+- **Telegram works, Zalo is silent or outbound fails:** read
+  [references/zalo-no-response.md](references/zalo-no-response.md).
+- **Both Telegram and Zalo stop, port 18789 is absent, or proxy returns 502:**
+  read [references/gateway-recovery.md](references/gateway-recovery.md), then
+  [references/supervisor-watchdog.md](references/supervisor-watchdog.md) when
+  process-manager drift caused the incident.
+- **Sessions, long tool output, files, voice, or heavy tasks cause delayed or
+  missing replies:** read
+  [references/delivery-and-session.md](references/delivery-and-session.md).
+- **Credential/cipher/login still fails after version alignment and a clean
+  Gateway restart:** read
+  [references/zalo-qr-login.md](references/zalo-qr-login.md). Applying QR login
+  requires an explicit owner request because it replaces the active Zalo
+  session.
+- **Before declaring completion or rolling back:** read
+  [references/verification-and-rollback.md](references/verification-and-rollback.md).
 
-- Watchdog có cooldown 10 phút để tránh restart lặp; phải nạp `$MEMBER_HOME/.openclaw/gateway.env` nội bộ trước khi probe để không kết luận sai khi gateway auth dùng secret reference.
-- Watchdog coi cả listener exit và `Zalouser final reply failed: OutboundDeliveryError` là lỗi cần phục hồi. Container chạy gateway bằng `supervisord`; gửi `SIGTERM` cho `openclaw-gateway` hoặc fallback `openclaw` để supervisor tự khởi động lại, không dùng `tmux` hoặc chạy thêm gateway trùng port.
-- Validator có thể chạy lại nhiều lần sau mỗi lần tối ưu file.
-- Session audit mặc định chỉ đọc; chỉ dùng `--apply` sau backup.
-- Sau khi OpenClaw/plugin Zalo được cập nhật, chạy dry-run script patch; script chọn bundle tương thích mới nhất để không nhầm generation cũ. Đối chiếu target với source từ `openclaw plugins inspect zalouser`; nếu bundle active chưa có marker `ZALO_SEND_MAX_ATTEMPTS` thì chạy lại với `--apply` và restart gateway.
-- Với group cần lưu tin nhưng không được phản hồi, dùng skill `zalo-silent-group-archive`; sau mỗi lần cập nhật plugin Zalo phải chạy lại dry-run patch silent archive.
-- Nếu compact trả `No compaction needed` nhưng session vẫn gây lỗi, backup session index rồi tạo session mới; không xóa transcript cũ.
+Read only the references required for the current failure path. For incidents
+that cross layers, follow this order: Gateway process, plugin/listener, inbound
+and outbound, session, then authentication.
 
-## Chẩn đoán listener Zalo dừng đột ngột
+## Durable Prevention
 
-- Nếu log `/tmp/openclaw/openclaw-*.log` có `Zalo listener error: ZcaApiError: Invalid data length or missing cipher key` và `channel exited`, kiểm tra phiên bản core bằng `openclaw --version` và plugin bằng `openclaw plugins inspect zalouser`.
-- Plugin `@openclaw/zalouser` phải cùng dòng phiên bản với OpenClaw core. Nếu core mới hơn plugin, chạy `openclaw plugins update @openclaw/zalouser@latest`, sau đó restart gateway; không xóa credential Zalo.
-- Sau restart, xác minh `openclaw plugins doctor` và `openclaw channels status --probe`; phải thấy Zalo `running ... works` và không có lỗi cipher mới trong log.
-- Nếu lỗi vẫn lặp lại sau khi plugin đã cùng phiên bản, mới xem xét phiên đăng nhập/cipher session và yêu cầu QR login lại; không xóa credential trước khi có backup.
+After a recurring incident, use the existing Shared Watchdog Center rather than
+creating another watchdog implementation:
 
-## An toàn
+- `openclaw_gateway`: host-side Supervisor guard; set `ai_on_failure=false`.
+- `openclaw_channel`: Zalo listener/outbound probe with restart cooldown.
+- `openclaw_session`: scheduled audit/summary compaction with an explicit
+  session pattern.
 
-- Backup config, skills, session index và cron trước khi sửa production.
-- Không ghi token/API key/cookie vào script, skill hoặc log.
-- Không xóa transcript; compact bằng CLI OpenClaw.
-- Không gửi tin test thật khi chưa được phép; watchdog chỉ gửi cảnh báo khi phát hiện sự cố thật.
-- Không tự logout hoặc xóa credential Zalo. Nếu phục hồi thất bại, yêu cầu quét QR lại.
+Cron must call
+`/root/Automation/watchdog/shared_self_healing/run_project.sh`; do not call the
+underlying scripts directly. Preserve unrelated registry and cron entries.
+
+## Safety Rules
+
+- Prefer dry-run, passive probes, syntax validation, and unit tests.
+- Never delete credentials, all sessions, or transcripts.
+- Never run a second Gateway beside Supervisor or keep a member Gateway in
+  tmux after migration.
+- Never recreate a container for a Gateway-only repair.
+- Do not fault-inject production or send real Telegram/Zalo test messages
+  without explicit authorization.
+- After production changes, update the affected member note and
+  `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md` without recording secrets.

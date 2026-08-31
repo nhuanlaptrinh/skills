@@ -1,6 +1,0 @@
-interface:
-  display_name: "OpenClaw Zalo QR Login"
-  short_description: "Đăng nhập Zalo OpenClaw bằng QR web"
-  default_prompt: "Use $openclaw-zalo-qr-login to regenerate and publish a Zalo Personal QR login for OpenClaw while keeping unrelated settings unchanged."
-policy:
-  allow_implicit_invocation: true

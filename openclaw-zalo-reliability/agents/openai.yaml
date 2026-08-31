@@ -1,0 +1,6 @@
+interface:
+  display_name: "OpenClaw Zalo Reliability"
+  short_description: "Chẩn đoán, phục hồi và phòng lỗi Zalo OpenClaw"
+  default_prompt: "Use $openclaw-zalo-reliability to safely diagnose, recover, and harden an OpenClaw Zalo Personal channel or its member Gateway without losing credentials or transcripts."
+policy:
+  allow_implicit_invocation: true

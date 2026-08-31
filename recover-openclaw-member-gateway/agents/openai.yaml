@@ -1,4 +1,0 @@
-interface:
-  display_name: "Recover OpenClaw Member Gateway"
-  short_description: "Khôi phục Gateway member và cài self-healing"
-  default_prompt: "Use $recover-openclaw-member-gateway to safely restore a silent member VPS Gateway and install persistent Supervisor and watchdog recovery."

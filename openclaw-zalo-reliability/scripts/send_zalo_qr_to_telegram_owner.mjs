@@ -13,6 +13,7 @@ function fail(message) {
 function parseArgs(argv) {
   const options = {
     accountId: "default",
+    targets: [],
     timeoutSeconds: 180,
     apply: false,
     dryRun: false,
@@ -21,9 +22,11 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--target") {
-      options.target = argv[++index];
+      options.targets.push(argv[++index]);
     } else if (arg === "--account") {
       options.accountId = argv[++index];
+    } else if (arg === "--telegram-account") {
+      options.telegramAccountId = argv[++index];
     } else if (arg === "--timeout-seconds") {
       options.timeoutSeconds = Number(argv[++index]);
     } else if (arg === "--apply") {
@@ -35,11 +38,15 @@ function parseArgs(argv) {
     }
   }
 
-  if (!/^\d+$/.test(options.target ?? "")) {
-    fail("--target must be a numeric Telegram user ID");
+  options.targets = [...new Set(options.targets)];
+  if (options.targets.length === 0 || options.targets.some((target) => !/^\d+$/.test(target ?? ""))) {
+    fail("At least one --target with a numeric Telegram user ID is required");
   }
   if (!/^[A-Za-z0-9_-]+$/.test(options.accountId)) {
     fail("--account contains unsupported characters");
+  }
+  if (options.telegramAccountId && !/^[A-Za-z0-9_-]+$/.test(options.telegramAccountId)) {
+    fail("--telegram-account contains unsupported characters");
   }
   if (!Number.isInteger(options.timeoutSeconds) || options.timeoutSeconds < 30 || options.timeoutSeconds > 300) {
     fail("--timeout-seconds must be an integer from 30 to 300");
@@ -77,6 +84,29 @@ function validateOwnerPermissions(config, target) {
   if (missing.length > 0) {
     fail(`Telegram target is missing required permissions: ${missing.join(", ")}`);
   }
+}
+
+function resolveTelegramAccount(config, requestedAccountId) {
+  const telegram = config.channels?.telegram ?? {};
+  const accounts = telegram.accounts && typeof telegram.accounts === "object"
+    ? Object.entries(telegram.accounts)
+        .filter(([, account]) => account?.enabled !== false)
+        .map(([accountId]) => accountId)
+    : [];
+
+  if (requestedAccountId) {
+    if (!accounts.includes(requestedAccountId)) {
+      fail(`Telegram account "${requestedAccountId}" is not configured or enabled`);
+    }
+    return requestedAccountId;
+  }
+  if (accounts.length === 1) {
+    return accounts[0];
+  }
+  if (accounts.length === 0) {
+    return "default";
+  }
+  fail("Multiple Telegram accounts are configured; pass --telegram-account");
 }
 
 function runOpenClaw(args, timeoutMs = 60_000) {
@@ -122,22 +152,25 @@ function gatewayCall(method, params, timeoutMs = 30_000) {
 
 function findZalouserPlugin(stateDir) {
   const projectsDir = path.join(stateDir, "npm", "projects");
-  if (!fs.existsSync(projectsDir)) {
-    fail("OpenClaw npm projects directory was not found");
-  }
   const candidates = [];
-  for (const projectName of fs.readdirSync(projectsDir)) {
-    const candidate = path.join(
-      projectsDir,
-      projectName,
-      "node_modules",
-      "@openclaw",
-      "zalouser",
-      "dist",
-      "channel-plugin-api.js",
-    );
-    if (fs.existsSync(candidate)) {
-      candidates.push({ candidate, mtimeMs: fs.statSync(candidate).mtimeMs });
+  const activeExtension = path.join(stateDir, "extensions", "zalouser", "dist", "channel-plugin-api.js");
+  if (fs.existsSync(activeExtension)) {
+    candidates.push({ candidate: activeExtension, mtimeMs: fs.statSync(activeExtension).mtimeMs });
+  }
+  if (fs.existsSync(projectsDir)) {
+    for (const projectName of fs.readdirSync(projectsDir)) {
+      const candidate = path.join(
+        projectsDir,
+        projectName,
+        "node_modules",
+        "@openclaw",
+        "zalouser",
+        "dist",
+        "channel-plugin-api.js",
+      );
+      if (fs.existsSync(candidate)) {
+        candidates.push({ candidate, mtimeMs: fs.statSync(candidate).mtimeMs });
+      }
     }
   }
   candidates.sort((left, right) => right.mtimeMs - left.mtimeMs);
@@ -183,12 +216,37 @@ function writeQrImage(dataUrl, qrPath) {
   fs.writeFileSync(qrPath, Buffer.from(match[1], "base64"), { mode: 0o600 });
 }
 
-function sendTelegram(target, message, mediaPath) {
-  const args = ["message", "send", "--channel", "telegram", "--target", target, "--message", message];
+function sendTelegram(target, message, mediaPath, telegramAccountId) {
+  const args = [
+    "message",
+    "send",
+    "--channel",
+    "telegram",
+    "--account",
+    telegramAccountId,
+    "--target",
+    target,
+    "--message",
+    message,
+  ];
   if (mediaPath) {
     args.push("--media", mediaPath);
   }
   runOpenClaw(args, 60_000);
+}
+
+function sendTelegramToTargets(targets, message, mediaPath, telegramAccountId) {
+  const delivered = [];
+  const failed = [];
+  for (const target of targets) {
+    try {
+      sendTelegram(target, message, mediaPath, telegramAccountId);
+      delivered.push(target);
+    } catch (error) {
+      failed.push({ target, error });
+    }
+  }
+  return { delivered, failed };
 }
 
 async function main() {
@@ -198,7 +256,10 @@ async function main() {
   const configPath = process.env.OPENCLAW_CONFIG_PATH || path.join(stateDir, "openclaw.json");
   const config = readJson(configPath);
 
-  validateOwnerPermissions(config, options.target);
+  for (const target of options.targets) {
+    validateOwnerPermissions(config, target);
+  }
+  const telegramAccountId = resolveTelegramAccount(config, options.telegramAccountId);
   if (config.channels?.zalouser?.enabled !== true) {
     fail("Zalo Personal channel is not enabled");
   }
@@ -224,7 +285,9 @@ async function main() {
       JSON.stringify({
         ok: true,
         mode: "dry-run",
-        targetSuffix: options.target.slice(-4),
+        targetCount: options.targets.length,
+        targetSuffixes: options.targets.map((target) => target.slice(-4)),
+        telegramAccountId,
         pluginReady: true,
         telegramRunning: true,
         zalouserConfigured: status.channels?.zalouser?.configured === true,
@@ -262,11 +325,22 @@ async function main() {
     }
 
     writeQrImage(started.qrDataUrl, qrPath);
-    sendTelegram(
-      options.target,
+    const qrDelivery = sendTelegramToTargets(
+      options.targets,
       "Mã QR đăng nhập lại Zalo Personal cho OpenClaw. Hãy quét ngay bằng Zalo và xác nhận trên điện thoại; mã chỉ có hiệu lực trong thời gian ngắn.",
       qrPath,
+      telegramAccountId,
     );
+    if (qrDelivery.delivered.length === 0) {
+      fail("Telegram could not deliver the QR to any approved owner; each owner must open a DM with the bot first");
+    }
+    console.log(JSON.stringify({
+      ok: true,
+      event: "qr_sent",
+      targetCount: options.targets.length,
+      deliveredCount: qrDelivery.delivered.length,
+      failedCount: qrDelivery.failed.length,
+    }));
 
     const waited = await zalouserPlugin.gateway.loginWithQrWait({
       accountId: options.accountId,
@@ -274,9 +348,11 @@ async function main() {
       currentQrDataUrl: started.qrDataUrl,
     });
     if (!waited?.connected) {
-      sendTelegram(
-        options.target,
+      sendTelegramToTargets(
+        qrDelivery.delivered,
         "QR Zalo đã hết thời gian chờ hoặc chưa được xác nhận. Hãy yêu cầu tạo QR mới để thử lại.",
+        undefined,
+        telegramAccountId,
       );
       fail(waited?.message ?? "Zalo QR login timed out");
     }
@@ -288,16 +364,22 @@ async function main() {
       30_000,
     );
     channelStopped = false;
-    sendTelegram(
-      options.target,
+    sendTelegramToTargets(
+      qrDelivery.delivered,
       "Đăng nhập Zalo Personal đã thành công. Kênh Zalo của OpenClaw đã được bật lại.",
+      undefined,
+      telegramAccountId,
     );
 
     console.log(
       JSON.stringify({
         ok: true,
         mode: "apply",
-        targetSuffix: options.target.slice(-4),
+        targetCount: options.targets.length,
+        targetSuffixes: options.targets.map((target) => target.slice(-4)),
+        deliveredCount: qrDelivery.delivered.length,
+        failedCount: qrDelivery.failed.length,
+        telegramAccountId,
         backupDir,
         loginConnected: true,
       }),
