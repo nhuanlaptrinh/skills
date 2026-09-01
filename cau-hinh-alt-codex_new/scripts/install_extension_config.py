@@ -80,42 +80,38 @@ def load_config(path: Path) -> tuple[dict, str, str]:
     text = path.read_text(encoding="utf-8")
     if tomllib is None:
         # Keep a useful validation path on Python 3.10 without adding a dependency.
-        provider_match = next(
-            (
-                line.split("=", 1)[1].strip().strip('"')
-                for line in text.splitlines()
-                if line.startswith("model_provider") and "=" in line
-            ),
-            "",
-        )
-        base_match = next(
-            (
-                line.split("=", 1)[1].strip().strip('"')
-                for line in text.splitlines()
-                if line.startswith("base_url") and "=" in line
-            ),
-            "",
-        )
-        auth_match = next(
-            (
-                line.split("=", 1)[1].strip().strip('"')
-                for line in text.splitlines()
-                if line.startswith("preferred_auth_method") and "=" in line
-            ),
-            "",
-        )
-        store_match = next(
-            (
-                line.split("=", 1)[1].strip().strip('"')
-                for line in text.splitlines()
-                if line.startswith("cli_auth_credentials_store") and "=" in line
-            ),
-            "",
-        )
-        if not provider_match or not base_match or auth_match != "apikey" or store_match != "file":
+        sections: dict[str, dict[str, str]] = {"": {}}
+        current_section = ""
+        for raw_line in text.splitlines():
+            line = raw_line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                current_section = line[1:-1].strip()
+                sections.setdefault(current_section, {})
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            sections.setdefault(current_section, {})[key.strip()] = value.strip().strip('"').strip("'")
+
+        top_level = sections[""]
+        provider_match = top_level.get("model_provider", "")
+        provider_values = sections.get(f"model_providers.{provider_match}", {})
+        base_match = provider_values.get("base_url", "")
+        auth_match = top_level.get("preferred_auth_method", "")
+        store_match = top_level.get("cli_auth_credentials_store", "")
+        requires_auth_match = provider_values.get("requires_openai_auth", "").lower()
+        if (
+            not provider_match
+            or not base_match
+            or auth_match != "apikey"
+            or store_match != "file"
+            or requires_auth_match != "true"
+        ):
             raise ValidationError(
-                "config.toml thiếu model_provider/base_url, preferred_auth_method=apikey "
-                "hoặc cli_auth_credentials_store=file"
+                "config.toml thiếu model_provider/base_url hoặc phải đặt preferred_auth_method=apikey, "
+                "cli_auth_credentials_store=file và requires_openai_auth=true"
             )
         return {}, provider_match, base_match
     try:
@@ -135,6 +131,11 @@ def load_config(path: Path) -> tuple[dict, str, str]:
         raise ValidationError("config.toml phải dùng preferred_auth_method=apikey")
     if data.get("cli_auth_credentials_store") != "file":
         raise ValidationError("config.toml phải dùng cli_auth_credentials_store=file để Extension đọc auth.json")
+    if provider_config.get("requires_openai_auth") is not True:
+        raise ValidationError(
+            f"config.toml phải đặt model_providers.{provider}.requires_openai_auth=true "
+            "để Codex gửi Authorization từ auth.json"
+        )
     return data, provider, base_url.strip()
 
 
@@ -264,6 +265,7 @@ def main() -> int:
     print(f"Source: {source}")
     print(f"Target CODEX_HOME: {target}")
     print(f"Provider: {provider}")
+    print("requires_openai_auth: true")
     print("OPENAI_API_KEY: present")
     if statuses is None:
         print("Gateway checks: skipped")

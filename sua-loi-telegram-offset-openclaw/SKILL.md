@@ -55,6 +55,7 @@ python3 scripts/repair_telegram_offset.py \
 
 Use `--force` only when the mismatch was independently proven from logs or a known update ID but the Cloud queue is empty. Never use it to bypass an active-Gateway check or an unexpected offset.
 
+<<<<<<< HEAD
 ## Prevention guard
 
 OpenClaw update-offset state version 3 protects bot/token rotation, but a Local Bot API to Cloud API switch can keep the same bot/token while the update-ID sequence moves backward. A state migration can also preserve that high offset with the current bot identity. Install the bundled pre-start guard so this condition is repaired before polling resumes:
@@ -98,6 +99,31 @@ systemctl --user show openclaw-gateway.service -p ExecStartPre --no-pager
 ```
 
 To roll back only the prevention guard, move the drop-in to the incident backup directory, run `systemctl --user daemon-reload`, and restart the same Gateway. Do not restore an old offset database unless the current database is corrupt; the guard state file can remain because it contains no credentials and is ignored without the drop-in.
+=======
+## Khac phuc tai dien
+
+Tren VPS production, dung guard tai `/root/Automation/openclaw/telegram_offset_guard` de tu phuc hoi offset cho tat ca tai khoan Telegram. Guard chi sua khi mot tai khoan co update dang cho trong 3 chu ky lien tiep, moi chu ky cach nhau 5 phut; mot lan co the xu ly thanh cong se bi gioi han boi cooldown 30 phut.
+
+- Khi Gateway dang chay, chi goi `getWebhookInfo` de doc `pending_update_count`. Tuyet doi khong goi `getUpdates` vi co the tranh chap poller, tieu thu update hoac lam sai chan doan.
+- Khi du 3 chu ky, guard dung Gateway va xac minh service da inactive truoc khi doc Cloud queue hoac sua SQLite.
+- Chi sua khi helper chung minh `stored_offset > max_update_id`. Truoc khi sua phai backup SQLite cung cac file `-wal` va `-shm`, sau do chi xoa dung row `telegram.update-offsets` cua account loi.
+- Luon khoi dong lai Gateway trong cleanup/finally, ke ca khi kiem tra hoac sua loi. Dung `flock` de tranh hai lan chay chong nhau va cooldown de tranh restart lap.
+- Ho tro token dang chuoi va environment SecretRef, nhung khong ghi token, payload Telegram hay noi dung tin nhan vao state/log.
+
+Lich production de guard chay lech mot phut voi session maintenance:
+
+```cron
+1-56/5 * * * * /root/Automation/openclaw/telegram_offset_guard/run_telegram_offset_guard.sh >> /root/Automation/openclaw/telegram_offset_guard/logs/telegram_offset_guard.log 2>&1
+```
+
+Xoay session theo nguong `50000` token la lop bao ve context rieng, khong phai cach sua Telegram offset. Vi du cho agent `tester`:
+
+```cron
+2-57/5 * * * * /root/Automation/openclaw/session_maintenance/run_rotate_sessions.sh --agent tester --key-prefix 'agent:tester:telegram:' --threshold 50000 >> /root/Automation/openclaw/session_maintenance/logs/rotate_sessions_tester.log 2>&1
+```
+
+Sau khi cai lich, kiem tra state/log theo metadata da redacted, `openclaw config validate`, trang thai Gateway va `openclaw channels status --channel telegram --probe --json`. Khong gui tin Telegram thu that tu automation.
+>>>>>>> a62b73f (nguyen van nhuannnn)
 
 ## If no mismatch is found
 

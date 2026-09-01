@@ -1,4 +1,4 @@
 interface:
   display_name: "Cấu hình ALT Codex và sửa lỗi 401"
-  short_description: "Cài Codex ALT, kiểm tra auth và sửa 401"
-  default_prompt: "Dùng $cau-hinh-alt-codex để cài Codex ALT trong Antigravity và chặn lỗi 401 do thiếu OPENAI_API_KEY."
+  short_description: "Cài Codex ALT, bắt buộc auth flag và test thật"
+  default_prompt: "Dùng $cau-hinh-alt-codex để cấu hình ALT, bắt buộc requires_openai_auth=true và kiểm thử thật bằng codex exec."

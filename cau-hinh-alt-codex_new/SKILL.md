@@ -1,6 +1,6 @@
 ---
 name: cau-hinh-alt-codex
-description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần cài Codex trong Antigravity, bắt lỗi 401 "API key required for remote API access", xác minh OPENAI_API_KEY/auth.json và đúng CODEX_HOME, chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, cập nhật user config, khắc phục lỗi "The extension couldn't load its resources", phân loại Webview timeout/CSP với app-server hoặc plugin manifest, đổi model OpenClaw, kiểm tra /v1/models, backup config hoặc xử lý provider/model mà không làm lộ API key.
+description: Cài đặt, sửa hoặc đổi đồng bộ model Codex Extension/Codex CLI và OpenClaw qua ALT/9Router trên Windows, Linux, macOS hoặc VPS. Use khi cần cài Codex trong Antigravity, bắt lỗi 401 hoặc request `/v1/responses` thiếu Authorization, bắt buộc `requires_openai_auth = true` cho custom provider, xác minh OPENAI_API_KEY/auth.json và đúng CODEX_HOME, chạy test thật bằng `codex exec`, chọn GPT-5.6-sol/GPT-5.6-terra/GPT-5.6-luna, khắc phục lỗi "The extension couldn't load its resources", phân loại Webview timeout/CSP với app-server hoặc plugin manifest, đổi model OpenClaw, backup config hoặc xử lý provider/model mà không làm lộ API key.
 ---
 
 # Cấu Hình Codex Qua ALT Gateway Đa Nền Tảng
@@ -20,19 +20,23 @@ cli_auth_credentials_store = "file"
 name = "router"
 base_url = "https://codex.anhlaptrinh.vn/v1"
 wire_api = "responses"
+requires_openai_auth = true
 # For Extension auth, use auth.json below; do not replace it with ALT_KEY.
 # If an environment-only CLI provider is explicitly required, use:
 # env_key = "OPENAI_API_KEY"
 ```
 
+`requires_openai_auth = true` là cờ bắt buộc với custom provider `router`. Cờ này yêu cầu Codex nạp credential OpenAI từ `auth.json` và đính kèm header `Authorization` khi gọi `/v1/responses`; chỉ có `preferred_auth_method = "apikey"` và `cli_auth_credentials_store = "file"` vẫn chưa đủ trên Codex CLI v0.151.0 nếu thiếu cờ này.
+
 Trường hợp cấu hình Codex Extension: credential canonical là khóa `OPENAI_API_KEY` trong `auth.json` (hai file `auth.json` và `config.toml` luôn nằm cùng folder với `SKILL.md`) rồi copy trực tiếp vào `CODEX_HOME` (`%USERPROFILE%\.codex` hoặc `$CODEX_HOME`). Không coi `ALT_KEY` là alias của `OPENAI_API_KEY`, không đặt API key vào `config.toml`, và không hoàn tất cài đặt nếu preflight chưa xác nhận key với gateway.
 
 ## Preflight Bắt Buộc Khi Cài Extension
 
-Lỗi `401 Unauthorized: {"error":"API key required for remote API access"}` nghĩa là request remote không có bearer key. Với Antigravity, hai nguyên nhân cần chặn trước khi copy là:
+Lỗi `401 Unauthorized: {"error":"API key required for remote API access"}` nghĩa là request remote không có bearer key. Với Antigravity, ba nguyên nhân cần chặn trước khi copy là:
 
 1. `auth.json` nguồn hoặc đích thiếu khóa `OPENAI_API_KEY`, rỗng hoặc còn placeholder.
 2. Extension chạy bằng `CODEX_HOME`/tài khoản khác với nơi đã copy credential, không ép `cli_auth_credentials_store = "file"`, hoặc workflow chỉ đặt `ALT_KEY` trong shell; khi đó app-server không đọc đúng `auth.json` và Codex không xem `ALT_KEY` là `OPENAI_API_KEY`.
+3. `[model_providers.<provider>]` thiếu `requires_openai_auth = true`; gateway và API key vẫn có thể hoạt động khi test bằng `curl`, nhưng chính Codex không nạp key và gửi request `/v1/responses` không có header `Authorization`.
 
 Không chẩn đoán bằng cách in key. Luôn chạy script preflight/cài đặt đi kèm skill; script sẽ resolve đường dẫn, kiểm tra JSON/TOML, gọi `base_url + /models` và kiểm tra auth trên `/responses` bằng key trong bộ nhớ, rồi mới backup/copy:
 
@@ -44,9 +48,20 @@ python3 "$skill_dir/scripts/install_extension_config.py" \
   --target-dir "$codex_home"
 ```
 
-Script dừng trước khi ghi nếu thiếu key, `/models` hoặc `/responses` trả `401`, `CODEX_HOME` không hợp lệ hoặc config sai. Probe `/responses` gửi body rỗng nên HTTP `400`/`422` được xem là xác thực đã qua và không phát sinh lượt model. Nếu máy tạm thời không có mạng, chỉ được dùng `--skip-gateway-check` để kiểm tra/copy ngoại tuyến; phải chạy lại preflight có gateway trước khi báo hoàn tất. Trên Windows PowerShell, dùng cùng script với `python` và truyền `$sourceDir`, `$codexHome` đã resolve bằng `Resolve-Path`/`$env:CODEX_HOME`.
+Script dừng trước khi ghi nếu thiếu key, thiếu `requires_openai_auth = true`, `/models` hoặc `/responses` trả `401`, `CODEX_HOME` không hợp lệ hoặc config sai. Probe `/responses` gửi body rỗng nên HTTP `400`/`422` được xem là xác thực đã qua và không phát sinh lượt model. Nếu máy tạm thời không có mạng, chỉ được dùng `--skip-gateway-check` để kiểm tra/copy ngoại tuyến; phải chạy lại preflight có gateway trước khi báo hoàn tất. Trên Windows PowerShell, dùng cùng script với `python` và truyền `$sourceDir`, `$codexHome` đã resolve bằng `Resolve-Path`/`$env:CODEX_HOME`.
 
-Sau copy, kiểm tra lại `auth.json` đích có `OPENAI_API_KEY` không rỗng (chỉ báo `present/missing`), kiểm tra `codex login status`, rồi thoát hoàn toàn và mở lại Antigravity. Không chỉ reload cửa sổ khi app-server còn giữ `CODEX_HOME` cũ.
+Sau copy, kiểm tra lại `auth.json` đích có `OPENAI_API_KEY` không rỗng (chỉ báo `present/missing`), kiểm tra `codex login status`, rồi thoát hoàn toàn và mở lại Antigravity. Không chỉ reload cửa sổ khi app-server còn giữ `CODEX_HOME` cũ. Sau khi app-server mới đã nạp config, bắt buộc chạy một request thật bằng `codex exec`; probe HTTP trực tiếp chưa chứng minh chính Codex đã gửi header auth.
+
+## Checklist Bắt Buộc Trước Khi Báo Hoàn Tất
+
+- [ ] `config.toml` đích có đúng custom provider đang được chọn, `wire_api = "responses"` và `requires_openai_auth = true` trong cùng block `[model_providers.<provider>]`.
+- [ ] `preferred_auth_method = "apikey"`, `cli_auth_credentials_store = "file"`, và `auth.json` trong đúng `CODEX_HOME` có `OPENAI_API_KEY` không rỗng; chỉ báo trạng thái `present/missing`, không in giá trị.
+- [ ] `scripts/install_extension_config.py` chạy đạt mà không dùng `--skip-gateway-check`; cả `/models` và kiểm tra auth `/responses` đều không trả `401`.
+- [ ] Đã thoát hoàn toàn Antigravity/Codex app-server cũ hoặc dừng đúng PID đã xác minh, sau đó mở lại để nạp config mới; không dùng `pkill -f codex` mặc định.
+- [ ] Đã chạy test thật bằng Codex, ví dụ `codex exec "Viết 1 câu chào ngắn gọn"`, và nhận phản hồi model thành công.
+- [ ] Log/request mới nhất xác nhận `/v1/responses` không còn `401` và không còn dấu hiệu request thiếu `Authorization`; không in header hoặc token trong báo cáo.
+
+Không đánh dấu hoàn tất nếu mới chỉ gọi `curl /v1/models`, tự POST `/v1/responses`, nhìn thấy API key trong `auth.json`, hoặc sửa file mà chưa chạy `codex exec`. Các bước đó kiểm tra gateway/credential/config riêng lẻ nhưng chưa chứng minh app-server Codex đã nạp và gửi credential.
 
 ## Quy Tắc Đường Dẫn Mềm
 
@@ -292,9 +307,9 @@ Sau khi chạy, xác nhận script báo `OPENAI_API_KEY: present`, gateway HTTP 
 5. Xác định đường dẫn user config và tạo thư mục `.codex` nếu chưa có.
 6. Backup từng file đích đã tồn tại với timestamp trước khi copy hoặc sửa.
 7. Chỉ khi người dùng yêu cầu chỉnh thủ công, cập nhật các khóa cần thiết trong `config.toml` và giữ nguyên cấu hình không liên quan.
-8. Trường hợp cấu hình Codex Extension: cập nhật `OPENAI_API_KEY` trong `auth.json` rồi bắt buộc chạy `scripts/install_extension_config.py` để preflight, test `/v1/models`, backup và copy cả `auth.json`/`config.toml`; không cần tạo biến môi trường hệ thống. Đảm bảo không làm lộ key trong chat/log.
-9. Thoát hoàn toàn và mở lại Antigravity/Codex Extension để app-server nhận đúng `CODEX_HOME` và credential.
-10. Mở phiên Codex mới và xác nhận provider/model hoạt động.
+8. Trường hợp cấu hình Codex Extension: xác nhận custom provider có `requires_openai_auth = true`, cập nhật `OPENAI_API_KEY` trong `auth.json`, rồi bắt buộc chạy `scripts/install_extension_config.py` để preflight, test `/v1/models`, backup và copy cả `auth.json`/`config.toml`; không cần tạo biến môi trường hệ thống. Đảm bảo không làm lộ key trong chat/log.
+9. Thoát hoàn toàn và mở lại Antigravity/Codex Extension để app-server nhận đúng `CODEX_HOME`, provider config và credential.
+10. Chạy một request thật bằng `codex exec`, xác nhận model trả lời thành công và log mới nhất không còn `401` hoặc request `/v1/responses` thiếu Authorization.
 
 Khi đổi model, chuẩn hóa cách viết không phân biệt hoa/thường và chấp nhận dấu gạch ngang hoặc khoảng trắng như mô tả ở mục **Model Được Hỗ Trợ**. Chỉ ghi tên chính thức `GPT-5.6-sol`, `GPT-5.6-terra` hoặc `GPT-5.6-luna` vào khóa `model`. Nếu không thể chuẩn hóa yêu cầu thành một trong ba model này, thông báo danh sách model được hỗ trợ và dừng trước khi sửa cấu hình.
 
@@ -410,12 +425,12 @@ Lưu ý: `launchctl setenv` không phải cơ chế lưu secret bền vững qua
 
 Nếu file đã có nhiều cấu hình, không thay toàn bộ file bằng một heredoc. Hãy sửa TOML có chủ đích:
 
-- Đảm bảo `model_provider = "alt"`.
+- Đảm bảo `model_provider` trùng với ID của custom provider đang sửa; bộ file mẫu của skill dùng `model_provider = "router"` và `[model_providers.router]`.
 - Đảm bảo `model` là model người dùng đã chọn trong danh sách hỗ trợ; mặc định là `GPT-5.6-sol`.
 - Chuẩn hóa cách viết của người dùng về `GPT-5.6-sol`, `GPT-5.6-terra` hoặc `GPT-5.6-luna`; không ghi model khác, tên chữ thường hoặc tên có khoảng trắng vào config.
 - Đảm bảo `model_reasoning_effort = "medium"`, trừ khi người dùng yêu cầu mức khác.
 - Đảm bảo `preferred_auth_method = "apikey"` và `cli_auth_credentials_store = "file"` để Extension/app-server đọc `auth.json` trong đúng `CODEX_HOME`.
-- Tạo hoặc cập nhật `[model_providers.router]` với `name`, `base_url` và `wire_api = "responses"`; chỉ thêm `env_key = "OPENAI_API_KEY"` khi người dùng chọn workflow biến môi trường CLI, không thêm để thay thế `auth.json` của Extension.
+- Tạo hoặc cập nhật `[model_providers.router]` với `name`, `base_url`, `wire_api = "responses"` và `requires_openai_auth = true`; chỉ thêm `env_key = "OPENAI_API_KEY"` khi người dùng chọn workflow biến môi trường CLI, không thêm để thay thế `auth.json` của Extension.
 - Giữ nguyên mọi bảng `[projects."..."]`, MCP và cấu hình khác.
 
 ## Xử Lý Lỗi
@@ -440,10 +455,19 @@ Nếu phát hiện lỗi này, không nhắc lại giá trị key trong output. 
 
 - Với thông báo `API key required for remote API access`, coi đây là lỗi cài đặt và không báo hoàn tất: request tới `/v1/responses` không có bearer key.
 - Kiểm tra `auth.json` trong đúng `CODEX_HOME` của process Antigravity có khóa `OPENAI_API_KEY` không rỗng; không chỉ kiểm tra file nằm cạnh `SKILL.md`.
+- Kiểm tra block provider đang dùng có `requires_openai_auth = true`. Nếu key và gateway đều tốt nhưng log cho thấy Codex gửi `/v1/responses` không có `Authorization`, coi việc thiếu cờ này là nguyên nhân ưu tiên.
 - Nếu chỉ có `ALT_KEY`, chuyển sang `OPENAI_API_KEY`/`auth.json`; `ALT_KEY` không được workflow Extension chuẩn sử dụng.
 - Chạy lại `scripts/install_extension_config.py --check-only` hoặc cài lại không có `--skip-gateway-check`. Nếu `/models` vẫn `401`, key sai, hết hạn hoặc chưa được gateway cấp quyền.
 - Sau khi sửa, thoát hoàn toàn Antigravity, mở lại, kiểm tra process có đúng `CODEX_HOME`, rồi thử một request `/v1/responses`; chỉ kiểm tra `/models` là chưa đủ để chứng minh phiên Extension đã nạp credential.
 - `401` ở `chatgpt.com/backend-api/plugins/*`, `/wham/*` hoặc `/settings/user` là control-plane/plugin của ChatGPT; API-key auth có thể không được hỗ trợ ở các route đó và không chứng minh gateway ALT bị lỗi. Chỉ kết luận lỗi credential ALT khi endpoint trong `base_url` (ví dụ `/v1/models` hoặc `/v1/responses`) trả `401`.
+
+### Ca Đã Xác Nhận Với Codex CLI v0.151.0 Ngày 2026-09-01
+
+- `Codex.log` và lệnh `codex exec` cho thấy gateway cùng API key vẫn hoạt động, nhưng request do Codex gửi tới `https://codex.anhlaptrinh.vn/v1/responses` không có header `Authorization`.
+- Nguyên nhân là custom provider `router` chưa có `requires_openai_auth = true`, nên Codex không nạp API key từ `auth.json` dù các khóa auth top-level đã được cấu hình.
+- Cách sửa là thêm cờ vào đúng block provider trong cả user `config.toml` và file mẫu của skill, dừng đúng app-server cũ đã xác minh, rồi khởi động lại.
+- Kiểm thử hoàn tất phải dùng request thật `codex exec`; ca này trả phản hồi thành công qua `GPT-5.6-sol` với HTTP `200` sau khi app-server nạp config mới.
+- Bài học bắt buộc: test gateway trực tiếp chỉ chứng minh key/gateway sống; luôn kiểm tra thêm đường đi thực tế từ Codex app-server.
 
 ### HTTP `404`
 
@@ -468,9 +492,9 @@ Extension có thể chạy trong môi trường GUI khác terminal. Kiểm tra b
 
 - `config.toml` và `auth.json` được copy đúng vào thư mục `.codex` của user chạy Antigravity (`%USERPROFILE%\.codex` hoặc `$CODEX_HOME`).
 - `auth.json` chứa `OPENAI_API_KEY` hợp lệ, không cần tạo biến môi trường hệ thống khi cấu hình extension.
-- Provider trong `config.toml` chỉ tới `https://codex.anhlaptrinh.vn/v1`, model là một trong `GPT-5.6-sol`, `GPT-5.6-terra` hoặc `GPT-5.6-luna`.
+- Provider trong `config.toml` chỉ tới `https://codex.anhlaptrinh.vn/v1`, dùng `wire_api = "responses"`, có `requires_openai_auth = true`, và model là một trong `GPT-5.6-sol`, `GPT-5.6-terra` hoặc `GPT-5.6-luna`.
 - Không có API key thật xuất hiện trong file log hay chat response.
-- Antigravity/Codex Extension đã restart và phiên Codex mới hoạt động.
+- Antigravity/Codex Extension đã restart và `codex exec` thực tế trả phản hồi thành công, không còn `401`/thiếu Authorization.
 
 ## Mẫu Báo Cáo
 
@@ -478,9 +502,11 @@ Extension có thể chạy trong môi trường GUI khác terminal. Kiểm tra b
 Đã cấu hình Codex Extension/Codex CLI dùng ALT Gateway trên <Windows|Linux|macOS>.
 File cấu hình: <đường dẫn config.toml>.
 Model: <GPT-5.6-sol|GPT-5.6-terra|GPT-5.6-luna>.
+Provider auth: requires_openai_auth=true.
 API key được lưu trong `auth.json` dưới khóa `OPENAI_API_KEY`, không ghi vào config hoặc báo cáo.
 Kiểm tra gateway: HTTP <mã>.
-Đã yêu cầu restart hoàn toàn Antigravity và mở phiên Codex mới.
+Kiểm thử Codex thực tế: `codex exec` thành công, `/v1/responses` HTTP 200.
+Đã restart hoàn toàn Antigravity/app-server và mở phiên Codex mới.
 ```
 
 ## Bổ Sung: Telegram OpenClaw - Model Hiển Thị Cũ Hoặc Runtime Codex
@@ -776,7 +802,7 @@ config_path="$codex_home/config.toml"
 auth_path="$codex_home/auth.json"
 
 test -f "$config_path" && \
-  rg -n '^(model_provider|model|model_reasoning_effort|preferred_auth_method)\s*=|^\[model_providers\.[^]]+\]|^(name|base_url|wire_api|env_key)\s*=' \
+  rg -n '^(model_provider|model|model_reasoning_effort|preferred_auth_method)\s*=|^\[model_providers\.[^]]+\]|^(name|base_url|wire_api|requires_openai_auth|env_key)\s*=' \
     "$config_path"
 
 if test -s "$auth_path"; then
@@ -832,6 +858,7 @@ Sau rollback, chạy `Developer: Reload Window` và đọc log mới. Không rol
 ### Tiêu Chí Hoàn Tất
 
 - Đã phân loại đúng Webview timeout, app-server/plugin hoặc provider/auth.
+- Nếu dùng custom provider, đã xác nhận `requires_openai_auth = true` và chạy request thật bằng `codex exec` sau khi app-server restart.
 - Đã backup đúng file trước khi sửa và có đường dẫn rollback.
 - `index.html` không còn `crossorigin`/`modulepreload` khi nhánh A yêu cầu.
 - Entry JS có fetch guard đúng signature, không sửa các `fetch()` khác.

@@ -8,3 +8,4 @@ cli_auth_credentials_store = "file"
 name = "router"
 base_url = "https://codex.anhlaptrinh.vn/v1"
 wire_api = "responses"
+requires_openai_auth = true

@@ -77,19 +77,81 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_account(config_path: Path, account_id: str) -> tuple[dict[str, Any], str]:
+def gateway_main_pid(unit: str) -> int | None:
+    if shutil.which("systemctl") is None:
+        return None
+    result = subprocess.run(
+        ["systemctl", "--user", "show", "-p", "MainPID", "--value", unit],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    try:
+        pid = int(result.stdout.strip())
+    except ValueError:
+        return None
+    return pid if pid > 0 else None
+
+
+def process_environment(pid: int | None) -> dict[str, str]:
+    if pid is None:
+        return {}
+    try:
+        raw = Path(f"/proc/{pid}/environ").read_bytes()
+    except OSError:
+        return {}
+    result: dict[str, str] = {}
+    for item in raw.split(b"\0"):
+        if b"=" not in item:
+            continue
+        key, value = item.split(b"=", 1)
+        result[key.decode("utf-8", "ignore")] = value.decode("utf-8", "ignore")
+    return result
+
+
+def resolve_token(value: Any, gateway_unit: str) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if not isinstance(value, dict) or value.get("source") != "env":
+        return None
+    ref_id = value.get("id")
+    if not isinstance(ref_id, str) or not ref_id:
+        return None
+    token = os.environ.get(ref_id)
+    if token:
+        return token
+    return process_environment(gateway_main_pid(gateway_unit)).get(ref_id)
+
+
+def load_account(
+    config_path: Path,
+    account_id: str,
+    gateway_unit: str,
+) -> tuple[dict[str, Any], str]:
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RepairError(f"cannot read config: {type(exc).__name__}") from None
-    accounts = config.get("channels", {}).get("telegram", {}).get("accounts", {})
-    account = accounts.get(account_id)
-    if not isinstance(account, dict):
-        raise RepairError(f"telegram account not found: {account_id}")
-    token = account.get("botToken")
-    if not isinstance(token, str) or not token.strip():
-        raise RepairError("account botToken is missing or not a plain string")
-    return account, token.strip()
+    telegram = config.get("channels", {}).get("telegram", {})
+    accounts = telegram.get("accounts", {})
+    if not isinstance(accounts, dict):
+        accounts = {}
+    if account_id == "default":
+        configured = accounts.get("default")
+        account = dict(configured) if isinstance(configured, dict) else {}
+        token_value = account.get("botToken") or telegram.get("botToken")
+    else:
+        configured = accounts.get(account_id)
+        if not isinstance(configured, dict):
+            raise RepairError(f"telegram account not found: {account_id}")
+        account = dict(configured)
+        token_value = account.get("botToken")
+    token = resolve_token(token_value, gateway_unit)
+    if not token:
+        raise RepairError("account botToken is missing or its SecretRef is unresolved")
+    if not account.get("apiRoot") and telegram.get("apiRoot"):
+        account["apiRoot"] = telegram["apiRoot"]
+    return account, token
 
 
 def safe_api_root(value: str) -> str:
@@ -260,7 +322,11 @@ def main() -> int:
     if args.apply and not args.cloud_check and not args.force:
         raise RepairError("--apply requires --cloud-check or explicit --force")
 
-    account, token = load_account(args.config.expanduser(), args.account_id)
+    account, token = load_account(
+        args.config.expanduser(),
+        args.account_id,
+        args.gateway_unit,
+    )
     active = gateway_is_active(args.gateway_unit)
     if active is True and (args.cloud_check or args.apply):
         raise RepairError(
