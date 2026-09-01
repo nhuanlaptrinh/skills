@@ -33,13 +33,13 @@ Uu tien Shared Local STT tren VPS chinh. Voi member co config persistent theo la
 ```bash
 bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/install_member_shared.sh \
   --container user-member \
-  --member-root /root/Apps/member_vps/docker-users/data/member/root \
+  --member-root /root/Apps/member_vps/docker-users/data/member \
   --member-id member \
-  --container-openclaw-home /root/.openclaw \
+  --container-openclaw-home /home/member/.openclaw \
   --dry-run
 ```
 
-Doi `--dry-run` thanh `--apply` sau khi endpoint health, config path va owner deu dung. Script se restart container sau apply; voi member legacy can respawn gateway rieng, dung quy trinh da duoc backup va kiem tra rieng. Installer tao client tai `workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py`.
+Doi `--dry-run` thanh `--apply` sau khi endpoint health, config path va owner deu dung. Script validate candidate bang CLI cua chinh container va mac dinh chi restart `openclaw-gateway` qua Supervisor; dung `--restart-mode none` de gom nhieu thay doi truoc mot lan restart, hoac `container` chi khi deployment bat buoc. Installer tao client tai `workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py`.
 
 ## Cai STT Cho OpenClaw Host
 
@@ -90,7 +90,9 @@ Voi member legacy co config that trong container:
 ```bash
 bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/enable_edge_tts_container.sh \
   --container user-member \
-  --auto-mode always \
+  --config-path /home/member/.openclaw/openclaw.json \
+  --agent main \
+  --auto-mode inbound \
   --dry-run
 ```
 
@@ -99,6 +101,7 @@ bash /root/.agents/skills/cai-dat-audio-local-openclaw/scripts/enable_edge_tts_c
 - Giong nam: `vi-VN-NamMinhNeural`.
 - Giong nu: `vi-VN-HoaiMyNeural`.
 - Neu runtime co nhieu agent/channel, khong bat `always` toan cuc.
+- OpenClaw `2026.8.1+` dung `tts` o top-level va `agents.entries.<id>.tts`; khong ghi schema cu `messages.tts` hoac `agents.list`.
 
 Doc `references/telegram-scope.md` truoc khi bat TTS tren runtime dung chung Telegram va Zalo.
 

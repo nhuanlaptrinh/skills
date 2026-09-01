@@ -55,6 +55,50 @@ python3 scripts/repair_telegram_offset.py \
 
 Use `--force` only when the mismatch was independently proven from logs or a known update ID but the Cloud queue is empty. Never use it to bypass an active-Gateway check or an unexpected offset.
 
+## Prevention guard
+
+OpenClaw update-offset state version 3 protects bot/token rotation, but a Local Bot API to Cloud API switch can keep the same bot/token while the update-ID sequence moves backward. A state migration can also preserve that high offset with the current bot identity. Install the bundled pre-start guard so this condition is repaired before polling resumes:
+
+```bash
+python3 scripts/guard_telegram_offsets.py
+```
+
+The dry-run is local-only and safe while the Gateway is active. It reports only account IDs, sanitized API roots, offset metadata, and repair reasons. It never prints bot tokens, message text, payloads, chat IDs, or media IDs.
+
+Production apply must run while the Gateway is inactive:
+
+```bash
+python3 scripts/guard_telegram_offsets.py --apply
+```
+
+The guard deletes an account offset only when at least one fail-closed condition is proven:
+
+- the effective Telegram `apiRoot` changed since the previous successful preflight;
+- the configured bot ID changed;
+- the stored high update ID exists in ingress history, but a lower update ID was received later for the same account.
+
+Every mutation backs up the SQLite database plus WAL/SHM under `/root/_Backups/telegram-offset-guard-<UTC>/`. Guard state is secret-free and stored at `/root/.openclaw/state/telegram-offset-guard.json` with mode `0600`.
+
+On the root VPS, install the systemd user drop-in at `/root/.config/systemd/user/openclaw-gateway.service.d/20-telegram-offset-guard.conf`, then run:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user restart openclaw-gateway.service
+```
+
+The drop-in runs the local guard as `ExecStartPre`, while the Gateway is still inactive. Do not add a cron job that calls Cloud `getUpdates` alongside the running Gateway.
+
+Validation:
+
+```bash
+python3 -m py_compile scripts/repair_telegram_offset.py scripts/guard_telegram_offsets.py
+python3 -m unittest discover -s tests -v
+systemd-analyze --user verify openclaw-gateway.service
+systemctl --user show openclaw-gateway.service -p ExecStartPre --no-pager
+```
+
+To roll back only the prevention guard, move the drop-in to the incident backup directory, run `systemctl --user daemon-reload`, and restart the same Gateway. Do not restore an old offset database unless the current database is corrupt; the guard state file can remain because it contains no credentials and is ignored without the drop-in.
+
 ## If no mismatch is found
 
 Investigate, in order: a duplicate poller or 409 conflict, webhook still configured, wrong bot token/account, DM or group allowlist, Telegram Privacy Mode, dispatch/session errors, and only then model/provider latency. Use `unify-openclaw-bot-workspace` for divergent routing and the relevant OpenClaw permission skill for owner policy; this skill does not change agent/workspace architecture.

@@ -8,10 +8,11 @@ CONTAINER_OPENCLAW_HOME=""
 ENDPOINT="http://172.17.0.1:18080"
 SERVICE_ENV="/root/AI_Runtime/shared_local_stt/.env"
 MODE=""
+RESTART_MODE="gateway"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
-  echo "Usage: $0 --container NAME --member-root PATH --member-id ID --container-openclaw-home PATH [--endpoint URL] [--service-env PATH] --dry-run|--apply"
+  echo "Usage: $0 --container NAME --member-root PATH --member-id ID --container-openclaw-home PATH [--endpoint URL] [--service-env PATH] [--restart-mode gateway|container|none] --dry-run|--apply"
 }
 
 while (($#)); do
@@ -22,6 +23,7 @@ while (($#)); do
     --container-openclaw-home) CONTAINER_OPENCLAW_HOME="$2"; shift 2 ;;
     --endpoint) ENDPOINT="$2"; shift 2 ;;
     --service-env) SERVICE_ENV="$2"; shift 2 ;;
+    --restart-mode) RESTART_MODE="$2"; shift 2 ;;
     --dry-run) MODE="dry-run"; shift ;;
     --apply) MODE="apply"; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -30,6 +32,7 @@ while (($#)); do
 done
 
 [[ -n "$CONTAINER" && -n "$MEMBER_ROOT" && -n "$MEMBER_ID" && -n "$CONTAINER_OPENCLAW_HOME" && -n "$MODE" ]] || { usage >&2; exit 2; }
+[[ "$RESTART_MODE" == "gateway" || "$RESTART_MODE" == "container" || "$RESTART_MODE" == "none" ]] || { echo "Invalid --restart-mode" >&2; exit 2; }
 CONFIG="$MEMBER_ROOT/.openclaw/openclaw.json"
 WORKSPACE="$MEMBER_ROOT/.openclaw/workspace"
 CREDENTIALS="$MEMBER_ROOT/.openclaw/credentials"
@@ -41,7 +44,7 @@ docker inspect "$CONTAINER" >/dev/null
 jq empty "$CONFIG"
 docker exec "$CONTAINER" curl -fsS --max-time 5 "$ENDPOINT/health" >/dev/null
 
-echo "mode=$MODE container=$CONTAINER member_id=$MEMBER_ID endpoint=$ENDPOINT"
+echo "mode=$MODE container=$CONTAINER member_id=$MEMBER_ID endpoint=$ENDPOINT restart_mode=$RESTART_MODE"
 echo "container_openclaw_home=$CONTAINER_OPENCLAW_HOME"
 echo "config=$CONFIG"
 [[ "$MODE" == "dry-run" ]] && exit 0
@@ -51,6 +54,8 @@ BACKUP="/root/_Backups/openclaw_audio_${MEMBER_ID}_$STAMP"
 mkdir -p "$BACKUP"
 cp -a "$CONFIG" "$BACKUP/openclaw.json"
 [[ -f "$CREDENTIALS/shared-local-stt.token" ]] && cp -a "$CREDENTIALS/shared-local-stt.token" "$BACKUP/" || true
+[[ -f "$CLIENT_DIR/transcribe_shared.py" ]] && cp -a "$CLIENT_DIR/transcribe_shared.py" "$BACKUP/" || true
+[[ -f "$CLIENT_DIR/transcribe_zalo_voice.py" ]] && cp -a "$CLIENT_DIR/transcribe_zalo_voice.py" "$BACKUP/" || true
 
 TOKEN="$(sed -n 's/^SHARED_STT_TOKEN=//p' "$SERVICE_ENV" | head -1)"
 [[ -n "$TOKEN" ]] || { echo "SHARED_STT_TOKEN missing" >&2; exit 1; }
@@ -65,17 +70,27 @@ chmod 600 "$CREDENTIALS/shared-local-stt.token"
 chown -R "$OWNER" "$WORKSPACE/skills/cai-dat-audio-local-openclaw"
 chown "$OWNER" "$CREDENTIALS/shared-local-stt.token"
 
-TMP="$(mktemp)"
+TMP="$(mktemp "$MEMBER_ROOT/.openclaw/openclaw.json.candidate.XXXXXX")"
 jq --arg script "$CONTAINER_OPENCLAW_HOME/workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_shared.py" '
   .tools.media.audio.enabled = true |
   .tools.media.audio.language = "vi" |
-  .tools.media.audio.models = [{
+  .tools.media.audio.timeoutSeconds = 180 |
+  .tools.media.models = [{
     type:"cli", command:"/usr/bin/python3", args:[$script,"{{MediaPath}}"],
-    timeoutSeconds:180, maxBytes:20971520, capabilities:["audio"]
+    timeoutSeconds:180, maxBytes:20971520, capabilities:["audio"], language:"vi"
   }]' "$CONFIG" > "$TMP"
 chown --reference="$CONFIG" "$TMP"
 chmod --reference="$CONFIG" "$TMP"
+CONTAINER_CANDIDATE="$CONTAINER_OPENCLAW_HOME/$(basename "$TMP")"
+docker exec \
+  -e HOME="$(dirname "$CONTAINER_OPENCLAW_HOME")" \
+  -e OPENCLAW_CONFIG_PATH="$CONTAINER_CANDIDATE" \
+  "$CONTAINER" openclaw config validate --json >/dev/null
 mv "$TMP" "$CONFIG"
 jq empty "$CONFIG"
-docker restart "$CONTAINER" >/dev/null
+case "$RESTART_MODE" in
+  gateway) docker exec "$CONTAINER" supervisorctl restart openclaw-gateway >/dev/null ;;
+  container) docker restart "$CONTAINER" >/dev/null ;;
+  none) ;;
+esac
 echo "Installed shared STT client. Backup: $BACKUP"

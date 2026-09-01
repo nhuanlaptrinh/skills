@@ -18,7 +18,7 @@ Dieu kien:
 - Shared service active va health endpoint tra thanh cong.
 - Container/host truy cap duoc Docker gateway.
 - Credential token co mode `0600`; khong nhung token vao JSON/script.
-- `tools.media.audio.models` goi `cai-dat-audio-local-openclaw/scripts/transcribe_shared.py`.
+- `tools.media.models` chua CLI model co capability `audio` va goi `cai-dat-audio-local-openclaw/scripts/transcribe_shared.py`; `tools.media.audio` chi chua policy nhu language, timeout va echo transcript.
 - Khong co paid fallback neu yeu cau la zero transcription API cost.
 
 ### VPS doc lap dung model local
@@ -56,7 +56,7 @@ OpenClaw final text reply
   -> text reply + MP3 attachment
 ```
 
-Giu `messages.tts.auto=off` toan cuc khi runtime co nhieu agent/channel. Chi agent Telegram duoc chon moi override TTS; Zalo va bot khac khong bi anh huong.
+Giu `tts.auto=off` toan cuc khi runtime co nhieu agent/channel. Chi `agents.entries.<id>.tts.auto` cua agent Telegram duoc chon moi override TTS; Zalo va bot khac khong bi anh huong. Day la schema cua OpenClaw `2026.8.1+`; khong dung `messages.tts` hoac `agents.list` da cu.
 
 ## Quy Tac Validation
 

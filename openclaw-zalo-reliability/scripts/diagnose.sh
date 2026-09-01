@@ -125,7 +125,7 @@ elif [ "$outbound_failures" -gt 0 ]; then
   echo "diagnosis_hint=inbound_may_work_but_zalo_outbound_failed"
 elif [ "$long_running" -gt 0 ] || [ "$no_reply_payloads" -gt 0 ]; then
   echo "diagnosis_hint=inspect_and_compact_target_session"
-elif printf '%s\n' "$probe_line" | rg -q 'configured, running.*works'; then
+elif printf '%s\n' "$probe_line" | rg -q 'configured,.*running,.*works'; then
   echo "diagnosis_hint=currently_healthy_check_target_timeline"
 else
   echo "diagnosis_hint=probe_or_channel_state_requires_manual_review"

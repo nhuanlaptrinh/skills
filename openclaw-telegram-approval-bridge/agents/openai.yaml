@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Telegram Approval Bridge"
+  short_description: "Duyệt thay đổi OpenClaw an toàn qua Telegram owner"
+  default_prompt: "Use $openclaw-telegram-approval-bridge to enable and verify safe Telegram-owner approval for OpenClaw changes on this VPS."

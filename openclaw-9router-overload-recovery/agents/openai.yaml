@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw 9Router Overload Recovery"
+  short_description: "Recover HTTP 200 overload replies safely"
+  default_prompt: "Use $openclaw-9router-overload-recovery to diagnose and repair transient 9Router overload replies for OpenClaw."

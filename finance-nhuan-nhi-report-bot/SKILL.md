@@ -101,3 +101,26 @@ Báo cáo gồm:
 - Khi sửa cron, backup crontab vào `/root/_Backups` trước.
 - Khi test, ưu tiên `--dry-run` trước khi gửi Telegram thật.
 - Không thay thế toàn bộ crontab; chỉ append job của project nếu chưa tồn tại.
+
+## Báo cáo Excel cuối tháng
+
+Khi người dùng yêu cầu tổng hợp báo cáo cuối tháng, luôn xuất kèm **01 file Excel hoàn chỉnh** theo form chuẩn tại:
+
+```text
+/root/.agents/skills/finance-nhuan-nhi-report-bot/templates/bao_cao_tai_chinh_nhuan_nhi_mau.xlsx
+```
+
+### Quy trình bắt buộc
+
+1. Đọc toàn bộ `chi_tieu.csv` và `doanh_thu_cong_ty.csv` của đúng tháng cần báo cáo.
+2. Giữ nguyên cấu trúc 3 sheet của file mẫu: `Tổng quan`, `Chi tiêu chi tiết`, `Doanh thu & chi công ty`.
+3. Tính riêng theo **danh mục**, không chỉ theo trường `loai`:
+   - `Tích luỹ`: cộng mọi dòng có `danh_muc` là `Tích luỹ`, kể cả khi `loai` là `tích luỹ` hoặc `chi`.
+   - `Tiết kiệm ngân hàng`: cộng mọi danh mục chứa `Tiết kiệm` (ví dụ `Tiết kiệm gửi NH`).
+   - `Chi gia đình`: tổng các khoản chi còn lại, không gồm tiết kiệm và tích luỹ.
+   - `Tổng chi công ty`: `chi_momo + chi_bidv + chi_ads + chi_cty`.
+   - `Thu nhập tháng`: doanh thu thực tế trừ tổng chi công ty.
+   - `Còn lại tạm tính (đã trừ ads)`: thu nhập tháng trừ chi gia đình, tiết kiệm và tích luỹ.
+4. Điền đầy đủ tiêu đề `CHI GIA ĐÌNH THEO DANH MỤC`, tổng hợp danh mục và toàn bộ dữ liệu chi tiết trong tháng.
+5. Trước khi gửi, mở lại file để kiểm tra: file tồn tại/đọc được, 3 sheet đủ dữ liệu, và các tổng `Tích luỹ`, `Tiết kiệm`, `Chi gia đình`, `Còn lại` khớp dữ liệu CSV.
+6. Đặt tên file: `bao_cao_tai_chinh_nhuan_nhi_YYYY-MM_hoan_chinh.xlsx` và gửi kèm trong phản hồi.

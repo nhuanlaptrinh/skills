@@ -55,9 +55,10 @@ TMP="$(mktemp)"
 jq --arg python "$VENV/bin/python" --arg script "$TARGET" '
   .tools.media.audio.enabled = true |
   .tools.media.audio.language = "vi" |
-  .tools.media.audio.models = [{
+  .tools.media.audio.timeoutSeconds = 180 |
+  .tools.media.models = [{
     type:"cli", command:$python, args:[$script,"{{MediaPath}}"],
-    timeoutSeconds:180, maxBytes:20971520, capabilities:["audio"]
+    timeoutSeconds:180, maxBytes:20971520, capabilities:["audio"], language:"vi"
   }]' "$CONFIG" > "$TMP"
 chown --reference="$CONFIG" "$TMP"
 chmod --reference="$CONFIG" "$TMP"

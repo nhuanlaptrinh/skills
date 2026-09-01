@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Member Upgrade Recovery"
+  short_description: "Upgrade OpenClaw and restore Telegram safely"
+  default_prompt: "Use $openclaw-member-upgrade-telegram-recovery to safely upgrade a member OpenClaw and recover Telegram replies."

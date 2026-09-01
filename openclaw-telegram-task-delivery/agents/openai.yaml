@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Telegram Task Delivery"
+  short_description: "Deliver completed tasks to the right Telegram chat"
+  default_prompt: "Use $openclaw-telegram-task-delivery to install or audit reliable same-origin task completion delivery for this OpenClaw Telegram agent."

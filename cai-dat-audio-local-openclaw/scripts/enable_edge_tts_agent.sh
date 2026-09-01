@@ -27,7 +27,7 @@ done
 [[ -n "$CONFIG" && -n "$AGENT" && -n "$MODE" ]] || { usage >&2; exit 2; }
 [[ "$AUTO_MODE" == "inbound" || "$AUTO_MODE" == "always" ]] || { echo "Invalid --auto-mode" >&2; exit 2; }
 jq empty "$CONFIG"
-jq -e --arg id "$AGENT" '.agents.list[] | select(.id==$id)' "$CONFIG" >/dev/null
+jq -e --arg id "$AGENT" '.agents.entries[$id] | objects' "$CONFIG" >/dev/null
 echo "mode=$MODE config=$CONFIG agent=$AGENT voice=$VOICE auto_mode=$AUTO_MODE"
 [[ "$MODE" == "dry-run" ]] && exit 0
 
@@ -37,15 +37,21 @@ mkdir -p "$BACKUP"
 cp -a "$CONFIG" "$BACKUP/openclaw.json"
 TMP="$(mktemp)"
 jq --arg id "$AGENT" --arg voice "$VOICE" --arg autoMode "$AUTO_MODE" '
-  .messages.tts = ((.messages.tts // {}) + {
-    auto:"off", mode:"final", provider:"microsoft", maxTextLength:800,
-    providers:{microsoft:{speakerVoice:$voice,lang:"vi-VN",outputFormat:"audio-24khz-48kbitrate-mono-mp3"}}
+  .tts = ((.tts // {}) + {
+    auto:"off", enabled:true, mode:"final", provider:"microsoft", maxTextLength:800
   }) |
-  .plugins.entries.microsoft = {enabled:true} |
-  .agents.list |= map(if .id==$id then . + {tts:{auto:$autoMode}} else . end)
+  .tts.providers = ((.tts.providers // {}) + {
+    microsoft: ((.tts.providers.microsoft // {}) + {
+      enabled:true, speakerVoice:$voice, lang:"vi-VN",
+      outputFormat:"audio-24khz-48kbitrate-mono-mp3", rate:"+0%", pitch:"+0%"
+    })
+  }) |
+  .plugins.entries.microsoft = ((.plugins.entries.microsoft // {}) + {enabled:true}) |
+  .agents.entries[$id].tts = ((.agents.entries[$id].tts // {}) + {auto:$autoMode, enabled:true})
 ' "$CONFIG" > "$TMP"
 chown --reference="$CONFIG" "$TMP"
 chmod --reference="$CONFIG" "$TMP"
+OPENCLAW_CONFIG_PATH="$TMP" HOME="$(dirname "$(dirname "$CONFIG")")" openclaw config validate --json >/dev/null
 mv "$TMP" "$CONFIG"
 jq empty "$CONFIG"
-echo "Enabled inbound Edge TTS for agent $AGENT. Backup: $BACKUP"
+echo "Enabled Edge TTS mode $AUTO_MODE for agent $AGENT. Backup: $BACKUP"

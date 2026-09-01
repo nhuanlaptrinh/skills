@@ -40,6 +40,8 @@ BACKUP="/root/_Backups/openclaw_audio_host_$STAMP"
 mkdir -p "$BACKUP"
 cp -a "$CONFIG" "$BACKUP/openclaw.json"
 [[ -f "$CREDENTIALS/shared-local-stt.token" ]] && cp -a "$CREDENTIALS/shared-local-stt.token" "$BACKUP/" || true
+[[ -f "$CLIENT_DIR/transcribe_shared.py" ]] && cp -a "$CLIENT_DIR/transcribe_shared.py" "$BACKUP/" || true
+[[ -f "$CLIENT_DIR/transcribe_zalo_voice.py" ]] && cp -a "$CLIENT_DIR/transcribe_zalo_voice.py" "$BACKUP/" || true
 TOKEN="$(sed -n 's/^SHARED_STT_TOKEN=//p' "$SERVICE_ENV" | head -1)"
 [[ -n "$TOKEN" ]] || { echo "SHARED_STT_TOKEN missing" >&2; exit 1; }
 mkdir -p "$CLIENT_DIR" "$CREDENTIALS"
@@ -56,9 +58,9 @@ jq --arg script "$OPENCLAW_HOME/workspace/skills/cai-dat-audio-local-openclaw/sc
   .tools.media.audio.enabled = true |
   .tools.media.audio.language = "vi" |
   .tools.media.audio.timeoutSeconds = 180 |
-  .tools.media.audio.models = [{
+  .tools.media.models = [{
     type:"cli", command:"/usr/bin/python3", args:[$script,"{{MediaPath}}"],
-    timeoutSeconds:180, maxBytes:20971520, capabilities:["audio"]
+    timeoutSeconds:180, maxBytes:20971520, capabilities:["audio"], language:"vi"
   }]' "$CONFIG" > "$TMP"
 chown --reference="$CONFIG" "$TMP"
 chmod --reference="$CONFIG" "$TMP"

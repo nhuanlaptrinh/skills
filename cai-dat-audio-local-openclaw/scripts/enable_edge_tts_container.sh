@@ -5,7 +5,7 @@ CONTAINER=""
 CONFIG_PATH="/root/.openclaw/openclaw.json"
 AGENT=""
 VOICE="vi-VN-NamMinhNeural"
-AUTO_MODE="always"
+AUTO_MODE="inbound"
 MODE=""
 
 usage() {
@@ -35,7 +35,7 @@ TMP="$(mktemp /tmp/openclaw-edge-tts-container.XXXXXX.json)"
 docker cp "$CONTAINER:$CONFIG_PATH" "$TMP"
 jq empty "$TMP"
 HAS_AGENT=false
-if [[ -n "$AGENT" ]] && jq -e --arg id "$AGENT" '.agents.list[]? | select(.id==$id)' "$TMP" >/dev/null; then
+if [[ -n "$AGENT" ]] && jq -e --arg id "$AGENT" '.agents.entries[$id] | objects' "$TMP" >/dev/null; then
   HAS_AGENT=true
 fi
 echo "mode=$MODE container=$CONTAINER config_path=$CONFIG_PATH agent=${AGENT:-global} auto_mode=$AUTO_MODE has_agent=$HAS_AGENT"
@@ -51,32 +51,50 @@ chmod 600 "$BACKUP/openclaw.before.json"
 PATCHED="$(mktemp /tmp/openclaw-edge-tts-container-patched.XXXXXX.json)"
 if [[ "$HAS_AGENT" == true ]]; then
   jq --arg id "$AGENT" --arg voice "$VOICE" --arg autoMode "$AUTO_MODE" '
-    .messages.tts = ((.messages.tts // {}) + {
-      auto:"off", mode:"final", provider:"microsoft", maxTextLength:800,
-      providers:{microsoft:{speakerVoice:$voice,lang:"vi-VN",outputFormat:"audio-24khz-48kbitrate-mono-mp3"}}
+    .tts = ((.tts // {}) + {
+      auto:"off", enabled:true, mode:"final", provider:"microsoft", maxTextLength:800
     }) |
-    .plugins.entries.microsoft = {enabled:true} |
-    .agents.list |= map(if .id==$id then . + {tts:{auto:$autoMode}} else . end)
+    .tts.providers = ((.tts.providers // {}) + {
+      microsoft: ((.tts.providers.microsoft // {}) + {
+        enabled:true, speakerVoice:$voice, lang:"vi-VN",
+        outputFormat:"audio-24khz-48kbitrate-mono-mp3", rate:"+0%", pitch:"+0%"
+      })
+    }) |
+    .plugins.entries.microsoft = ((.plugins.entries.microsoft // {}) + {enabled:true}) |
+    .agents.entries[$id].tts = ((.agents.entries[$id].tts // {}) + {auto:$autoMode, enabled:true})
   ' "$TMP" > "$PATCHED"
 else
   jq --arg voice "$VOICE" --arg autoMode "$AUTO_MODE" '
-    .messages.tts = ((.messages.tts // {}) + {
-      auto:$autoMode, mode:"final", provider:"microsoft", maxTextLength:800,
-      providers:{microsoft:{speakerVoice:$voice,lang:"vi-VN",outputFormat:"audio-24khz-48kbitrate-mono-mp3"}}
+    .tts = ((.tts // {}) + {
+      auto:$autoMode, enabled:true, mode:"final", provider:"microsoft", maxTextLength:800
     }) |
-    .plugins.entries.microsoft = {enabled:true}
+    .tts.providers = ((.tts.providers // {}) + {
+      microsoft: ((.tts.providers.microsoft // {}) + {
+        enabled:true, speakerVoice:$voice, lang:"vi-VN",
+        outputFormat:"audio-24khz-48kbitrate-mono-mp3", rate:"+0%", pitch:"+0%"
+      })
+    }) |
+    .plugins.entries.microsoft = ((.plugins.entries.microsoft // {}) + {enabled:true})
   ' "$TMP" > "$PATCHED"
 fi
 jq empty "$PATCHED"
+CONTAINER_CANDIDATE="/tmp/openclaw-edge-tts-candidate.json"
+CONFIG_HOME="$(dirname "$(dirname "$CONFIG_PATH")")"
+docker cp "$PATCHED" "$CONTAINER:$CONTAINER_CANDIDATE"
+docker exec \
+  -e HOME="$CONFIG_HOME" \
+  -e OPENCLAW_CONFIG_PATH="$CONTAINER_CANDIDATE" \
+  "$CONTAINER" openclaw config validate --json >/dev/null
 cp -a "$PATCHED" "$BACKUP/openclaw.after.json"
 chmod 600 "$BACKUP/openclaw.after.json"
 docker cp "$PATCHED" "$CONTAINER:$CONFIG_PATH"
 docker exec "$CONTAINER" chmod 600 "$CONFIG_PATH"
 
-if docker exec "$CONTAINER" tmux has-session -t openclaw 2>/dev/null; then
+if docker exec "$CONTAINER" supervisorctl status openclaw-gateway >/dev/null 2>&1; then
+  docker exec "$CONTAINER" supervisorctl restart openclaw-gateway >/dev/null
+elif docker exec "$CONTAINER" tmux has-session -t openclaw 2>/dev/null; then
   docker exec "$CONTAINER" tmux respawn-pane -k -t openclaw 'HOME=/root openclaw gateway run'
   sleep 10
 fi
-docker exec "$CONTAINER" bash -lc 'grep -F "http server listening" /tmp/openclaw/openclaw-*.log | tail -1 | grep -q microsoft'
-docker exec "$CONTAINER" bash -lc 'openclaw channels status 2>/dev/null | grep -q "Gateway reachable"'
+docker exec -e HOME="$CONFIG_HOME" "$CONTAINER" openclaw config validate --json >/dev/null
 echo "Enabled Edge TTS in container $CONTAINER. Backup: $BACKUP"

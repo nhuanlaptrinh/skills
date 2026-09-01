@@ -78,6 +78,12 @@ creating another watchdog implementation:
 - `openclaw_session`: scheduled audit/summary compaction with an explicit
   session pattern.
 
+The Zalo probe status may include fields such as `linked` between
+`configured` and `running`. Health matching must therefore allow intermediate
+fields (`configured.*running.*works`) instead of requiring those words to be
+adjacent; otherwise a healthy linked account can trigger a false restart and
+Telegram warning.
+
 Cron must call
 `/root/Automation/watchdog/shared_self_healing/run_project.sh`; do not call the
 underlying scripts directly. Preserve unrelated registry and cron entries.

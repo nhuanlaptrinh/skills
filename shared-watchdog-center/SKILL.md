@@ -303,7 +303,7 @@ CONTAINER=user-nguyendinhtan MEMBER_HOME=/root MEMBER_LABEL=nguyendinhtan PROJEC
 /root/Automation/watchdog/shared_self_healing/run_project.sh member_nguyendinhtan_zalouser
 ```
 
-Script kiểm tra container, giữ `proxy.enabled=false` để Zalo chạy direct-first, nạp gateway env nội bộ rồi probe `openclaw channels status --probe`. Script phát hiện cả listener exit và `OutboundDeliveryError`, sau đó gửi `SIGTERM` cho gateway dưới Supervisor với cooldown 10 phút. Nếu restart không khôi phục được phiên, script ghi `MANUAL_REQUIRED`; không tự logout, không tự tạo QR và không gọi AI lặp lại.
+Script kiểm tra container, giữ `proxy.enabled=false` để Zalo chạy direct-first, nạp gateway env nội bộ rồi probe `openclaw channels status --probe`. Trạng thái khỏe phải được match theo thứ tự `configured`, `running`, `works` nhưng cho phép các trường trung gian như `linked`; không yêu cầu chuỗi `configured, running` liền nhau. Script phát hiện cả listener exit và `OutboundDeliveryError`, sau đó gửi `SIGTERM` cho gateway dưới Supervisor với cooldown 10 phút. Nếu restart không khôi phục được phiên, script ghi `MANUAL_REQUIRED`; không tự logout, không tự tạo QR và không gọi AI lặp lại.
 
 Với session có ít dòng nhưng context lớn do tool output, cấu hình một project `openclaw_session` dùng `MEMBER_HOME`, `SESSION_PATTERN` hẹp và `COMPACTION_MODE=summary`. Chỉ compact khi session idle đủ lâu; luôn backup session index trước lần áp dụng đầu tiên.
 
