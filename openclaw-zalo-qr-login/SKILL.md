@@ -27,6 +27,15 @@ Khi user muốn ra lệnh từ Telegram để tạo và nhận QR Zalo, ID Teleg
 
 Không thêm wildcard `"*"` vào owner, elevated hoặc approver allowlist. Không gửi QR vào group hoặc tới một ID chỉ được chuyển tiếp qua lời nhắn của người khác.
 
+## Policy Zalo sau khi liên kết
+
+Khi owner yêu cầu Zalo Personal nhận tin trong group mà không cần mention, cấu hình
+channel phải dùng `groupPolicy: "open"` và nhóm wildcard phải có
+`groups["*"].enabled: true` cùng `requireMention: false`. Chỉ đưa các ID Zalo
+đã xác minh vào `allowFrom` cho DM; không ghi các ID riêng tư vào skill hoặc tài liệu
+dùng chung. Giữ binding account `default` về agent `main` và chạy `openclaw config validate`
+sau khi thay đổi.
+
 ## Gửi QR trực tiếp qua Telegram owner
 
 Helper dùng cho workflow không tương tác:
@@ -38,7 +47,7 @@ Helper chạy lệnh chính thức `openclaw channels login --channel zalouser`,
 
 Helper dùng khóa `~/.openclaw/state/zalo-qr-owner-login.lock` để từ chối lượt chạy chồng nhau, gửi qua đúng Telegram account đã khai báo trong plugin approval target, và chỉ coi là đã gửi khi CLI trả về `messageId` cùng destination khớp.
 
-Với OpenClaw 2026.8.x, destination của plugin Telegram có thể nằm ở `payload.chatId` thay vì `payload.to`; helper hỗ trợ cả hai dạng receipt và vẫn yêu cầu `messageId` thật cùng đúng destination.
+Với OpenClaw 2026.7.x, receipt direct-send có thể nằm trong `payload.result`; với 2026.8.x, destination của plugin Telegram có thể nằm ở `payload.chatId` thay vì `payload.to`. Helper hỗ trợ các dạng receipt này và vẫn yêu cầu `messageId` thật cùng đúng destination.
 
 Dry-run bắt buộc trước:
 
@@ -194,18 +203,26 @@ mkdir -p "$BACKUP_DIR"
 cp -a /root/.openclaw/openclaw.json "$BACKUP_DIR/openclaw.json.before"
 ```
 
-Ví dụ đổi DM về pairing và group open:
+Ví dụ cho phép một ID Zalo đã xác minh nhắn DM, đồng thời mở mọi group và không
+yêu cầu mention. Dùng placeholder hoặc biến môi trường, không ghi ID thật vào skill:
 
 ```bash
+export VERIFIED_ZALO_ID='<zalo_user_id>'
 python3 - <<'PY'
 import json
+import os
 from pathlib import Path
 p = Path('/root/.openclaw/openclaw.json')
 data = json.loads(p.read_text())
 zalouser = data.setdefault('channels', {}).setdefault('zalouser', {})
-zalouser['dmPolicy'] = 'pairing'
-zalouser.pop('allowFrom', None)
-zalouser['groupPolicy'] = 'open'
+zalouser.update({
+    'enabled': True,
+    'dmPolicy': 'allowlist',
+    'allowFrom': [os.environ['VERIFIED_ZALO_ID']],
+    'groupPolicy': 'open',
+    'groupAllowFrom': ['*'],
+    'groups': {'*': {'enabled': True, 'requireMention': False}},
+})
 p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
 PY
 openclaw config validate

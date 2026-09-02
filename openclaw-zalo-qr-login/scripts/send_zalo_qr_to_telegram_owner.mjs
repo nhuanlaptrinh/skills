@@ -352,13 +352,19 @@ function sendTelegram(accountId, target, message, mediaPath) {
     result?.payload?.to ??
       result?.payload?.chatId ??
       result?.payload?.target ??
+      result?.payload?.result?.to ??
+      result?.payload?.result?.chatId ??
+      result?.payload?.result?.chat?.id ??
       result?.target ??
       "",
   );
   const messageId = String(
     result?.messageId ??
       result?.payload?.messageId ??
+      result?.payload?.result?.messageId ??
+      result?.payload?.result?.message_id ??
       result?.payload?.receipt?.primaryPlatformMessageId ??
+      result?.payload?.result?.receipt?.primaryPlatformMessageId ??
       "",
   );
   if (

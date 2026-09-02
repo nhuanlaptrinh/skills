@@ -1,6 +1,6 @@
 ---
 name: openclaw-9router-overload-recovery
-description: Diagnose, install, verify, repair, or roll back the reliable local proxy used when OpenClaw Telegram bots receive HTTP 200/SSE responses whose assistant text says the AI servers are overloaded. Use for repeated 9Router/Codex overload replies, missing retry on successful HTTP responses, Codex account concentration, or model fallback hardening on the main VPS.
+description: Diagnose, install, verify, repair, or roll back the reliable local proxy used when OpenClaw agents receive HTTP 200/SSE responses whose assistant text says the AI servers are overloaded. Use for repeated 9Router/Codex overload replies, missing retry on successful HTTP responses, Codex account concentration, or model fallback hardening for one agent or all agents on the main VPS.
 ---
 
 # OpenClaw 9Router Overload Recovery
@@ -43,9 +43,10 @@ The proxy intentionally matches only these normalized assistant responses: the k
 ```bash
 cd /root/Automation/9router/reliable_chat_proxy
 npm test
+python3 -m unittest -v test_configure_openclaw.py
 python3 -m py_compile configure_9router_routing.py configure_openclaw.py
 python3 configure_9router_routing.py
-python3 configure_openclaw.py
+python3 configure_openclaw.py --all-agents
 systemd-analyze --user verify openclaw-9router-reliable-proxy.service
 ```
 
@@ -66,14 +67,16 @@ systemctl --user daemon-reload
 systemctl --user restart 9router.service
 systemctl --user enable --now openclaw-9router-reliable-proxy.service
 
-python3 configure_openclaw.py \
+python3 configure_openclaw.py --all-agents \
   --apply \
   --backup-dir /root/_Backups/<incident-directory>
 openclaw config validate
 systemctl --user restart openclaw-gateway.service
 ```
 
-The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy and scopes the override to agent `taonhanvienao`.
+The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed.
+
+For a single-agent repair, omit `--all-agents` and pass `--agent <agent-id>`.
 
 ## Validate
 
@@ -90,6 +93,8 @@ journalctl --user -u openclaw-9router-reliable-proxy.service --since "15 minutes
 ```
 
 Confirm one post-change request uses provider `9rr`, proxy logs `upstream_complete` or `upstream_retry`, Telegram sends successfully, and the exact overload sentence is absent from new transcript events. The proxy buffers each response before forwarding, so record the added buffering latency when reporting.
+
+For all-agent changes, also confirm every explicit `agents.entries.*.model` source reference is either `9rr/` or intentionally external, and default text/image models use `9rr/` where they previously used `9r/`.
 
 ## Input and output
 

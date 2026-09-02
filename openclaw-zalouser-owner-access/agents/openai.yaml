@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Zalo Owner Access"
+  short_description: "Grant Telegram and Zalo co-owner access"
+  default_prompt: "Use $openclaw-zalouser-owner-access to grant verified Telegram or Zalo users full guarded owner access."
