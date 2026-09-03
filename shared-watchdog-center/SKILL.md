@@ -73,7 +73,7 @@ For OpenClaw session maintenance, set the token threshold comfortably below the 
 
 For OpenClaw channel watchdogs, do not rely only on a healthy gateway process. Combine `openclaw channels status --probe` with the latest channel listener events, use a restart cooldown, and notify through a different healthy channel only when an incident or recovery occurs.
 
-For `openclaw_gateway`, run the guard on the main VPS rather than inside the member Supervisor it protects. Use `scripts/check_member_gateway_supervisor.py`, compare both the active Supervisor config and persistent entrypoint, back up before repair, and set `ai_on_failure=false`. This prevents infrastructure drift from calling an AI repair agent or consuming tokens.
+For `openclaw_gateway`, run the guard on the main VPS rather than inside the member Supervisor it protects. Use `scripts/check_member_gateway_supervisor.py`, compare both the active Supervisor config and persistent entrypoint, back up before repair, and set `ai_on_failure=false`. For members whose provider is configured with `${TOKEN_CODEX_API_KEY}`, the guard must require a Gateway command that sources both `.openclaw/gateway.env` and `.openclaw/token-codex.env`, and must verify `TOKEN_CODEX_API_KEY` is present in the live Gateway environment. Never apply a plain `command=/usr/bin/openclaw gateway run` template to such a member. This prevents infrastructure drift from calling an AI repair agent or consuming tokens.
 
 The `type` is used to create better OpenClaw prompts and classify errors.
 

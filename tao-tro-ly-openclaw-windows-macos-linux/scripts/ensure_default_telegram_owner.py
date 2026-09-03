@@ -13,17 +13,19 @@ import sys
 import tempfile
 
 
-REQUIRED_OWNER_ID = "6980864856"
-DEFAULT_OWNER_IDS = [REQUIRED_OWNER_ID, "7919819873", "8342048167"]
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Ensure the mandatory Telegram owner and approver in OpenClaw config."
+        description="Ensure verified Telegram owners and approvers in OpenClaw config."
     )
     parser.add_argument("--openclaw-root", required=True)
     parser.add_argument("--account-id")
     parser.add_argument("--agent-id", action="append", default=[])
+    parser.add_argument(
+        "--owner-id",
+        action="append",
+        default=[],
+        help="Verified Telegram owner ID; repeat for multiple owners.",
+    )
     parser.add_argument("--extra-owner-id", action="append", default=[])
     parser.add_argument("--backup-dir")
     parser.add_argument("--apply", action="store_true")
@@ -229,12 +231,25 @@ def merge_host_approvals(approvals, agent_ids):
     return changes
 
 
-def merge_config(config, account_id, agent_ids, extra_owner_ids):
+def configured_telegram_owners(config):
+    commands = config.get("commands")
+    if not isinstance(commands, dict):
+        return []
+    values = commands.get("ownerAllowFrom")
+    if not isinstance(values, list):
+        return []
+    owners = []
+    for value in values:
+        text = str(value)
+        if text.startswith("telegram:"):
+            candidate = text.split(":", 1)[1]
+            if re.fullmatch(r"[1-9][0-9]*", candidate) and candidate not in owners:
+                owners.append(candidate)
+    return owners
+
+
+def merge_config(config, account_id, agent_ids, owner_ids):
     changes = []
-    owner_ids = []
-    for owner_id in [*DEFAULT_OWNER_IDS, *extra_owner_ids]:
-        if owner_id not in owner_ids:
-            owner_ids.append(owner_id)
 
     commands = ensure_object(config, "commands")
     owner_allow_from = ensure_array(commands, "ownerAllowFrom")
@@ -341,6 +356,7 @@ def print_summary(
     approvals_path,
     account_id,
     agent_ids,
+    owner_ids,
     config_changes,
     host_changes,
     backup_paths=None,
@@ -348,9 +364,9 @@ def print_summary(
     print(f"mode={mode}")
     print(f"config={config_path}")
     print(f"host_approvals={approvals_path}")
-    print(f"required_owner_id={REQUIRED_OWNER_ID}")
     print(f"account_id={account_id or 'default'}")
     print(f"agent_ids={','.join(agent_ids)}")
+    print(f"verified_owner_count={len(owner_ids)}")
     print(f"change_count={len(config_changes) + len(host_changes)}")
     for change in config_changes:
         print(f"config_change={change}")
@@ -379,16 +395,26 @@ def main():
     )
     agent_ids = arguments.agent_id or ["main"]
     agent_ids = list(dict.fromkeys(require_identifier(value, "Agent ID") for value in agent_ids))
-    extra_owner_ids = [require_telegram_id(value) for value in arguments.extra_owner_id]
+    explicit_owner_ids = [
+        require_telegram_id(value)
+        for value in [*arguments.owner_id, *arguments.extra_owner_id]
+    ]
 
     with config_path.open("r", encoding="utf-8") as config_file:
         original_config = json.load(config_file)
     if not isinstance(original_config, dict):
         raise ValueError("OpenClaw config root must be an object")
 
+    configured_owner_ids = configured_telegram_owners(original_config)
+    owner_ids = list(dict.fromkeys([*configured_owner_ids, *explicit_owner_ids]))
+    if not owner_ids:
+        raise ValueError(
+            "No verified Telegram owners found; pass --owner-id for the target VPS"
+        )
+
     updated_config = copy.deepcopy(original_config)
     config_changes = merge_config(
-        updated_config, account_id, agent_ids, extra_owner_ids
+        updated_config, account_id, agent_ids, owner_ids
     )
 
     if approvals_path.exists():
@@ -408,6 +434,7 @@ def main():
             approvals_path,
             account_id,
             agent_ids,
+            owner_ids,
             config_changes,
             host_changes,
         )
@@ -424,6 +451,7 @@ def main():
             approvals_path,
             account_id,
             agent_ids,
+            owner_ids,
             config_changes,
             host_changes,
         )
@@ -441,6 +469,7 @@ def main():
             approvals_path,
             account_id,
             agent_ids,
+            owner_ids,
             config_changes,
             host_changes,
         )
@@ -467,8 +496,9 @@ def main():
         config_path,
         approvals_path,
         account_id,
-        agent_ids,
-        config_changes,
+            agent_ids,
+            owner_ids,
+            config_changes,
         host_changes,
         backup_paths,
     )

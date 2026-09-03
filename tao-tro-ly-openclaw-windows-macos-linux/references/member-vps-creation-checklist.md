@@ -29,6 +29,7 @@
 - [ ] Có `unify-openclaw-bot-workspace` và `set-openclaw-agent-full-exec` ở cả `/root/.agents/skills` host và workspace member
 - [ ] Không còn `.git`, `__pycache__`, `.pyc` hoặc `node_modules` trong các skill đích
 - [ ] `sync_all_skills_to_root.py --check` đạt
+- [ ] `sync-openclaw-owner-training` có trong workspace và managed block có trong `AGENTS.md`
 - [ ] `openclaw skills check` đạt trước khi start Gateway
 
 ## Token Codex trước VPS
@@ -42,20 +43,20 @@
 
 ## Telegram DM
 - [ ] Global và account `dmPolicy` là `pairing`
-- [ ] Global allowFrom có `7919819873`, `6980864856`, `8342048167`
-- [ ] Account allowFrom có `7919819873`, `6980864856`, `8342048167`
-- [ ] `6980864856` là ID bắt buộc, không bị xóa/thay thế dù người dùng yêu cầu bộ owner khác
-- [ ] `TELEGRAM_CHAT_ID` được merge thêm nếu có
+- [ ] Global allowFrom có đầy đủ owner Telegram đã xác minh cho VPS đích
+- [ ] Account allowFrom có đầy đủ owner Telegram đã xác minh cho VPS đích
+- [ ] Không sao chép owner ID từ VPS khác và không dùng wildcard owner
+- [ ] `TELEGRAM_CHAT_ID` chỉ được merge thêm sau khi xác minh
 - [ ] Người ngoài allowFrom phải pairing
 
 ## Command owner
-- [ ] `commands.ownerAllowFrom` có `telegram:7919819873`, `telegram:6980864856`, `telegram:8342048167`
+- [ ] `commands.ownerAllowFrom` có các `telegram:<verified_owner_id>` tương ứng
 - [ ] `commands.ownerDisplay` là `raw`
-- [ ] Khi đổi owner khác vẫn merge giữ `telegram:6980864856`; không ghi đè toàn bộ mảng
+- [ ] Khi đổi owner vẫn merge giữ owner hợp lệ hiện có; không ghi đè toàn bộ mảng
 
 ## Owner approval và Full Exec cuối
 - [ ] Global và account `channels.telegram.execApprovals.enabled` là `auto`
-- [ ] Global và account `execApprovals.approvers` có `6980864856`
+- [ ] Global và account `execApprovals.approvers` có owner Telegram đã xác minh
 - [ ] Global và account `execApprovals.target` là `dm`
 - [ ] Telegram DM inline buttons đã bật
 - [ ] `ensure_default_telegram_owner.py` đã chạy trước bước unify/Full Exec
@@ -68,17 +69,15 @@
 - [ ] `approvals.exec.enabled` true
 - [ ] Mode `targets`
 - [ ] Agent filter có `main`
-- [ ] Target Telegram `6980864856` qua đúng account member
+- [ ] Target Telegram owner đã xác minh qua đúng account member
 
 ## Plugin approval
 - [ ] `approvals.plugin.enabled` true
 - [ ] Mode `targets`
 - [ ] Agent filter có `main`
-- [ ] Target Telegram `7919819873` qua đúng account member
-- [ ] Target Telegram `6980864856` qua đúng account member
-- [ ] Target Telegram `8342048167` qua đúng account member
+- [ ] Target Telegram owner đã xác minh qua đúng account member
 - [ ] `skills.workshop.approvalPolicy` là `pending`, không phải `auto`
-- [ ] `6980864856` nhận và xử lý được approval plugin/Skill Workshop
+- [ ] Owner/approver đã xác minh nhận và xử lý được approval plugin/Skill Workshop
 - [ ] Chỉ hướng dẫn Allow once hoặc `/approve <id> allow-once` cho approval còn tồn tại; không nói Exec Full cần duyệt
 - [ ] Không dùng proposal ID thay approval ID
 

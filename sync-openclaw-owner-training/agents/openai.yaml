@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync OpenClaw Owner Training"
+  short_description: "Sync owner training into one VPS workspace"
+  default_prompt: "Use $sync-openclaw-owner-training to enable verified owner training in an OpenClaw workspace."

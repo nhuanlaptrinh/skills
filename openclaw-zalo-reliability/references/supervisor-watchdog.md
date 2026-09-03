@@ -15,7 +15,12 @@ Source of truth:
 
 The guard must run on the main VPS, compare active and persistent Supervisor
 blocks, repair only `[program:openclaw-gateway]`, back up both files, validate
-staged content, and set `ai_on_failure=false`.
+staged content, and set `ai_on_failure=false`. If the member has
+`<member-home>/.openclaw/token-codex.env`, the canonical command must source
+both `gateway.env` and `token-codex.env`, and the runtime probe must confirm
+`TOKEN_CODEX_API_KEY` is present in the Gateway process. Do not use the plain
+command template for that member, because Telegram can poll successfully while
+the agent fails before model execution.
 
 ```json
 "member_<name>_gateway_supervisor": {

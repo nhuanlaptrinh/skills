@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--zalo-id", action="append", default=[])
     parser.add_argument("--telegram-account-id")
     parser.add_argument("--zalo-account-id", default="default")
+    parser.add_argument(
+        "--open-zalo-groups",
+        action="store_true",
+        help="Explicitly open Zalo groups and disable mention requirements.",
+    )
     parser.add_argument("--container")
     parser.add_argument("--runtime-home", default="/root")
     parser.add_argument("--runtime-openclaw-root", default="/root/.openclaw")
@@ -89,6 +94,24 @@ def append_unique(values: list[Any], value: Any) -> bool:
     return True
 
 
+def sync_existing_group_allowlists(
+    scope: dict[str, Any], owner: str, changes: list[str], label: str
+) -> None:
+    """Add an owner only to group allowlists that already exist."""
+    group_allow = scope.get("groupAllowFrom")
+    if isinstance(group_allow, list) and append_unique(group_allow, owner):
+        changes.append(f"add {label} group owner allowFrom")
+    groups = scope.get("groups")
+    if not isinstance(groups, dict):
+        return
+    for group in groups.values():
+        if not isinstance(group, dict):
+            continue
+        allow = group.get("allowFrom")
+        if isinstance(allow, list) and "*" not in allow and append_unique(allow, owner):
+            changes.append(f"add {label} existing group owner allowFrom")
+
+
 def validate_ids(values: list[str], label: str) -> list[str]:
     output: list[str] = []
     for value in values:
@@ -138,7 +161,7 @@ def infer_telegram_account(config: dict[str, Any], requested: str | None) -> str
 
 def transform(
     original: dict[str, Any], telegram_ids: list[str], zalo_ids: list[str], telegram_account_id: str | None,
-    zalo_account_id: str,
+    zalo_account_id: str, open_zalo_groups: bool,
 ) -> tuple[dict[str, Any], list[str]]:
     updated = copy.deepcopy(original)
     changes: list[str] = []
@@ -182,24 +205,26 @@ def transform(
             ):
                 targets.append(target)
                 changes.append("add Telegram plugin approval target")
+            sync_existing_group_allowlists(account, owner, changes, "Telegram account")
 
     if zalo_ids:
         zalo = ensure_dict(channels, "zalouser")
         dm_allow = ensure_list(zalo, "allowFrom")
-        if zalo.get("groupPolicy") != "open":
-            zalo["groupPolicy"] = "open"
-            changes.append("set Zalo groupPolicy=open")
-        group_allow = ensure_list(zalo, "groupAllowFrom")
-        if append_unique(group_allow, "*"):
-            changes.append("open Zalo group wildcard")
-        groups = ensure_dict(zalo, "groups")
-        wildcard = ensure_dict(groups, "*")
-        if wildcard.get("enabled") is not True:
-            wildcard["enabled"] = True
-            changes.append("enable Zalo wildcard group")
-        if wildcard.get("requireMention") is not False:
-            wildcard["requireMention"] = False
-            changes.append("disable Zalo group mention requirement")
+        if open_zalo_groups:
+            if zalo.get("groupPolicy") != "open":
+                zalo["groupPolicy"] = "open"
+                changes.append("set Zalo groupPolicy=open")
+            group_allow = ensure_list(zalo, "groupAllowFrom")
+            if append_unique(group_allow, "*"):
+                changes.append("open Zalo group wildcard")
+            groups = ensure_dict(zalo, "groups")
+            wildcard = ensure_dict(groups, "*")
+            if wildcard.get("enabled") is not True:
+                wildcard["enabled"] = True
+                changes.append("enable Zalo wildcard group")
+            if wildcard.get("requireMention") is not False:
+                wildcard["requireMention"] = False
+                changes.append("disable Zalo group mention requirement")
 
         accounts = zalo.get("accounts")
         zalo_account = accounts.get(zalo_account_id) if isinstance(accounts, dict) else None
@@ -223,6 +248,9 @@ def transform(
                 changes.append("add Zalo owner command permission")
             if append_unique(elevated_zalo, owner):
                 changes.append("add Zalo elevated owner")
+            sync_existing_group_allowlists(zalo, owner, changes, "Zalo")
+            if isinstance(zalo_account, dict):
+                sync_existing_group_allowlists(zalo_account, owner, changes, "Zalo account")
 
     agent = find_main(updated)
     tools = ensure_dict(agent, "tools")
@@ -252,6 +280,12 @@ def transform(
         if sender.get(key) != {}:
             sender[key] = {}
             changes.append("grant exact Zalo owner sender policy")
+
+    skills = ensure_dict(updated, "skills")
+    workshop = ensure_dict(skills, "workshop")
+    if workshop.get("approvalPolicy") != "pending":
+        workshop["approvalPolicy"] = "pending"
+        changes.append("set Skill Workshop approvalPolicy=pending")
 
     return updated, changes
 
@@ -327,7 +361,14 @@ def main() -> int:
     path = root / "openclaw.json"
     original = load_json(path)
     account_id = infer_telegram_account(original, args.telegram_account_id)
-    candidate, changes = transform(original, telegram_ids, zalo_ids, account_id, args.zalo_account_id)
+    candidate, changes = transform(
+        original,
+        telegram_ids,
+        zalo_ids,
+        account_id,
+        args.zalo_account_id,
+        args.open_zalo_groups,
+    )
     validate_candidate(
         root, candidate, args.container, args.runtime_home, args.runtime_openclaw_root
     )

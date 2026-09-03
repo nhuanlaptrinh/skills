@@ -6,7 +6,7 @@
 4. Cài đúng version OpenClaw bằng root với `HOME=/root`, OpenClaw root `/root/.openclaw` và workspace `/root/.openclaw/workspace`; không dừng sau khi chỉ tạo container nền.
 5. Chạy `scripts/sync_all_skills_to_root.py` từ root quản trị để copy toàn bộ skill trực tiếp vào `/root/.openclaw/workspace/skills`, sau đó chạy `--check` và `openclaw skills check` trước khi start Gateway.
 6. Tạo/cấu hình member bằng key truyền qua `TOKEN_CODEX_API_KEY` hoặc `CUSTOM_PROVIDER_API_KEY`, kèm biến Telegram khi có.
-7. Sau khi Telegram account tồn tại, chạy `scripts/ensure_default_telegram_owner.py` dry-run, `--apply`, rồi `--check`; bắt buộc giữ `6980864856` ở allowlist, command owner, native/forwarded approval, plugin/Skill Workshop approval và host `exec-approvals.json`.
+7. Sau khi Telegram account tồn tại, đọc owner/allowlist của VPS đích, chạy `scripts/ensure_default_telegram_owner.py` với từng `--owner-id` đã xác minh ở dry-run, `--apply`, rồi `--check`; đồng bộ owner-training policy vào workspace canonical.
 8. Inventory agents/bindings. Với member sạch chỉ có `main`, chạy `unify-openclaw-bot-workspace` normalize-only dry-run/apply/check không có source; nếu có `owner-admin` hoặc agent/workspace legacy, dừng Gateway rồi dry-run/apply/check với đúng source để gộp về `/root/.openclaw/workspace`.
 9. Chạy `set-openclaw-agent-full-exec` cho `main` sau cùng: dry-run, apply/check `--no-restart` trước lần start đầu; sau khi Gateway lên chạy lại `--check` để xác nhận runtime `full/off`.
 10. Dùng Docker inspection để xác định đúng web port host map vào port `80` của container và public IPv4.

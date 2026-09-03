@@ -7,6 +7,11 @@ description: Build, refresh, and use searchable knowledge from a member OpenClaw
 
 Use this skill to make approved workspace training retrievable on demand. A source file is not automatically part of a model's context: read only the relevant extracted Markdown when a question calls for it.
 
+For instructions arriving from verified Telegram/Zalo owners in DM or groups, use
+`sync-openclaw-owner-training` for sender authorization, privacy boundaries, and
+the memory promotion workflow. This skill handles approved training documents;
+it does not decide who may teach the assistant.
+
 ## Answer From Training
 
 1. Confirm the canonical agent workspace from the member OpenClaw config. Do not assume the container user or home path.

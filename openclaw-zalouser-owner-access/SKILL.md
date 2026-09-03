@@ -20,17 +20,23 @@ it does not change tokens, providers, models, credentials, sessions, or QR data.
   `zalouser:<id>`, `tools.elevated.allowFrom.zalouser`, and
   `toolsBySender["channel:zalouser:<id>"] = {}`. If the plugin has account-level
   Zalo allowlists, synchronize that account too.
+- When an existing Telegram/Zalo account or group has an explicit sender
+  allowlist, add the verified owner to that existing list; never create a new
+  group entry or replace `*`.
 - Keep the canonical `main` agent on `tools.profile: full` and its existing full
   Gateway Exec policy. Keep the wildcard non-owner deny safeguards, at least
   `group:runtime`, `group:fs`, and `group:messaging`.
-- For the requested open Zalo group behavior, set `groupPolicy: open`, retain
-  `groupAllowFrom: ["*"]`, enable `groups["*"]`, and set
-  `requireMention: false`.
+- Preserve the existing Zalo group policy by default. Only when the request
+  explicitly asks to open all Zalo groups without mention, set `groupPolicy:
+  open`, retain `groupAllowFrom: ["*"]`, enable `groups["*"]`, and set
+  `requireMention: false` with `--open-zalo-groups`.
 
 There is no separate training-approval identity field in the member policy
 found so far. Owner command authorization plus Telegram exec/plugin approval
 layers provide the approval authority; inspect workspace-specific training
-rules before adding any additional policy.
+rules before adding any additional policy. For memory/workspace behavior, also
+install `sync-openclaw-owner-training`; do not treat owner access alone as
+permission to copy raw conversations into memory.
 
 ## Preconditions and safety
 
@@ -66,6 +72,10 @@ python3 scripts/update_owner_access.py \
   --dry-run
 ```
 
+The dry-run preserves existing Zalo group/mention behavior. Add
+`--open-zalo-groups` only for an explicit request to open all Zalo groups and
+disable mention requirements; this is a separate policy decision.
+
 Apply only after reviewing the dry-run and quiescing the Gateway:
 
 ```bash
@@ -80,6 +90,9 @@ python3 scripts/update_owner_access.py \
   --backup-dir /root/_Backups/openclaw-zalouser-owner-access/<member>/<timestamp> \
   --apply
 ```
+
+Append `--open-zalo-groups` only when the request explicitly asks to open all
+Zalo groups without mention.
 
 Run `--check` with the same identity/account arguments after the Gateway is
 running. Rerunning `--apply` is idempotent and preserves unrelated owners,

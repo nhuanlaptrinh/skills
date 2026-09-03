@@ -148,11 +148,11 @@ Keep doctor-created archives. Do not manually remove legacy files merely because
 
 ## 5. Make Gateway startup persistent
 
-Member containers commonly run Supervisor as PID 1. Ensure the canonical entrypoint that generates `member-vps.conf` contains Supervisor RPC sections and exactly one Gateway program:
+Member containers commonly run Supervisor as PID 1. Ensure the canonical entrypoint that generates `member-vps.conf` contains Supervisor RPC sections and exactly one Gateway program. If the member's `openclaw.json` references `${TOKEN_CODEX_API_KEY}`, the Gateway command must load the provider env before starting OpenClaw:
 
 ```ini
 [program:openclaw-gateway]
-command=/usr/bin/openclaw gateway run
+command=/bin/bash -lc 'set -a; . <member-home>/.openclaw/gateway.env; . <member-home>/.openclaw/token-codex.env; set +a; exec env HOME=<member-home> /usr/bin/openclaw gateway run'
 directory=<member-home>
 user=root
 environment=HOME="<member-home>"

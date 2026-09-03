@@ -1,13 +1,13 @@
 ---
 name: tao-tro-ly-openclaw-windows-macos-linux
-description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, thêm policy vào AGENTS.md và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, giữ Telegram ID quản trị mặc định, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
+description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, đồng bộ policy owner-training và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, xác minh owner theo chính VPS đích, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
 ---
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
 
 ## Mục tiêu
 
-Điều phối đúng quy trình cài đặt, tạo, cấu hình hoặc vận hành trợ lý OpenClaw trên Windows, macOS và Linux. Mọi lượt tạo trợ lý phải cài OpenClaw, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ skill, áp dụng `reliable-media-delivery` vào chính workspace của trợ lý và thiết lập Telegram ID bắt buộc `6980864856` làm chủ sở hữu/người duyệt trước khi chạy Gateway. Mỗi VPS thành viên phải kết thúc với đúng một Telegram account dùng agent `main`, workspace `/root/.openclaw/workspace`, và Full Exec `gateway/full`, `security=full`, `ask=off` trên `main`. Trên Linux phải phân biệt máy local/server, VPS chính và VPS thành viên chạy trong container Docker; không dùng lẫn script, config, token, port hoặc dữ liệu giữa các môi trường.
+Điều phối đúng quy trình cài đặt, tạo, cấu hình hoặc vận hành trợ lý OpenClaw trên Windows, macOS và Linux. Mọi lượt tạo trợ lý phải cài OpenClaw, đặt runtime trong OpenClaw root quản trị, đồng bộ toàn bộ skill, áp dụng `reliable-media-delivery` và `sync-openclaw-owner-training` vào chính workspace của trợ lý, sau đó thiết lập đúng owner đã xác minh trên VPS đích trước khi chạy Gateway. Mỗi VPS thành viên phải kết thúc với đúng một Telegram account dùng agent `main`, workspace `/root/.openclaw/workspace`, và Full Exec `gateway/full`, `security=full`, `ask=off` trên `main`. Trên Linux phải phân biệt máy local/server, VPS chính và VPS thành viên chạy trong container Docker; không dùng lẫn script, config, token, port hoặc dữ liệu giữa các môi trường.
 
 ## Chính sách root bắt buộc
 
@@ -18,7 +18,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 - Tất cả folder có `SKILL.md` từ root nguồn `.agents/skills`, `.codex/skills` và nhóm `.codex/skills/.system` phải được đặt trực tiếp tại `<OPENCLAW_ROOT>/workspace/skills/<ten-skill>`; không bọc thêm folder tổng hoặc folder ngày.
 - Không dùng `--skip-skills`. Sau onboarding, chạy `scripts/sync_all_skills_to_root.py`, sau đó chạy lại script với `--check` và `openclaw skills check`.
 - Mọi agent/workspace mới bắt buộc có `<workspace>/skills/reliable-media-delivery/SKILL.md` và block `reliable-media-delivery:start/end` đúng một lần trong `<workspace>/AGENTS.md`; thiếu một trong hai thì chưa được báo hoàn tất.
-- Mọi lần dùng skill này để tạo, cài, khôi phục hoặc chuẩn hóa một OpenClaw runtime đều phải chạy `scripts/ensure_default_telegram_owner.py`: Telegram ID `6980864856` là invariant bắt buộc, không được xóa hoặc thay thế bởi danh sách owner/approver khác.
+- Mọi lần dùng skill này để tạo, cài, khôi phục hoặc chuẩn hóa một OpenClaw runtime đều phải chạy `scripts/ensure_default_telegram_owner.py` với owner đã xác minh trên VPS đích; không dùng owner wildcard và không sao chép ID từ VPS khác.
 - Với VPS thành viên, sau khi Telegram account và owner tồn tại, bắt buộc chạy `unify-openclaw-bot-workspace` để kiểm tra hoặc gộp kiến trúc về `main`, rồi chạy `set-openclaw-agent-full-exec` cho `main` sau cùng. Mọi lần chạy lại owner/unify đều phải chạy lại Full Exec check.
 - Script đồng bộ phải loại `.git`, `__pycache__`, `.pyc`, `node_modules`; nếu skill đích đã tồn tại, script backup trước khi thay.
 - Nếu trùng tên skill giữa các root nguồn, ưu tiên root nguồn xuất hiện trước; chỉ cài một folder trực tiếp cho mỗi tên skill.
@@ -85,8 +85,8 @@ $Workspace = Join-Path $OpenClawRoot "workspace"
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace "$Workspace" --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 python (Join-Path $SkillDir "scripts\sync_all_skills_to_root.py") --openclaw-root "$OpenClawRoot"
 python (Join-Path $SkillDir "scripts\sync_all_skills_to_root.py") --openclaw-root "$OpenClawRoot" --check
-python (Join-Path $SkillDir "scripts\ensure_default_telegram_owner.py") --openclaw-root "$OpenClawRoot" --apply
-python (Join-Path $SkillDir "scripts\ensure_default_telegram_owner.py") --openclaw-root "$OpenClawRoot" --check
+python (Join-Path $SkillDir "scripts\ensure_default_telegram_owner.py") --openclaw-root "$OpenClawRoot" --owner-id '<verified_telegram_owner_id>' --apply
+python (Join-Path $SkillDir "scripts\ensure_default_telegram_owner.py") --openclaw-root "$OpenClawRoot" --owner-id '<verified_telegram_owner_id>' --check
 openclaw config validate
 openclaw skills check
 openclaw gateway restart
@@ -108,8 +108,8 @@ sudo -H npm install -g openclaw@2026.7.1-2
 sudo -H env HOME=/var/root openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /var/root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw --check
-sudo -H python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /var/root/.openclaw --apply
-sudo -H python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /var/root/.openclaw --check
+sudo -H python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /var/root/.openclaw --owner-id '<verified_telegram_owner_id>' --apply
+sudo -H python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /var/root/.openclaw --owner-id '<verified_telegram_owner_id>' --check
 sudo -H env HOME=/var/root openclaw config validate
 sudo -H env HOME=/var/root openclaw skills check
 sudo -H env HOME=/var/root openclaw gateway restart
@@ -132,8 +132,8 @@ npm install -g openclaw@2026.7.1-2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw --check
-python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /root/.openclaw --apply
-python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /root/.openclaw --check
+python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /root/.openclaw --owner-id '<verified_telegram_owner_id>' --apply
+python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" --openclaw-root /root/.openclaw --owner-id '<verified_telegram_owner_id>' --check
 openclaw config validate
 openclaw skills check
 openclaw gateway restart
@@ -245,16 +245,15 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Phải báo link public tương ứng web port sau khi tạo và xác minh URL trả HTTP `200`. Nếu không tự lấy được public IPv4, dùng `OPENCLAW_PUBLIC_IP`.
 - Cấu hình HTTP token-only giảm bảo mật; khi có domain HTTPS phải ưu tiên HTTPS và tắt `dangerouslyDisableDeviceAuth`.
 - Telegram DM mặc định phải dùng `dmPolicy: pairing` ở cả cấp chung và `channels.telegram.accounts.<account>`.
-- Telegram ID `6980864856` là chủ sở hữu/người duyệt bắt buộc và bất biến: luôn phải có trong global/account `allowFrom`, `commands.ownerAllowFrom`, native Telegram exec approvers, forwarded exec/plugin approval targets và luồng duyệt Skill Workshop. Không yêu cầu nào về bộ owner khác được phép loại bỏ hoặc thay thế ID này.
-- Bộ quản trị mặc định vẫn gồm `7919819873`, `6980864856` và `8342048167`. Có thể thay đổi hoặc bổ sung các ID ngoài `6980864856` khi người dùng yêu cầu rõ, nhưng kết quả cuối cùng luôn phải merge giữ lại `6980864856`.
-- `commands.ownerAllowFrom` phải chứa ít nhất `telegram:6980864856`, giữ `commands.ownerDisplay = "raw"` và bảo toàn owner hợp lệ hiện có. Không ghi đè toàn bộ mảng chỉ để thêm owner mới.
-- `TELEGRAM_CHAT_ID` của member nếu có chỉ được merge thêm vào allowlist/owner theo yêu cầu; tuyệt đối không thay thế Telegram ID bắt buộc `6980864856`.
+- Owner/approver phải là các ID đã xác minh cho chính VPS đích hoặc được ủy quyền rõ trong yêu cầu triển khai. Đọc allowlist hiện có trước khi thay đổi; không sao chép ID từ VPS khác và không dùng wildcard owner.
+- `commands.ownerAllowFrom` phải giữ nguyên owner hợp lệ hiện có và merge thêm owner đã xác minh; không ghi đè toàn bộ mảng chỉ để thêm owner mới.
+- `TELEGRAM_CHAT_ID` của member nếu có chỉ được merge khi đã xác minh; không tự biến mọi chat ID thành owner.
 - Người mới ngoài allowFrom phải pairing; dùng `openclaw pairing list telegram` để lấy request và chỉ approve đúng người đã xác minh.
-- Bắt buộc bật native `channels.telegram.execApprovals` ở global và account scope với `enabled: "auto"`, `target: "dm"`, `approvers` chứa `6980864856`; bật Telegram inline buttons cho DM.
+- Bắt buộc bật native `channels.telegram.execApprovals` ở global và account scope với `enabled: "auto"`, `target: "dm"`, `approvers` là owner Telegram đã xác minh; bật Telegram inline buttons cho DM.
 - `scripts/ensure_default_telegram_owner.py` chạy trước để merge owner/approval an toàn; trạng thái bàn giao cuối cùng của agent `main` phải được `set-openclaw-agent-full-exec` đặt thành `tools.exec.host = "gateway"`, `tools.exec.mode = "full"`, `tools.exec.strictInlineEval = false` và policy `security: "full"`, `ask: "off"`, `askFallback: "full"`, `autoAllowSkills: true`.
-- Bắt buộc bật cả `approvals.exec` và `approvals.plugin` với mode `targets`, agent filter có `main`, target Telegram `6980864856` qua đúng `accountId` member. Hai lớp này độc lập, không được chỉ bật plugin approval rồi coi exec approval đã có.
-- Bắt buộc giữ `skills.workshop.approvalPolicy = "pending"`; approval của hành động apply/reject/quarantine do agent phải được chuyển tới `6980864856` qua plugin approval target. Không đặt `auto` để bỏ qua duyệt.
-- ID `6980864856` vẫn là owner và target duyệt plugin/Skill Workshop. Full Exec không tạo approval prompt cho lệnh Exec của `main`; không mô tả nút **Allow once** như một bước bắt buộc sau khi Full Exec đã bật.
+- Bắt buộc bật cả `approvals.exec` và `approvals.plugin` với mode `targets`, agent filter có `main`, target Telegram owner đã xác minh qua đúng `accountId` member. Hai lớp này độc lập, không được chỉ bật plugin approval rồi coi exec approval đã có.
+- Bắt buộc giữ `skills.workshop.approvalPolicy = "pending"`; approval của hành động apply/reject/quarantine do agent phải được chuyển tới owner/approver đã xác minh qua plugin approval target. Không đặt `auto` để bỏ qua duyệt.
+- Full Exec không tạo approval prompt cho lệnh Exec của `main`; không mô tả nút **Allow once** như một bước bắt buộc sau khi Full Exec đã bật.
 - Mỗi Telegram account chỉ có đúng một account-level binding tới agent `main`, không có `match.peer`. Group ID được giới hạn bằng `channels.telegram.groups` và account `groups`, không tạo binding riêng cho từng group.
 - Sau khi owner/binding đã ổn định, chạy `unify-openclaw-bot-workspace --check`; nếu có `owner-admin` hoặc workspace legacy thì gộp khi Gateway đã dừng. Chạy `set-openclaw-agent-full-exec` cuối cùng và yêu cầu `--check` đạt trước bàn giao.
 - Khi người dùng cung cấp Telegram Group ID lúc tạo nhân viên, mặc định cấu hình group allowlist với `enabled: true`, `requireMention: false`, `allowFrom: ["*"]` ở cả top-level và account scope; routing vẫn đi qua account-level binding duy nhất tới `main`.
@@ -586,10 +585,17 @@ python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" \
 python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
   --account-id '<ten_user>' \
+  --owner-id '<verified_telegram_owner_id>' \
+  --dry-run
+python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --account-id '<ten_user>' \
+  --owner-id '<verified_telegram_owner_id>' \
   --apply
 python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
   --account-id '<ten_user>' \
+  --owner-id '<verified_telegram_owner_id>' \
   --check
 test -f /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py
 test -f /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh
@@ -639,9 +645,9 @@ Không ghi token thật vào skill, README, nhật ký, câu trả lời, Git ho
 
 ## Cấu hình chủ sở hữu và quyền duyệt Telegram bắt buộc
 
-Đầu vào: `--openclaw-root` trỏ tới runtime OpenClaw; `--account-id` là Telegram account đã tồn tại; `--agent-id` và `--extra-owner-id` có thể lặp. Đầu ra: cập nhật `openclaw.json`, `exec-approvals.json` và tạo backup trong `<OPENCLAW_ROOT>/backups/telegram-owner/` khi apply có thay đổi.
+Đầu vào: `--openclaw-root` trỏ tới runtime OpenClaw; `--account-id` là Telegram account đã tồn tại; `--agent-id` và `--owner-id` có thể lặp. Đầu ra: cập nhật `openclaw.json`, `exec-approvals.json` và tạo backup trong `<OPENCLAW_ROOT>/backups/telegram-owner/` khi apply có thay đổi.
 
-Dùng script idempotent đi kèm thay vì ghi đè mảng thủ công. Script giữ nguyên các ID hợp lệ hiện có, merge bộ quản trị mặc định hiện hành và luôn khóa ID bắt buộc `6980864856`, cấu hình cả `openclaw.json` và host-local `exec-approvals.json`, backup trước khi apply và không đọc/in bot token.
+Dùng script idempotent đi kèm thay vì ghi đè mảng thủ công. Script đọc owner Telegram đã có trong `commands.ownerAllowFrom`, merge thêm các `--owner-id` đã xác minh, cấu hình cả `openclaw.json` và host-local `exec-approvals.json`, backup trước khi apply và không đọc/in bot token.
 
 Với member Docker, chạy trên root volume persistent sau khi Telegram account đã tồn tại trong config:
 
@@ -651,26 +657,26 @@ SKILL_DIR='/root/.agents/skills/tao-tro-ly-openclaw-windows-macos-linux'
 python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
   --account-id '<ten_user>' \
-  --extra-owner-id '<telegram_chat_id>'
+  --owner-id '<verified_telegram_owner_id>'
 python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
   --account-id '<ten_user>' \
-  --extra-owner-id '<telegram_chat_id>' \
+  --owner-id '<verified_telegram_owner_id>' \
   --apply
 python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --openclaw-root "$MEMBER_ROOT/.openclaw" \
   --account-id '<ten_user>' \
-  --extra-owner-id '<telegram_chat_id>' \
+  --owner-id '<verified_telegram_owner_id>' \
   --check
 docker exec -e HOME=/root user-<ten_user> openclaw config validate
 docker exec -e HOME=/root user-<ten_user> openclaw exec-policy show
 ```
 
-Nếu không có ID bổ sung, bỏ hoàn toàn `--extra-owner-id`; không truyền placeholder. Với nhiều agent cần quyền exec, lặp `--agent-id`. Trên Windows/macOS/Linux local, dùng cùng script với đúng `--openclaw-root`; nếu có Telegram account nhiều tài khoản, chạy lại riêng cho từng `--account-id`.
+Lặp `--owner-id` cho nhiều owner đã xác minh. Nếu target config đã có owner, script giữ lại các owner đó; nếu chưa có owner, bắt buộc truyền ít nhất một `--owner-id`. Với nhiều agent cần quyền exec, lặp `--agent-id`. Trên Windows/macOS/Linux local, dùng cùng script với đúng `--openclaw-root`; nếu có Telegram account nhiều tài khoản, chạy lại riêng cho từng `--account-id`.
 
 Sau `--apply`, hạn chế quyền hai file runtime về owner-only: Linux/macOS chạy `chmod 600 <OPENCLAW_ROOT>/openclaw.json <OPENCLAW_ROOT>/exec-approvals.json`; Windows giữ ACL chỉ cho Administrator/SYSTEM theo policy máy. Không đổi quyền bot token hoặc credential ngoài phạm vi này.
 
-Rerun/repair: chạy lại dry-run rồi `--apply`; script idempotent sẽ chỉ bổ sung phần thiếu. Vì script owner đặt policy guarded trung gian, mọi lần apply/repair owner phải chạy lại `set-openclaw-agent-full-exec` cho `main` sau cùng. Rollback: dừng Gateway, lấy đúng cặp backup `openclaw-before-required-owner-*.json` và `exec-approvals-before-required-owner-*.json` cùng timestamp, kiểm tra không chứa cấu hình mới cần giữ, rồi restore thủ công và validate trước khi restart. Không rollback bằng cách xóa ID `6980864856`.
+Rerun/repair: chạy lại dry-run rồi `--apply`; script idempotent sẽ chỉ bổ sung phần thiếu. Vì script owner đặt policy guarded trung gian, mọi lần apply/repair owner phải chạy lại `set-openclaw-agent-full-exec` cho `main` sau cùng. Rollback: dừng Gateway, lấy đúng cặp backup `openclaw-before-required-owner-*.json` và `exec-approvals-before-required-owner-*.json` cùng timestamp, kiểm tra không chứa cấu hình mới cần giữ, rồi restore thủ công và validate trước khi restart.
 
 Không dùng key `allowlist` trong OpenClaw config vì key đúng cho người gửi Telegram là `allowFrom`. Giữ `skills.workshop.approvalPolicy = "pending"`; Full Exec chỉ bỏ bước duyệt lệnh Exec của `main`, không tự động duyệt proposal/plugin hoặc mở quyền cho sender đang bị `toolsBySender` deny.
 
