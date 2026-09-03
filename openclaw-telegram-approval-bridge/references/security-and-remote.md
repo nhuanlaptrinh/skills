@@ -5,6 +5,7 @@
 - Exec and plugin approvals have configurable forwarding targets and native Telegram approval controls on supported OpenClaw versions.
 - Delegated persistent `system-agent` proposals may be registered in the Gateway without a Telegram forwarding route. The bridge lets the canonical agent act only after an exact owner explicitly approves in the same DM.
 - The proposal hash shown to a user is a mutation fingerprint, not necessarily the pending approval record ID. Always query `openclaw approvals pending --json` and resolve the real `system-agent:<id>` record.
+- Every verified exact owner present in the guarded owner layers is approval-authorized by default for Skill Workshop (`plugin`) and persistent `system-agent` proposals. The authority is explicit per live proposal; it does not set `approvalPolicy=auto` or bypass source, agent, expiry, and `allow-once` checks.
 
 ## Owner Verification
 
@@ -15,10 +16,12 @@ The runtime helper additionally requires:
 - `commands.ownerAllowFrom` contains the exact sender.
 - The pending record kind is `system-agent`.
 - The record belongs to the configured canonical agent.
-- The record session is a Telegram direct-message session for that owner.
+- The approving sender is an exact Telegram owner in a direct DM. The proposal source must be an exact owner in a direct Telegram/Zalo DM or an explicitly enabled Zalo group on that agent; unknown groups and non-owner sources are rejected.
 - The summary is a persistent `OpenClaw change` and the request has not expired.
 
 These checks do not replace human intent matching. The agent must still compare the pending summary to the proposal the owner explicitly approved.
+
+The runtime helper parses JSON with Python 3's standard library. It must not depend on `jq`: in the legacy shell helper, a missing `jq` made the owner check return false and emitted the misleading message that a correctly configured sender was not an owner.
 
 ## Remote VPS Workflow
 

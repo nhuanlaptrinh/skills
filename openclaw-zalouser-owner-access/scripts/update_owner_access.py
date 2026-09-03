@@ -176,19 +176,32 @@ def transform(
         account_allow = ensure_list(account, "allowFrom")
         approvals = ensure_dict(telegram, "execApprovals")
         approvers = ensure_list(approvals, "approvers")
+        account_approvals = ensure_dict(account, "execApprovals")
+        account_approvers = ensure_list(account_approvals, "approvers")
         commands = ensure_dict(updated, "commands")
         owner_allow = ensure_list(commands, "ownerAllowFrom")
         elevated = ensure_dict(ensure_dict(updated, "tools"), "elevated")
         elevated_allow = ensure_dict(elevated, "allowFrom")
         elevated_telegram = ensure_list(elevated_allow, "telegram")
-        plugin = ensure_dict(ensure_dict(updated, "approvals"), "plugin")
+        approval_root = ensure_dict(updated, "approvals")
+        exec_approval = ensure_dict(approval_root, "exec")
+        exec_targets = ensure_list(exec_approval, "targets")
+        plugin = ensure_dict(approval_root, "plugin")
         targets = ensure_list(plugin, "targets")
+        if plugin.get("enabled") is not True:
+            plugin["enabled"] = True
+            changes.append("enable plugin approval forwarding")
+        if plugin.get("mode") != "targets":
+            plugin["mode"] = "targets"
+            changes.append("route plugin approvals to exact targets")
 
         for owner in telegram_ids:
             if append_unique(top_allow, owner):
                 changes.append("add Telegram channel allowFrom")
             if append_unique(account_allow, owner):
                 changes.append("add Telegram account allowFrom")
+            if append_unique(account_approvers, owner):
+                changes.append("add Telegram account exec approver")
             if append_unique(owner_allow, f"telegram:{owner}"):
                 changes.append("add Telegram owner command permission")
             if append_unique(approvers, owner):
@@ -205,6 +218,15 @@ def transform(
             ):
                 targets.append(target)
                 changes.append("add Telegram plugin approval target")
+            if not any(
+                isinstance(item, dict)
+                and item.get("channel") == "telegram"
+                and str(item.get("to")) == owner
+                and item.get("accountId") == telegram_account_id
+                for item in exec_targets
+            ):
+                exec_targets.append(target)
+                changes.append("add Telegram exec approval target")
             sync_existing_group_allowlists(account, owner, changes, "Telegram account")
 
     if zalo_ids:

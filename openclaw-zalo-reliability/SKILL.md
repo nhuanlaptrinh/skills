@@ -84,6 +84,11 @@ fields (`configured.*running.*works`) instead of requiring those words to be
 adjacent; otherwise a healthy linked account can trigger a false restart and
 Telegram warning.
 
+Treat `dm:pairing` as the configured DM access policy, not as an authentication
+result. Do not claim that a Zalo session expired from this field, a stale
+delivery error, or a retry warning alone; confirm authentication with the live
+channel probe/plugin result before recommending QR login.
+
 Cron must call
 `/root/Automation/watchdog/shared_self_healing/run_project.sh`; do not call the
 underlying scripts directly. Preserve unrelated registry and cron entries.

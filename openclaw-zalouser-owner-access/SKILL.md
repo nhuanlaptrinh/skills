@@ -1,6 +1,6 @@
 ---
 name: openclaw-zalouser-owner-access
-description: Synchronize verified Telegram and Zalo Personal co-owner access for an existing OpenClaw member bot, including DM allowlists, owner commands, elevated tools, Telegram exec/plugin approvals, exact sender policies, and open Zalo groups without mention. Use when connecting OpenClaw to a Zalo user, adding a cross-channel owner, granting approval authority, or repairing incomplete owner permissions while preserving existing owners and safeguards.
+description: Synchronize verified Telegram and Zalo Personal co-owner access for an existing OpenClaw member bot, including DM allowlists, owner commands, elevated tools, default approval authority for Skill Workshop and system-agent proposals, Telegram exec/plugin approvals, exact sender policies, and open Zalo groups without mention. Use when connecting OpenClaw to a Zalo user, adding a cross-channel owner, granting approval authority, or repairing incomplete owner permissions while preserving existing owners and safeguards.
 ---
 
 # OpenClaw Zalo User Owner Access
@@ -12,9 +12,10 @@ it does not change tokens, providers, models, credentials, sessions, or QR data.
 ## Required owner layers
 
 - Telegram: channel and account `allowFrom`, `commands.ownerAllowFrom` as
-  `telegram:<id>`, `tools.elevated.allowFrom.telegram`,
-  `channels.telegram.execApprovals.approvers`, the account-specific
-  `approvals.plugin.targets` entry, and
+  `telegram:<id>`, `tools.elevated.allowFrom.telegram`, both top-level and
+  account-level `channels.telegram.execApprovals.approvers`, the account-specific
+  `approvals.exec.targets` and `approvals.plugin.targets` entries, enable plugin
+  approval forwarding with `mode=targets`, and
   `toolsBySender["channel:telegram:<id>"] = {}`.
 - Zalo Personal: channel `allowFrom`, `commands.ownerAllowFrom` as
   `zalouser:<id>`, `tools.elevated.allowFrom.zalouser`, and
@@ -31,12 +32,26 @@ it does not change tokens, providers, models, credentials, sessions, or QR data.
   open`, retain `groupAllowFrom: ["*"]`, enable `groups["*"]`, and set
   `requireMention: false` with `--open-zalo-groups`.
 
+Every verified exact owner synchronized into these layers is approval-authorized
+by default for Skill Workshop lifecycle proposals and persistent `system-agent`
+configuration proposals on the canonical agent. This authority requires explicit
+approval of each live proposal; it does not set Skill Workshop to auto-apply and
+does not bypass queue, source, agent, summary, expiry, or `allow-once` checks.
+
 There is no separate training-approval identity field in the member policy
-found so far. Owner command authorization plus Telegram exec/plugin approval
-layers provide the approval authority; inspect workspace-specific training
-rules before adding any additional policy. For memory/workspace behavior, also
-install `sync-openclaw-owner-training`; do not treat owner access alone as
-permission to copy raw conversations into memory.
+found so far. Owner command authorization plus the Telegram exec/plugin targets
+and the native/bridge `system-agent` route provide the approval authority;
+inspect workspace-specific training rules before adding any additional policy.
+For memory/workspace behavior, also install `sync-openclaw-owner-training`; do
+not treat owner access alone as permission to copy raw conversations into
+memory.
+
+When a configuration proposal originates in a Zalo group, the approval bridge
+accepts it only if that exact group is explicitly enabled in
+`channels.zalouser.groups`; for the current non-native route, approval must
+still be sent by an exact Telegram owner in a direct DM. This transport rule
+does not remove the default approval authority of verified owners; it prevents
+Zalo group participants or non-owner senders from approving.
 
 ## Preconditions and safety
 

@@ -1,6 +1,6 @@
 ---
 name: cap-quyen-telegram-admin-openclaw
-description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS owner on the existing canonical agent and workspace for that bot, without creating a separate admin agent or DM-only workspace. Use when adding an owner, synchronizing Telegram owner/exec/plugin approval rights, repairing incomplete owner access, or checking that one bot still routes both DMs and groups through one agent/workspace.
+description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS owner on the existing canonical agent and workspace for that bot, including default approval authority for Skill Workshop and system-agent proposals, without creating a separate admin agent or DM-only workspace. Use when adding an owner, synchronizing Telegram owner/exec/plugin approval rights, repairing incomplete owner access, or checking that one bot still routes both DMs and groups through one agent/workspace.
 ---
 
 # Cấp Quyền Telegram Admin OpenClaw
@@ -13,6 +13,10 @@ description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS o
 - Chỉ tạo agent/workspace mới khi thực sự tạo bot/account thứ hai.
 - Nếu account đang route tới nhiều agent hoặc có peer-specific binding, dùng `unify-openclaw-bot-workspace` trước.
 - Giữ DM allowlist, owner commands, exec approvers, plugin approval targets, elevated allowlist và sender policy đồng bộ.
+- Owner exact Telegram ID sau khi đồng bộ đủ các lớp trên mặc định có thẩm quyền
+  duyệt từng proposal Skill Workshop (`plugin`) và proposal cấu hình
+  `system-agent` của agent canonical. Đây là quyền duyệt explicit, không tự
+  động áp dụng proposal; Skill Workshop vẫn theo `approvalPolicy=pending`.
 - Owner exact Telegram ID kế thừa `tools.profile: full`; sender khác bị chặn runtime, filesystem, memory, browser, messaging, automation, nodes, plugins và session/admin tools.
 - Exec dùng `host=gateway`, `mode=auto`, `strictInlineEval=true`; host approvals dùng `allowlist/on-miss/deny`.
 - Không mở wildcard owner, không in credential và không gửi tin thật khi kiểm thử tự động.

@@ -1,139 +1,210 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+"""Validate and resolve one delegated OpenClaw system-agent approval."""
 
-usage() {
-  cat <<'EOF'
-Usage:
-  approve_system_agent_from_telegram.sh \
-    --openclaw-root <runtime-openclaw-root> \
-    --telegram-id <numeric-id> \
-    --approval-id <system-agent:id> \
-    [--agent-id <id>] \
-    (--check|--apply)
-EOF
-}
+from __future__ import annotations
 
-openclaw_root="${OPENCLAW_ROOT:-${HOME}/.openclaw}"
-telegram_id=""
-approval_id=""
-agent_id="main"
-action=""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
 
-while (($#)); do
-  case "$1" in
-    --openclaw-root)
-      openclaw_root="${2:-}"
-      shift 2
-      ;;
-    --telegram-id)
-      telegram_id="${2:-}"
-      shift 2
-      ;;
-    --approval-id)
-      approval_id="${2:-}"
-      shift 2
-      ;;
-    --agent-id)
-      agent_id="${2:-}"
-      shift 2
-      ;;
-    --check|--apply)
-      if [[ -n "$action" ]]; then
-        echo "ERROR: choose exactly one action" >&2
-        exit 2
-      fi
-      action="${1#--}"
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "ERROR: unknown argument: $1" >&2
-      usage >&2
-      exit 2
-      ;;
-  esac
-done
 
-config_path="${OPENCLAW_CONFIG_PATH:-${openclaw_root%/}/openclaw.json}"
+def fail(message: str, code: int) -> "NoReturn":
+    print(f"ERROR: {message}", file=sys.stderr)
+    raise SystemExit(code)
 
-if [[ ! "$openclaw_root" = /* || ! "$telegram_id" =~ ^[0-9]+$ || -z "$agent_id" ]]; then
-  echo "ERROR: invalid OpenClaw root, Telegram ID, or agent ID" >&2
-  exit 2
-fi
-if [[ "$approval_id" != system-agent:* ]]; then
-  echo "ERROR: --approval-id must start with system-agent:" >&2
-  exit 2
-fi
-if [[ "$action" != "check" && "$action" != "apply" ]]; then
-  echo "ERROR: choose --check or --apply" >&2
-  exit 2
-fi
-if [[ ! -r "$config_path" ]]; then
-  echo "ERROR: OpenClaw config is not readable" >&2
-  exit 2
-fi
 
-owner_entry="telegram:${telegram_id}"
-if ! jq -e --arg owner "$owner_entry" '(.commands.ownerAllowFrom // []) | index($owner) != null' "$config_path" >/dev/null; then
-  echo "ERROR: Telegram sender is not a configured command owner" >&2
-  exit 3
-fi
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Validate and resolve one delegated OpenClaw system-agent approval."
+    )
+    parser.add_argument("--openclaw-root", default=os.environ.get("OPENCLAW_ROOT", ""))
+    parser.add_argument("--telegram-id", required=True)
+    parser.add_argument("--approval-id", required=True)
+    parser.add_argument("--agent-id", default="main")
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("--check", action="store_true")
+    action.add_argument("--apply", action="store_true")
+    return parser.parse_args()
 
-pending_json="$(OPENCLAW_CONFIG_PATH="$config_path" openclaw approvals pending --json)"
-match_count="$(jq -r --arg id "$approval_id" '[.approvals[]? | select(.id == $id)] | length' <<<"$pending_json")"
-if [[ "$match_count" != "1" ]]; then
-  echo "ERROR: approval is not uniquely pending" >&2
-  exit 4
-fi
 
-record="$(jq -c --arg id "$approval_id" '.approvals[] | select(.id == $id)' <<<"$pending_json")"
-kind="$(jq -r '.kind // ""' <<<"$record")"
-record_agent_id="$(jq -r '.agentId // ""' <<<"$record")"
-session_key="$(jq -r '.sessionKey // ""' <<<"$record")"
-summary="$(jq -r '.summary // ""' <<<"$record")"
-expires_at_ms="$(jq -r '.expiresAtMs // 0' <<<"$record")"
+def read_json(path: Path) -> dict:
+    if path.is_symlink() or not path.is_file() or not os.access(path, os.R_OK):
+        fail("OpenClaw config is not readable", 2)
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        fail("OpenClaw config is invalid", 2)
+    if not isinstance(value, dict):
+        fail("OpenClaw config root is not an object", 2)
+    return value
 
-if [[ "$kind" != "system-agent" || "$record_agent_id" != "$agent_id" ]]; then
-  echo "ERROR: approval is not a system-agent proposal for the configured agent" >&2
-  exit 5
-fi
-if ! jq -ne --arg key "$session_key" --arg prefix "agent:${agent_id}:telegram:" --arg suffix "direct:${telegram_id}" '$key | startswith($prefix) and endswith($suffix)' >/dev/null; then
-  echo "ERROR: proposal does not belong to this Telegram owner's direct session" >&2
-  exit 5
-fi
-if [[ "$summary" != "OpenClaw change:"* ]]; then
-  echo "ERROR: proposal summary is not a persistent OpenClaw change" >&2
-  exit 5
-fi
-if [[ ! "$expires_at_ms" =~ ^[0-9]+$ ]] || ((expires_at_ms <= $(date +%s%3N))); then
-  echo "ERROR: proposal has expired" >&2
-  exit 5
-fi
 
-printf 'status=pending\n'
-printf 'kind=system-agent\n'
-printf 'agent_id=%s\n' "$agent_id"
-printf 'summary_verified=true\n'
+def run_openclaw(args: list[str], config_path: Path, code: int) -> str:
+    environment = os.environ.copy()
+    environment["OPENCLAW_CONFIG_PATH"] = str(config_path)
+    try:
+        result = subprocess.run(
+            ["openclaw", *args],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=environment,
+        )
+    except OSError:
+        fail("openclaw command is unavailable", code)
+    if result.returncode != 0:
+        fail("openclaw command failed", code)
+    return result.stdout
 
-if [[ "$action" == "check" ]]; then
-  exit 0
-fi
 
-result="$(OPENCLAW_CONFIG_PATH="$config_path" openclaw approvals resolve "$approval_id" allow-once --json --reason "Explicit approval from configured Telegram owner")"
-if ! jq -e '(.applied == true) or (.alreadyResolved == true and .approval.status == "allowed")' <<<"$result" >/dev/null; then
-  echo "ERROR: Gateway did not confirm approval" >&2
-  exit 6
-fi
+def parse_command_json(output: str, code: int) -> dict:
+    try:
+        value = json.loads(output)
+    except json.JSONDecodeError:
+        fail("OpenClaw returned unreadable JSON", code)
+    if not isinstance(value, dict):
+        fail("OpenClaw returned an unexpected JSON shape", code)
+    return value
 
-remaining_json="$(OPENCLAW_CONFIG_PATH="$config_path" openclaw approvals pending --json)"
-if jq -e --arg id "$approval_id" '.approvals[]? | select(.id == $id)' <<<"$remaining_json" >/dev/null; then
-  echo "ERROR: approval is still pending after resolution" >&2
-  exit 7
-fi
 
-OPENCLAW_CONFIG_PATH="$config_path" openclaw config validate >/dev/null
-printf 'status=allowed\n'
-printf 'decision=allow-once\n'
+def pending_record(output: str, approval_id: str, code: int) -> dict:
+    pending = parse_command_json(output, code)
+    approvals = pending.get("approvals")
+    if not isinstance(approvals, list):
+        fail("approval queue is unreadable", code)
+    matches = [item for item in approvals if isinstance(item, dict) and item.get("id") == approval_id]
+    if len(matches) != 1:
+        fail("approval is not uniquely pending", code)
+    return matches[0]
+
+
+def source_from_session(session_key: str, agent_id: str) -> tuple[str, str, str] | None:
+    prefix = re.escape(agent_id)
+    patterns = (
+        (rf"^agent:{prefix}:telegram:direct:(\d+)$", "telegram", "direct"),
+        (rf"^agent:{prefix}:telegram:[^:]+:direct:(\d+)$", "telegram", "direct"),
+        (rf"^agent:{prefix}:zalouser:direct:(\d+)$", "zalouser", "direct"),
+        (rf"^agent:{prefix}:zalouser:[^:]+:direct:(\d+)$", "zalouser", "direct"),
+        (rf"^agent:{prefix}:zalouser:group:(\d+)$", "zalouser", "group"),
+        (rf"^agent:{prefix}:zalouser:[^:]+:group:(\d+)$", "zalouser", "group"),
+    )
+    for pattern, channel, kind in patterns:
+        match = re.fullmatch(pattern, session_key)
+        if match:
+            return channel, kind, match.group(1)
+    return None
+
+
+def verify_record(config: dict, record: dict, telegram_id: str, agent_id: str) -> None:
+    if record.get("kind") != "system-agent" or record.get("agentId") != agent_id:
+        fail("approval is not a system-agent proposal for the configured agent", 5)
+
+    source = source_from_session(str(record.get("sessionKey", "")), agent_id)
+    if source is None:
+        fail("proposal does not belong to an approved direct chat session", 5)
+    source_channel, source_kind, source_sender = source
+    owner_values = config.get("commands", {}).get("ownerAllowFrom", [])
+    owner_values = owner_values if isinstance(owner_values, list) else []
+    owner_values = {str(value) for value in owner_values}
+    if source_kind == "direct":
+        if f"{source_channel}:{source_sender}" not in owner_values:
+            fail("proposal source is not a configured command owner", 5)
+    else:
+        groups = config.get("channels", {}).get("zalouser", {}).get("groups", {})
+        group = groups.get(source_sender) if isinstance(groups, dict) else None
+        if not isinstance(group, dict) or group.get("enabled") is not True:
+            fail("proposal source group is not explicitly enabled", 5)
+
+    summary = str(record.get("summary", ""))
+    if not summary.startswith("OpenClaw change:"):
+        fail("proposal summary is not a persistent OpenClaw change", 5)
+    expires_at = record.get("expiresAtMs", 0)
+    try:
+        expires_at = int(expires_at)
+    except (TypeError, ValueError):
+        expires_at = 0
+    if expires_at <= int(time.time() * 1000):
+        fail("proposal has expired", 5)
+
+    command_owners = {str(value) for value in owner_values}
+    if f"telegram:{telegram_id}" not in command_owners:
+        fail("Telegram sender is not a configured command owner", 3)
+
+
+def main() -> int:
+    args = parse_args()
+    if not args.openclaw_root or not args.openclaw_root.startswith("/"):
+        fail("invalid OpenClaw root", 2)
+    if not args.telegram_id.isdigit() or not args.agent_id:
+        fail("invalid Telegram ID or agent ID", 2)
+    if not args.approval_id.startswith("system-agent:"):
+        fail("approval ID must start with system-agent:", 2)
+
+    root = Path(args.openclaw_root)
+    config_path = Path(os.environ.get("OPENCLAW_CONFIG_PATH", str(root / "openclaw.json")))
+    config = read_json(config_path)
+    command_owners = config.get("commands", {}).get("ownerAllowFrom", [])
+    command_owners = command_owners if isinstance(command_owners, list) else []
+    if f"telegram:{args.telegram_id}" not in {str(value) for value in command_owners}:
+        fail("Telegram sender is not a configured command owner", 3)
+
+    record = pending_record(
+        run_openclaw(["approvals", "pending", "--json"], config_path, 4),
+        args.approval_id,
+        4,
+    )
+    verify_record(config, record, args.telegram_id, args.agent_id)
+
+    print("status=pending")
+    print("kind=system-agent")
+    print(f"agent_id={args.agent_id}")
+    print("summary_verified=true")
+    if args.check:
+        return 0
+
+    result = parse_command_json(
+        run_openclaw(
+            [
+                "approvals",
+                "resolve",
+                args.approval_id,
+                "allow-once",
+                "--json",
+                "--reason",
+                "Explicit approval from configured Telegram owner",
+            ],
+            config_path,
+            6,
+        ),
+        6,
+    )
+    approval = result.get("approval")
+    if not (
+        result.get("applied") is True
+        or (result.get("alreadyResolved") is True and isinstance(approval, dict) and approval.get("status") == "allowed")
+    ):
+        fail("OpenClaw did not confirm approval", 6)
+
+    remaining = parse_command_json(
+        run_openclaw(["approvals", "pending", "--json"], config_path, 7),
+        7,
+    )
+    approvals = remaining.get("approvals")
+    if isinstance(approvals, list) and any(
+        isinstance(item, dict) and item.get("id") == args.approval_id for item in approvals
+    ):
+        fail("approval is still pending after resolution", 7)
+    run_openclaw(["config", "validate"], config_path, 6)
+    print("status=allowed")
+    print("decision=allow-once")
+    return 0
+
+
+if __name__ == "__main__":
+    main()

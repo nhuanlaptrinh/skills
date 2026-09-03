@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cấp Full Quyền Owner Telegram + Zalo"
+  short_description: "Owner full quyền, duyệt và training qua Telegram/Zalo"
+  default_prompt: "Use $cap-full-quyen-owner-telegram-zalo-openclaw to cấp toàn quyền, quyền duyệt và quyền training cho owner Telegram/Zalo của OpenClaw."

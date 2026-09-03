@@ -3,6 +3,7 @@ import json
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -128,7 +129,7 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("status=owner-policy-incomplete", result.stdout)
         self.assertFalse((self.workspace / "scripts" / HELPER.name).exists())
 
-    def test_helper_check_apply_flow(self):
+    def test_helper_check_apply_flow_without_jq(self):
         fixture = Path(self.temp.name) / "helper"
         bin_dir = fixture / "bin"
         bin_dir.mkdir(parents=True)
@@ -157,11 +158,11 @@ class InstallerTests(unittest.TestCase):
         )
         fake_openclaw = bin_dir / "openclaw"
         fake_openclaw.write_text(
-            """#!/usr/bin/env bash
+            """#!/bin/bash
 set -euo pipefail
 state=${FAKE_APPROVAL_STATE:?}
 if [[ ${1:-} == approvals && ${2:-} == pending ]]; then
-  cat "$state"
+  /bin/cat "$state"
 elif [[ ${1:-} == approvals && ${2:-} == resolve ]]; then
   printf '{"approvals":[]}\\n' >"$state"
   printf '{"applied":true,"approval":{"status":"allowed"}}\\n'
@@ -174,8 +175,9 @@ fi
             encoding="utf-8",
         )
         fake_openclaw.chmod(0o700)
+        os.symlink(sys.executable, bin_dir / "python3")
         environment = os.environ.copy()
-        environment["PATH"] = f"{bin_dir}:{environment['PATH']}"
+        environment["PATH"] = str(bin_dir)
         environment["FAKE_APPROVAL_STATE"] = str(state_path)
         base = [
             str(HELPER),
@@ -193,6 +195,156 @@ fi
         applied = subprocess.run(base + ["--apply"], env=environment, text=True, capture_output=True, check=True)
         self.assertIn("status=allowed", applied.stdout)
         self.assertEqual(json.loads(state_path.read_text(encoding="utf-8")), {"approvals": []})
+
+    def test_helper_allows_zalo_owner_source_for_telegram_owner(self):
+        fixture = Path(self.temp.name) / "cross-channel-helper"
+        bin_dir = fixture / "bin"
+        bin_dir.mkdir(parents=True)
+        config_path = fixture / "openclaw.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "commands": {
+                        "ownerAllowFrom": [
+                            "telegram:123456789",
+                            "zalouser:987654321",
+                        ]
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        state_path = fixture / "state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "approvals": [
+                        {
+                            "id": "system-agent:zalo-test",
+                            "kind": "system-agent",
+                            "agentId": "main",
+                            "sessionKey": "agent:main:zalouser:direct:987654321",
+                            "expiresAtMs": int(time.time() * 1000) + 600000,
+                            "summary": "OpenClaw change: set config demo=true",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        fake_openclaw = bin_dir / "openclaw"
+        fake_openclaw.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+state=${FAKE_APPROVAL_STATE:?}
+if [[ ${1:-} == approvals && ${2:-} == pending ]]; then
+  cat "$state"
+elif [[ ${1:-} == approvals && ${2:-} == resolve ]]; then
+  exit 90
+elif [[ ${1:-} == config && ${2:-} == validate ]]; then
+  printf 'Config valid\\n'
+else
+  exit 90
+fi
+""",
+            encoding="utf-8",
+        )
+        fake_openclaw.chmod(0o700)
+        environment = os.environ.copy()
+        environment["PATH"] = f"{bin_dir}:{environment['PATH']}"
+        environment["FAKE_APPROVAL_STATE"] = str(state_path)
+        checked = subprocess.run(
+            [
+                str(HELPER),
+                "--openclaw-root",
+                str(fixture),
+                "--telegram-id",
+                "123456789",
+                "--approval-id",
+                "system-agent:zalo-test",
+                "--agent-id",
+                "main",
+                "--check",
+            ],
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertIn("status=pending", checked.stdout)
+
+    def test_helper_allows_explicitly_enabled_zalo_group_source(self):
+        fixture = Path(self.temp.name) / "zalo-group-helper"
+        bin_dir = fixture / "bin"
+        bin_dir.mkdir(parents=True)
+        config_path = fixture / "openclaw.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "commands": {"ownerAllowFrom": ["telegram:123456789"]},
+                    "channels": {"zalouser": {"groups": {"900000000000000001": {"enabled": True}}}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        state_path = fixture / "state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "approvals": [
+                        {
+                            "id": "system-agent:zalo-group-test",
+                            "kind": "system-agent",
+                            "agentId": "main",
+                            "sessionKey": "agent:main:zalouser:group:900000000000000001",
+                            "expiresAtMs": int(time.time() * 1000) + 600000,
+                            "summary": "OpenClaw change: update enabled group",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        fake_openclaw = bin_dir / "openclaw"
+        fake_openclaw.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+state=${FAKE_APPROVAL_STATE:?}
+if [[ ${1:-} == approvals && ${2:-} == pending ]]; then
+  cat "$state"
+elif [[ ${1:-} == approvals && ${2:-} == resolve ]]; then
+  exit 90
+elif [[ ${1:-} == config && ${2:-} == validate ]]; then
+  printf 'Config valid\\n'
+else
+  exit 90
+fi
+""",
+            encoding="utf-8",
+        )
+        fake_openclaw.chmod(0o700)
+        environment = os.environ.copy()
+        environment["PATH"] = f"{bin_dir}:{environment['PATH']}"
+        environment["FAKE_APPROVAL_STATE"] = str(state_path)
+        checked = subprocess.run(
+            [
+                str(HELPER),
+                "--openclaw-root",
+                str(fixture),
+                "--telegram-id",
+                "123456789",
+                "--approval-id",
+                "system-agent:zalo-group-test",
+                "--agent-id",
+                "main",
+                "--check",
+            ],
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertIn("status=pending", checked.stdout)
 
 
 if __name__ == "__main__":

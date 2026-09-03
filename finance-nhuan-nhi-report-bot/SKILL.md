@@ -124,3 +124,7 @@ Khi người dùng yêu cầu tổng hợp báo cáo cuối tháng, luôn xuất
 4. Điền đầy đủ tiêu đề `CHI GIA ĐÌNH THEO DANH MỤC`, tổng hợp danh mục và toàn bộ dữ liệu chi tiết trong tháng.
 5. Trước khi gửi, mở lại file để kiểm tra: file tồn tại/đọc được, 3 sheet đủ dữ liệu, và các tổng `Tích luỹ`, `Tiết kiệm`, `Chi gia đình`, `Còn lại` khớp dữ liệu CSV.
 6. Đặt tên file: `bao_cao_tai_chinh_nhuan_nhi_YYYY-MM_hoan_chinh.xlsx` và gửi kèm trong phản hồi.
+
+## Quy tắc ghi chú trong Excel
+
+Ở sheet `Doanh thu & chi công ty`, cột `Ghi chú` chỉ ghi các lưu ý đặc biệt phát sinh khi ghi nhận khoản thu/chi (ví dụ: đính chính, bổ sung ngày khác, chuyển tiền cá nhân không tính doanh thu, hoàn phí khách hàng, hoặc nội dung chi công ty/ads/Momo/BIDV cần lưu ý). Không lặp lại từng số tiền doanh thu, phép cộng các khoản thu, hay tổng doanh thu trong ghi chú vì các số liệu đã có ở các cột tương ứng. Khi lập báo cáo tháng sau, áp dụng quy tắc này mặc định.

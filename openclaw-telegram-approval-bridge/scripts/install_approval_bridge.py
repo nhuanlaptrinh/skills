@@ -184,11 +184,14 @@ def render_block(runtime_root, runtime_workspace, agent_id):
     return f"""{START_MARKER}
 ## OpenClaw proposal approval from Telegram owners
 
-- Approve a persistent `system-agent` proposal from Telegram only in a direct-message session whose current sender is an exact `commands.ownerAllowFrom` owner.
+- Every verified exact owner synchronized into the owner layers is approval-authorized by default for Skill Workshop (`plugin`) and persistent `system-agent` proposals. This authority is explicit per proposal; it never means auto-apply or `approvalPolicy=auto`.
+- Approve a persistent `system-agent` proposal only from a direct Telegram DM whose current sender is an exact `commands.ownerAllowFrom` owner; the proposal itself may have originated in a direct owner chat or an explicitly enabled Zalo group on the same canonical agent.
 - Treat `duyệt`, `anh duyệt`, `approve`, `đồng ý áp dụng`, or equivalent wording as consent only for the specific proposal immediately before it. Never infer consent from a group, forwarded message, question, partial agreement, or another sender.
-- Run `openclaw approvals pending --json` first. Require exactly one real pending `system-agent` record for agent `{agent_id}` whose Telegram DM session belongs to the current owner and whose summary matches the approved change. A displayed proposal hash is not sufficient by itself.
+- Run `openclaw approvals pending --json` first. Require exactly one real pending `system-agent` record for agent `{agent_id}` whose source is a configured direct owner chat or explicitly enabled Zalo group and whose summary matches the approved change. A displayed proposal hash is not sufficient by itself.
 - If the record is absent, expired, ambiguous, belongs to another session, or differs from the approved change, do not approve it and do not claim that Dashboard approval is pending.
 - Check with `{helper_path} --openclaw-root {runtime_root} --telegram-id <CURRENT_OWNER_ID> --approval-id <REAL_PENDING_ID> --agent-id {agent_id} --check`; only after it passes, rerun with `--apply`.
+- The helper uses Python 3's standard library and does not require `jq`. A missing runtime dependency must never be reported as a missing owner permission.
+- In Zalo status, `dm:pairing` is the DM access policy, not an authentication result. Never claim that Zalo login expired from this field, a stale delivery error, or a retry warning alone; use the live channel probe/plugin authentication result.
 - `system-agent` proposals always use `allow-once`, never `allow-always`. Verify the pending record disappears, validate config, inspect effective changed fields, and probe only the affected channel/service without sending a real message.
 - Exec/plugin approvals continue to use native Telegram buttons or `/approve <id> allow-once`.
 - Never expose tokens, credentials, cookies, raw approval storage, or unrelated pending requests.
