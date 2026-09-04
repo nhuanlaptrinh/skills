@@ -1,6 +1,6 @@
 ---
 name: telegram-local-bot-api-openclaw
-description: Install, configure, migrate, verify, troubleshoot, and roll back Telegram Local Bot API for OpenClaw on a Linux VPS. Use when Telegram bots need files beyond cloud Bot API limits (especially uploads over 50 MB or downloads over 20 MB), when setting channels.telegram.apiRoot/trustedLocalFileRoots/mediaMaxMb, or when cloning this setup to another VPS.
+description: Install, configure, migrate, verify, troubleshoot, and roll back Telegram Local Bot API for OpenClaw on a standalone Linux VPS or Docker member VPS. Use when Telegram bots need files beyond cloud Bot API limits (especially uploads over 50 MB or downloads over 20 MB), when setting channels.telegram.apiRoot/trustedLocalFileRoots/mediaMaxMb, or when cloning this setup to another VPS/member.
 ---
 
 # Telegram Local Bot API for OpenClaw
@@ -41,7 +41,7 @@ free -h
 df -h /
 ~~~
 
-Do not expose the Local Bot API port publicly. Bind it to loopback only.
+Do not expose the Local Bot API port publicly. Bind it to loopback on a standalone VPS, or publish no host port at all for a Docker member sidecar.
 
 ## Variables
 
@@ -55,6 +55,28 @@ MEDIA_MAX_MB=2000
 ~~~
 
 Use a narrower data directory if the deployment has a different service user. Do not use / as a trusted media root.
+
+For a Docker member, use member-specific values instead of the standalone defaults:
+
+```bash
+MEMBER=thanhhuy
+MEMBER_CONTAINER=user-${MEMBER}
+MEMBER_HOME=/home/${MEMBER}
+MEMBER_DATA_HOST=/root/Apps/member_vps/docker-users/data/${MEMBER}/.openclaw/telegram-bot-api/data
+MEMBER_DATA_PATH=${MEMBER_HOME}/.openclaw/telegram-bot-api/data
+MEMBER_TRUSTED_ROOT=${MEMBER_HOME}/.openclaw/telegram-bot-api
+MEMBER_NETWORK=telegram-local-${MEMBER}
+API_CONTAINER=telegram-bot-api-${MEMBER}
+API_ROOT=http://${API_CONTAINER}:8081
+```
+
+The member's `apiRoot` must use the Docker DNS name, not `127.0.0.1`: inside the member, loopback is the member container itself. The sidecar work directory and the member trusted root must resolve to the same absolute path so Local Bot API `file_path` values are readable by OpenClaw.
+
+## Choose the deployment topology
+
+- **Standalone VPS/root OpenClaw:** run the Local Bot API container with `127.0.0.1:8081:8081`; set `apiRoot` to `http://127.0.0.1:8081` and trusted root to the host data directory.
+- **Docker member VPS:** run one sidecar container on a dedicated user-defined Docker network, attach only the target member to that network, publish no host port, and set `apiRoot` to `http://telegram-bot-api-<member>:8081`.
+- **One bot, one poller:** a bot token must not be polled by the Cloud API and Local API at the same time. Stop the actual member Gateway before `logOut`, offset checks, or configuration changes.
 
 ## Installation Workflow
 
@@ -192,19 +214,212 @@ docker logs --since 5m telegram-bot-api 2>&1 | tail -100
 
 Do not send a test message to a real chat unless the user explicitly requests it. The safe verification is local getMe, channel probe, listener scope, and healthy polling connections. A real user can then send a video over 50 MB to the bot and ask it to send a video over 20 MB.
 
+## Docker member workflow
+
+Use this workflow when OpenClaw runs in a member container under Supervisor (for example `user-<member>`). It leaves the main VPS OpenClaw and all other members unchanged.
+
+### 1. Preflight and backup
+
+Resolve the real container, persistent home, OpenClaw account, and Supervisor process before changing anything:
+
+```bash
+docker inspect "$MEMBER_CONTAINER" --format 'status={{.State.Status}} mounts={{json .Mounts}} networks={{json .NetworkSettings.Networks}}'
+docker exec "$MEMBER_CONTAINER" supervisorctl status
+docker exec -e HOME="$MEMBER_HOME" "$MEMBER_CONTAINER" sh -lc \
+  'openclaw config validate && openclaw channels status --probe --channel telegram'
+```
+
+Back up the member config and SQLite state, including WAL/SHM companions, outside live data:
+
+```bash
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+BACKUP_DIR=/root/_Backups/member_vps/${MEMBER}/telegram-local-api-${STAMP}
+install -d -m 700 "$BACKUP_DIR"
+cp -a /root/Apps/member_vps/docker-users/data/${MEMBER}/.openclaw/openclaw.json \
+  "$BACKUP_DIR/openclaw.json.before"
+for file in \
+  /root/Apps/member_vps/docker-users/data/${MEMBER}/.openclaw/state/openclaw.sqlite \
+  /root/Apps/member_vps/docker-users/data/${MEMBER}/.openclaw/state/openclaw.sqlite-wal \
+  /root/Apps/member_vps/docker-users/data/${MEMBER}/.openclaw/state/openclaw.sqlite-shm; do
+  [ -f "$file" ] && cp -a "$file" "$BACKUP_DIR/"
+done
+chmod 600 "$BACKUP_DIR"/*
+```
+
+Do not copy token files into the backup unless a rollback explicitly requires it.
+
+### 2. Stop the member poller and check offset
+
+Supervisor is not a systemd user unit. Stop only the member Gateway and verify its process/listener is gone:
+
+```bash
+docker exec "$MEMBER_CONTAINER" supervisorctl stop openclaw-gateway
+docker exec "$MEMBER_CONTAINER" supervisorctl status openclaw-gateway
+docker exec "$MEMBER_CONTAINER" sh -lc \
+  'ss -ltnp 2>/dev/null | grep ":18789\\b" && exit 1 || true'
+```
+
+Run `sua-loi-telegram-offset-openclaw` in dry-run mode before changing offset. Member configs commonly use `tokenFile`, while the helper accepts `botToken` or an environment SecretRef; resolve the token internally into a short-lived mode-600 config in `/tmp`, never print it, and delete it in cleanup. Because the real poller is Supervisor-managed, pass a deliberately nonexistent `--gateway-unit` only after the member process is proven stopped:
+
+```bash
+python3 /root/.agents/skills/sua-loi-telegram-offset-openclaw/scripts/repair_telegram_offset.py \
+  --account-id <account-id> \
+  --config /tmp/<ephemeral-config>.json \
+  --state-db /root/Apps/member_vps/docker-users/data/<member>/.openclaw/state/openclaw.sqlite \
+  --gateway-unit member-<member>-gateway.service \
+  --api-root https://api.telegram.org \
+  --cloud-check
+```
+
+If the result proves `stored_offset > max_update_id`, apply only with the exact observed `--expected-offset` and a backup directory. If `offset_mismatch=false`, do not delete the row. Never call Cloud `getUpdates` while the member Gateway is running.
+
+### 3. Create the sidecar network and media path
+
+Create a dedicated network and attach only the target member. A Docker restart preserves this attachment; a container recreate does not, so recovery automation must reconnect the network before starting the Gateway:
+
+```bash
+docker network inspect "$MEMBER_NETWORK" >/dev/null 2>&1 || \
+  docker network create --driver bridge --label com.alt.scope=member-${MEMBER} "$MEMBER_NETWORK"
+docker network inspect "$MEMBER_NETWORK" --format '{{range .Containers}}{{.Name}}{{"\\n"}}{{end}}' \
+  | grep -Fxq "$MEMBER_CONTAINER" || \
+  docker network connect --alias openclaw-${MEMBER} "$MEMBER_NETWORK" "$MEMBER_CONTAINER"
+install -d -m 700 "$MEMBER_DATA_HOST" "$MEMBER_DATA_HOST/tmp"
+```
+
+The current `aiogram/telegram-bot-api` image runs as UID/GID `101:101`; verify this for a changed image digest and make the mounted work directory writable:
+
+```bash
+docker run --rm --entrypoint sh aiogram/telegram-bot-api@sha256:<verified-digest> \
+  -lc 'id telegram-bot-api'
+chown -R 101:101 "$MEMBER_DATA_HOST"
+chmod 700 "$MEMBER_DATA_HOST" "$MEMBER_DATA_HOST/tmp"
+```
+
+### 4. Deploy the member sidecar
+
+Create `/root/_Infra/telegram-bot-api-<member>/docker-compose.yml` and `.env` with mode `0600`. Keep real `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` only in `.env`; never put them in this skill, compose YAML, shell history, logs, or chat replies.
+
+```yaml
+services:
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api@sha256:<verified-digest>
+    container_name: telegram-bot-api-<member>
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TELEGRAM_WORK_DIR: /home/<member>/.openclaw/telegram-bot-api/data
+      TELEGRAM_TEMP_DIR: /home/<member>/.openclaw/telegram-bot-api/data/tmp
+      TELEGRAM_LOCAL: "1"
+      TELEGRAM_HTTP_IP_ADDRESS: "0.0.0.0"
+      TELEGRAM_HTTP_PORT: "8081"
+    volumes:
+      - /root/Apps/member_vps/docker-users/data/<member>/.openclaw/telegram-bot-api/data:/home/<member>/.openclaw/telegram-bot-api/data
+    networks:
+      - member-local-api
+
+networks:
+  member-local-api:
+    name: telegram-local-<member>
+    external: true
+```
+
+The two `.env` keys are:
+
+```dotenv
+TELEGRAM_API_ID=<integer>
+TELEGRAM_API_HASH=<hex-string>
+```
+
+Validate and start:
+
+```bash
+cd /root/_Infra/telegram-bot-api-<member>
+chmod 600 .env docker-compose.yml
+docker compose config -q
+docker compose up -d
+docker compose ps
+docker inspect telegram-bot-api-<member> --format 'status={{.State.Status}} ports={{json .NetworkSettings.Ports}} mounts={{json .Mounts}}'
+```
+
+There must be no published host port (`ports` values are `null`). From the member, HTTP `404` at `/` is expected and proves reachability:
+
+```bash
+docker exec <member-container> sh -lc \
+  'getent hosts telegram-bot-api-<member>; curl -sS -o /dev/null -w "http=%{http_code}\\n" http://telegram-bot-api-<member>:8081/'
+```
+
+### 5. Handover Cloud -> Local and configure OpenClaw
+
+With the member Gateway still stopped, call Cloud `logOut` for only the target bot, resolving its token internally and printing only `cloud_logout_ok=true|false`. Check local `getMe` before switching.
+
+Patch only the target member config. The trusted root is the member-visible path, not the host source path:
+
+```bash
+docker exec <member-container> sh -lc \
+  'openclaw config patch --stdin <<JSON
+{"channels":{"telegram":{"apiRoot":"http://telegram-bot-api-<member>:8081","trustedLocalFileRoots":["/home/<member>/.openclaw/telegram-bot-api"],"mediaMaxMb":2000}}}
+JSON'
+docker exec -e HOME=/home/<member> <member-container> sh -lc \
+  'openclaw config validate && openclaw config get channels.telegram.apiRoot && \
+   openclaw config get channels.telegram.mediaMaxMb && \
+   openclaw config get channels.telegram.trustedLocalFileRoots --json'
+```
+
+Start the member Gateway only after sidecar, local `getMe`, and config validation pass:
+
+```bash
+docker exec <member-container> supervisorctl start openclaw-gateway
+sleep 8
+docker exec <member-container> supervisorctl status openclaw-gateway
+docker exec -e HOME=/home/<member> <member-container> sh -lc \
+  'openclaw channels status --probe --channel telegram'
+```
+
+Require the target account to report `running, connected, works`. Do not send a real Telegram message unless explicitly requested.
+
+### 6. Verify member and media path
+
+The bundled `verify_local_bot_api.sh` assumes a host-loopback listener and host OpenClaw root, so it is not a complete member check. Use equivalent checks:
+
+```bash
+docker exec <member-container> sh -lc 'python3 - <<"PY"
+import json, urllib.request
+from pathlib import Path
+token = Path("/home/<member>/.openclaw/telegram_bot_token").read_text().strip()
+base = "http://telegram-bot-api-<member>:8081/bot" + token
+for method in ("getMe", "getWebhookInfo"):
+    with urllib.request.urlopen(base + "/" + method, timeout=15) as response:
+        payload = json.load(response)
+    result = payload.get("result") or {}
+    if method == "getMe":
+        print({"method": method, "ok": payload.get("ok"), "bot_id": result.get("id"), "username": result.get("username")})
+    else:
+        print({"method": method, "ok": payload.get("ok"), "has_url": bool(result.get("url")), "pending_update_count": result.get("pending_update_count")})
+PY'
+docker inspect telegram-bot-api-<member> --format 'status={{.State.Status}} restart={{.HostConfig.RestartPolicy.Name}} published={{json .NetworkSettings.Ports}}'
+docker network inspect telegram-local-<member> --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\\n"}}{{end}}'
+ss -ltnp | grep ':8081\\b' || true
+```
+
+The safe result is local `getMe ok=true`, webhook URL absent, member channel `connected/works`, sidecar `running`, no host `8081` listener, and the network containing only the target member plus its sidecar. For a final offset check, stop the Gateway and call the helper with the sidecar Docker IP as `--api-root http://<sidecar-ip>:8081`; never use `getUpdates` against a running poller.
+
 ## Troubleshooting
 
 - error: expected TELEGRAM_API_ID...: the env file is absent, empty, or unreadable. Stop; obtain real credentials instead of guessing.
 - 409 Conflict: an old gateway/container is still polling. Stop duplicate gateways, log out the bot from the currently active API server, then start only one poller.
 - 413 Request Entity Too Large: confirm OpenClaw loaded the local apiRoot, the Local Bot API is in --local mode, and mediaMaxMb is not below the file size.
-- Absolute local file_path cannot be read: mount the same host data directory into /var/lib/telegram-bot-api and list that host directory in trustedLocalFileRoots.
+- Absolute local file_path cannot be read: mount the same host data directory into the exact absolute path used by the member-visible `TELEGRAM_WORK_DIR` and list its parent in `trustedLocalFileRoots`. For a standalone VPS, the host data path and trusted root must likewise match the path returned by Local Bot API.
 - Local media path is not under an allowed directory: this is OpenClaw's own outbound filesystem allowlist, not a Telegram size limit. Put the media under an approved workspace/media root or adjust that separate policy.
+- Member sidecar resolves but OpenClaw cannot connect after recreate: reconnect `telegram-local-<member>` to `user-<member>` before starting the Supervisor Gateway. A normal `docker restart` preserves the network attachment; `docker rm/create` does not.
 - getMe works but media fails: inspect free disk space, container logs, the trusted root mapping, and the exact file_path returned by local getFile.
 - Public API access is blocked: the Local Bot API still needs outbound connectivity to Telegram DCs. A local endpoint does not remove VPS firewall/DNS/proxy requirements.
 
 ## Rollback
 
 Keep the Local Bot API data; do not delete it during rollback. Stop OpenClaw, call local logOut for every bot, restore the timestamped openclaw.json backup, and start the gateway against the public API. Only after the public polling path is healthy may the local container be stopped with docker compose stop; use down only when removal is explicitly requested.
+
+For a Docker member, stop only `openclaw-gateway` through Supervisor, call the sidecar's local `logOut` for the target bot, restore the member `openclaw.json` backup, and start the same Supervisor program against `https://api.telegram.org`. After Cloud polling is healthy, run `docker compose stop` in the member sidecar directory. Keep the Docker network and data directory unless removal is explicitly requested; do not recreate the member container as part of rollback.
 
 After a production change, append a redacted entry to /root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md with the backup path, endpoint, limits, verification results, and any remaining caveat. Never include api_hash, bot tokens, or other secrets.
 

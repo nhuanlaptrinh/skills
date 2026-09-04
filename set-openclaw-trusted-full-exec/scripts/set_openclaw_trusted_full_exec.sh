@@ -182,11 +182,21 @@ const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const config = readJson(configPath);
 const originalConfig = JSON.parse(JSON.stringify(config));
 
-const agents = Array.isArray(config?.agents?.list) ? config.agents.list : [];
-if (agents.length === 0) throw new Error('No agents found in agents.list');
-const agentIds = agents.map((agent) => String(agent?.id ?? ''));
+const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+const hasEntries = isObject(config?.agents)
+  && Object.prototype.hasOwnProperty.call(config.agents, 'entries');
+if (hasEntries && !isObject(config.agents.entries)) throw new Error('agents.entries must be an object');
+const entryMap = hasEntries ? config.agents.entries : null;
+const agents = entryMap
+  ? Object.entries(entryMap).map(([id, agent]) => ({ id, agent }))
+  : (Array.isArray(config?.agents?.list)
+    ? config.agents.list.map((agent) => ({ id: String(agent?.id ?? ''), agent }))
+    : []);
+if (agents.length === 0) throw new Error('No agents found in agents.entries or agents.list');
+const agentIds = agents.map(({ id }) => String(id));
 if (agentIds.some((id) => !/^[A-Za-z0-9._-]+$/.test(id))) throw new Error('Unsafe or missing agent ID');
 if (new Set(agentIds).size !== agentIds.length) throw new Error('Duplicate agent ID');
+if (agents.some(({ agent }) => !isObject(agent))) throw new Error('Agent entries must be objects');
 
 const normalizeEntries = (values) => {
   if (!Array.isArray(values)) return [];
@@ -196,8 +206,6 @@ const normalizeEntries = (values) => {
 };
 const uniqueSorted = (values) => [...new Set(values)].sort((a, b) => a.localeCompare(b, 'en'));
 const arraysEqual = (left, right) => JSON.stringify(left) === JSON.stringify(right);
-const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
-
 const telegram = config?.channels?.telegram;
 if (!isObject(telegram)) throw new Error('Missing channels.telegram config');
 const baseAllowFrom = Array.isArray(telegram.allowFrom) ? telegram.allowFrom : [];
@@ -294,7 +302,7 @@ for (const scope of accountScopes) {
 }
 
 const agentReports = [];
-for (const agent of agents) {
+for (const { id, agent } of agents) {
   const beforeExec = agent?.tools?.exec;
   const beforeCompliant = beforeExec?.host === 'gateway'
     && beforeExec?.mode === 'full'
@@ -310,7 +318,7 @@ for (const agent of agents) {
   };
   if (Object.prototype.hasOwnProperty.call(agent.tools.exec, 'security')) agent.tools.exec.security = 'full';
   if (Object.prototype.hasOwnProperty.call(agent.tools.exec, 'ask')) agent.tools.exec.ask = 'off';
-  agentReports.push({ id: agent.id, beforeCompliant });
+  agentReports.push({ id, beforeCompliant });
 }
 
 let approvals;
@@ -343,7 +351,7 @@ fs.writeFileSync(approvalsCandidatePath, `${JSON.stringify(approvals, null, 2)}\
 fs.writeFileSync(reportPath, `${JSON.stringify({
   agents: agentReports,
   accounts: accountReports,
-  originalAgentCount: originalConfig?.agents?.list?.length ?? 0
+  originalAgentCount: agents.length
 }, null, 2)}\n`);
 NODE
 

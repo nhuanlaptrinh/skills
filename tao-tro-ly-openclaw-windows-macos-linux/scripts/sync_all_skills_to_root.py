@@ -23,7 +23,7 @@ IGNORED_NAMES = {
     "node_modules",
 }
 IGNORED_SUFFIXES = {".pyc", ".pyo"}
-EXPECTED_OPENCLAW_VERSION = "2026.7.1-2"
+EXPECTED_OPENCLAW_VERSION = "2026.8.2"
 
 
 def is_admin() -> bool:

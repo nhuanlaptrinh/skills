@@ -1,0 +1,4 @@
+interface:
+  display_name: "WordPress OpenClaw Chatbot"
+  short_description: "Deploy and verify secure OpenClaw chatbots on WordPress"
+  default_prompt: "Use $wordpress-openclaw-chatbot to deploy or update a secure OpenClaw-backed chatbot on a remote WordPress site with backups, cache purge, placement checks, and rollback."

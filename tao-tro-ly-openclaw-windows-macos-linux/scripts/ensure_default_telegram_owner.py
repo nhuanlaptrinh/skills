@@ -12,6 +12,19 @@ import stat
 import sys
 import tempfile
 
+try:
+    from native_approvals import (
+        NativeApprovalsError,
+        backup_approvals,
+        load_approvals,
+        restore_approvals,
+        save_approvals,
+    )
+except ImportError as error:  # pragma: no cover - protects incomplete skill syncs
+    raise RuntimeError(
+        "Missing native_approvals.py; sync the tao-tro-ly-openclaw-windows-macos-linux skill"
+    ) from error
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -67,6 +80,24 @@ def ensure_array(parent, key):
     if not isinstance(value, list):
         raise ValueError(f"Expected array at {key}")
     return value
+
+
+def agent_collection(config):
+    """Return the active agent collection without creating legacy agents.list."""
+    agents = config.get("agents")
+    if not isinstance(agents, dict):
+        return "list", []
+    if "entries" in agents:
+        entries = agents.get("entries")
+        if not isinstance(entries, dict):
+            raise ValueError("Expected object at agents.entries")
+        return "entries", entries
+    if "list" not in agents:
+        return "list", []
+    listed = agents.get("list")
+    if not isinstance(listed, list):
+        raise ValueError("Expected array at agents.list")
+    return "list", listed
 
 
 def append_unique(values, candidate, normalize=str):
@@ -142,11 +173,16 @@ def merge_agent_exec_policy(config, agent_ids, changes):
         return
     if not isinstance(agents, dict):
         raise ValueError("Expected object at agents")
-    agent_list = agents.get("list")
-    if agent_list is None:
+    collection_mode, collection = agent_collection(config)
+    if collection_mode == "entries":
+        for agent_id in agent_ids:
+            entry = collection.get(agent_id)
+            if entry is not None and not isinstance(entry, dict):
+                raise ValueError(f"Agent entry must be an object: {agent_id}")
+            if isinstance(entry, dict):
+                merge_exec_policy(entry, changes, f"agent {agent_id}")
         return
-    if not isinstance(agent_list, list):
-        raise ValueError("Expected array at agents.list")
+    agent_list = collection
     for agent_id in agent_ids:
         matches = [
             entry
@@ -259,9 +295,12 @@ def merge_config(config, account_id, agent_ids, owner_ids):
             append_unique(owner_allow_from, f"telegram:{owner_id}"),
             f"add {owner_id} to command owners",
         )
-    if commands.get("ownerDisplay") != "raw":
-        commands["ownerDisplay"] = "raw"
-        changes.append("set commands.ownerDisplay=raw")
+    # OpenClaw 2026.8 renders raw owner IDs by default; these legacy keys are
+    # doctor-only and rejected by the active config schema.
+    for retired_key in ("ownerDisplay", "ownerDisplaySecret"):
+        if retired_key in commands:
+            commands.pop(retired_key, None)
+            changes.append(f"remove unsupported commands.{retired_key}")
 
     channels = ensure_object(config, "channels")
     telegram = ensure_object(channels, "telegram")
@@ -380,12 +419,14 @@ def main():
     arguments = parse_args()
     openclaw_root = pathlib.Path(arguments.openclaw_root).expanduser().resolve()
     config_path = openclaw_root / "openclaw.json"
-    approvals_path = openclaw_root / "exec-approvals.json"
     if not config_path.is_file():
         raise FileNotFoundError(f"OpenClaw config not found: {config_path}")
     if config_path.is_symlink():
         raise ValueError("Refusing to modify a symlinked OpenClaw config")
-    if approvals_path.is_symlink():
+    approvals_snapshot = load_approvals(openclaw_root)
+    # Native 2026.8 uses a SQLite locator; legacy releases retain the JSON path.
+    approvals_path = approvals_snapshot.locator
+    if approvals_snapshot.path.is_symlink():
         raise ValueError("Refusing to modify symlinked host exec approvals")
 
     account_id = (
@@ -417,13 +458,7 @@ def main():
         updated_config, account_id, agent_ids, owner_ids
     )
 
-    if approvals_path.exists():
-        with approvals_path.open("r", encoding="utf-8") as approvals_file:
-            original_approvals = json.load(approvals_file)
-        if not isinstance(original_approvals, dict):
-            raise ValueError("Host exec approvals root must be an object")
-    else:
-        original_approvals = {}
+    original_approvals = approvals_snapshot.document
     updated_approvals = copy.deepcopy(original_approvals)
     host_changes = merge_host_approvals(updated_approvals, agent_ids)
 
@@ -482,15 +517,37 @@ def main():
         else openclaw_root / "backups" / "telegram-owner"
     )
     backup_paths = []
-    if config_changes:
-        backup_paths.append(create_backup(config_path, backup_dir, "openclaw"))
-        atomic_write_json(config_path, updated_config)
-    if host_changes:
-        if approvals_path.exists():
-            backup_paths.append(
-                create_backup(approvals_path, backup_dir, "exec-approvals")
+    config_backup_path = None
+    approval_backup = None
+    try:
+        if config_changes:
+            config_backup_path = create_backup(config_path, backup_dir, "openclaw")
+            backup_paths.append(config_backup_path)
+            atomic_write_json(config_path, updated_config)
+        if host_changes:
+            approval_backup = backup_approvals(
+                approvals_snapshot, backup_dir, "exec-approvals"
             )
-        atomic_write_json(approvals_path, updated_approvals)
+            backup_paths.append(pathlib.Path(approval_backup["path"]))
+            save_approvals(
+                approvals_snapshot,
+                updated_approvals,
+                config_path=config_path,
+            )
+    except Exception:
+        # Keep config and approvals in one transaction if the second write fails.
+        try:
+            if config_backup_path:
+                atomic_write_json(config_path, json.loads(config_backup_path.read_text(encoding="utf-8")))
+            if approval_backup:
+                restore_approvals(
+                    load_approvals(openclaw_root),
+                    approval_backup,
+                    config_path=config_path,
+                )
+        except Exception as rollback_error:
+            print(f"rollback_error={type(rollback_error).__name__}", file=sys.stderr)
+        raise
     print_summary(
         "apply",
         config_path,
@@ -509,6 +566,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, json.JSONDecodeError, NativeApprovalsError) as error:
         print(f"error={error}", file=sys.stderr)
         sys.exit(1)

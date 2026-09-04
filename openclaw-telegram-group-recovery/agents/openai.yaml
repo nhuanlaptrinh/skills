@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Telegram Group Recovery"
+  short_description: "Khắc phục bot Telegram group không phản hồi"
+  default_prompt: "Use $openclaw-telegram-group-recovery to diagnose and repair an OpenClaw Telegram group that receives no reply."

@@ -82,6 +82,9 @@ Dùng `--no-restart` chỉ khi có maintenance/restart riêng. Khi dùng tùy ch
 6. Probe Telegram chỉ yêu cầu account đang `enabled` và `configured` phải `running, connected`; account disabled hoặc chưa cấu hình token được báo là inactive và không làm fail connectivity.
 7. Giữ nguyên token, model, binding, workspace, plugin approval, sender tool policy, allowlist lệnh cũ và cấu hình ngoài phạm vi.
 
+Script đọc agent từ `agents.entries` keyed (OpenClaw 2026.8.x) trước, rồi mới
+fallback về `agents.list`; nó không materialize `agents.list` trên config mới.
+
 Backup mặc định:
 
 ```text

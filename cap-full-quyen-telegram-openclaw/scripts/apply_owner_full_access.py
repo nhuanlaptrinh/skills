@@ -19,6 +19,18 @@ import tempfile
 import time
 from dataclasses import dataclass
 
+try:
+    from native_approvals import (
+        NativeApprovalsError,
+        backup_approvals,
+        load_approvals,
+        restore_approvals,
+    )
+except ImportError as error:  # pragma: no cover - protects incomplete skill syncs
+    raise RuntimeError(
+        "Missing native_approvals.py; sync the cap-full-quyen-telegram-openclaw skill"
+    ) from error
+
 
 SKILL_NAMES = (
     "unify-openclaw-bot-workspace",
@@ -86,6 +98,45 @@ class Context:
     config_path: pathlib.Path
     approvals_path: pathlib.Path
     workspace_host: pathlib.Path
+
+
+def approvals_document(ctx: Context) -> dict:
+    """Read the active legacy or native approval document without creating files."""
+    try:
+        return load_approvals(ctx.openclaw_root).document
+    except NativeApprovalsError as error:
+        raise WorkflowError(f"Cannot read exec approvals: {error}") from error
+
+
+def approval_backup_from_manifest(manifest: dict, key: str) -> dict:
+    """Return backend-aware approval backup metadata, including old manifests."""
+    metadata = manifest.get(f"{key}_backup")
+    if isinstance(metadata, dict) and metadata.get("path"):
+        return metadata
+    path_value = manifest.get(key)
+    if not path_value:
+        raise WorkflowError(f"Approval rollback metadata is missing: {key}")
+    path = pathlib.Path(str(path_value))
+    backend = manifest.get(f"{key}_backend")
+    if backend not in {"legacy", "sqlite"}:
+        backend = "sqlite" if path.suffix == ".sqlite" else "legacy"
+    return {
+        "backend": backend,
+        "path": str(path),
+        "exists": bool(manifest.get(f"{key}_exists", True)),
+    }
+
+
+def restore_manifest_approvals(ctx: Context, manifest: dict, key: str) -> None:
+    try:
+        restore_approvals(
+            load_approvals(ctx.openclaw_root),
+            approval_backup_from_manifest(manifest, key),
+            config_path=ctx.config_path,
+            runtime_home=ctx.runtime_home,
+        )
+    except NativeApprovalsError as error:
+        raise WorkflowError(f"Cannot restore exec approvals: {error}") from error
 
 
 @dataclass
@@ -211,9 +262,44 @@ def infer_account_id(config: dict, member: str, requested: str | None) -> str:
     raise WorkflowError("Telegram account is ambiguous; pass --account-id")
 
 
+def agent_collection(config: dict) -> tuple[str, dict | list]:
+    """Return the active agent collection, preferring OpenClaw 2026.8 entries."""
+    agents = config.get("agents")
+    if not isinstance(agents, dict):
+        return "list", []
+    if "entries" in agents:
+        entries = agents.get("entries")
+        if not isinstance(entries, dict):
+            raise WorkflowError("Expected object at agents.entries")
+        return "entries", entries
+    if "list" not in agents:
+        return "list", []
+    listed = agents.get("list")
+    if not isinstance(listed, list):
+        raise WorkflowError("Expected array at agents.list")
+    return "list", listed
+
+
+def iter_agents(config: dict):
+    mode, collection = agent_collection(config)
+    if mode == "entries":
+        for agent_id, entry in collection.items():
+            if isinstance(entry, dict):
+                yield str(agent_id), entry
+        return
+    for entry in collection:
+        if isinstance(entry, dict) and entry.get("id"):
+            yield str(entry["id"]), entry
+
+
 def find_agent(config: dict, agent_id: str) -> dict:
-    agents = config.get("agents", {}).get("list", [])
-    matches = [item for item in agents if isinstance(item, dict) and item.get("id") == agent_id]
+    mode, collection = agent_collection(config)
+    if mode == "entries":
+        entry = collection.get(agent_id)
+        if not isinstance(entry, dict):
+            raise WorkflowError(f"Agent must exist exactly once: {agent_id}")
+        return entry
+    matches = [item for item in collection if isinstance(item, dict) and item.get("id") == agent_id]
     if len(matches) != 1:
         raise WorkflowError(f"Agent must exist exactly once: {agent_id}")
     return matches[0]
@@ -243,11 +329,7 @@ def detect_source_agent(
         or any(binding.get("agentId") != target_agent for binding in bindings)
         or any(isinstance(binding.get("match"), dict) and binding["match"].get("peer") is not None for binding in bindings)
     )
-    agent_ids = {
-        str(item.get("id"))
-        for item in config.get("agents", {}).get("list", [])
-        if isinstance(item, dict) and item.get("id")
-    }
+    agent_ids = {agent_id for agent_id, _ in iter_agents(config)}
     if requested == "none":
         return None, routing_requires_unify
     if requested != "auto":
@@ -303,9 +385,11 @@ def build_context(args: argparse.Namespace) -> Context:
     else:
         openclaw_root = member_root / "root" / ".openclaw"
     config_path = openclaw_root / "openclaw.json"
-    approvals_path = openclaw_root / "exec-approvals.json"
     config = load_json(config_path)
-    load_json(approvals_path)
+    try:
+        approvals_snapshot = load_approvals(openclaw_root)
+    except NativeApprovalsError as error:
+        raise WorkflowError(f"Cannot inspect exec approvals: {error}") from error
     account_id = infer_account_id(config, member, args.account_id)
     target = find_agent(config, agent_id)
     runtime_openclaw_root = pathlib.PurePosixPath(args.runtime_openclaw_root)
@@ -347,7 +431,8 @@ def build_context(args: argparse.Namespace) -> Context:
         skills_root=skills_root,
         backup_root=pathlib.Path(args.backup_root).expanduser().resolve(),
         config_path=config_path,
-        approvals_path=approvals_path,
+        # This is a display locator only; native OpenClaw uses SQLite.
+        approvals_path=approvals_snapshot.path,
         workspace_host=workspace_host,
     )
 
@@ -619,10 +704,15 @@ def create_operation(ctx: Context) -> tuple[pathlib.Path, pathlib.Path, dict]:
     os.chmod(operation_dir, 0o700)
     before_dir = operation_dir / "before"
     private_copy(ctx.config_path, before_dir / "openclaw.json")
-    private_copy(ctx.approvals_path, before_dir / "exec-approvals.json")
+    try:
+        approvals_backup = backup_approvals(
+            load_approvals(ctx.openclaw_root), before_dir, "exec-approvals"
+        )
+    except NativeApprovalsError as error:
+        raise WorkflowError(f"Cannot back up exec approvals: {error}") from error
     manifest_path = operation_dir / "operation.json"
     manifest = {
-        "version": 1,
+        "version": 2,
         "status": "applying",
         "created_at": operation_dir.name,
         "member": ctx.member,
@@ -632,7 +722,10 @@ def create_operation(ctx: Context) -> tuple[pathlib.Path, pathlib.Path, dict]:
         "openclaw_root": str(ctx.openclaw_root),
         "owner_count": len(ctx.telegram_ids),
         "before_config": str(before_dir / "openclaw.json"),
-        "before_approvals": str(before_dir / "exec-approvals.json"),
+        "before_approvals": approvals_backup["path"],
+        "before_approvals_backup": approvals_backup,
+        "before_approvals_backend": approvals_backup.get("backend"),
+        "before_approvals_exists": bool(approvals_backup.get("exists")),
         "unify_manifest": None,
         "post_unify_config": None,
         "post_unify_approvals": None,
@@ -1093,7 +1186,7 @@ def probe_telegram(ctx: Context, runner: Runner) -> None:
 
 
 def runtime_check(ctx: Context, runner: Runner) -> None:
-    violations = final_violations(ctx, load_json(ctx.config_path), load_json(ctx.approvals_path))
+    violations = final_violations(ctx, load_json(ctx.config_path), approvals_document(ctx))
     if violations:
         raise WorkflowError("Final compliance failed: " + ", ".join(violations))
     if not skills_in_sync(ctx):
@@ -1121,7 +1214,7 @@ def rollback_files_and_unify(
     post_approvals_value = manifest.get("post_unify_approvals")
     if unify_manifest_value and post_config_value and post_approvals_value:
         restore_file(pathlib.Path(post_config_value), ctx.config_path)
-        restore_file(pathlib.Path(post_approvals_value), ctx.approvals_path)
+        restore_manifest_approvals(ctx, manifest, "post_unify_approvals")
         unify, _, _ = dependency_commands(ctx)
         run_stage(
             runner,
@@ -1137,7 +1230,7 @@ def rollback_files_and_unify(
         )
     else:
         restore_file(pathlib.Path(manifest["before_config"]), ctx.config_path)
-        restore_file(pathlib.Path(manifest["before_approvals"]), ctx.approvals_path)
+        restore_manifest_approvals(ctx, manifest, "before_approvals")
     validate_config(ctx, runner)
     manifest["status"] = "rolled-back"
     manifest["rolled_back_at"] = utc_stamp()
@@ -1145,7 +1238,7 @@ def rollback_files_and_unify(
 
 
 def apply_workflow(ctx: Context, runner: Runner) -> None:
-    violations = final_violations(ctx, load_json(ctx.config_path), load_json(ctx.approvals_path))
+    violations = final_violations(ctx, load_json(ctx.config_path), approvals_document(ctx))
     skill_sync_required = not skills_in_sync(ctx)
     if not violations and not skill_sync_required:
         print("changes_required=false")
@@ -1195,12 +1288,17 @@ def apply_workflow(ctx: Context, runner: Runner) -> None:
             raise WorkflowError("Unify apply did not return a rollback manifest")
         post_unify_dir = operation_dir / "post-unify"
         private_copy(ctx.config_path, post_unify_dir / "openclaw.json")
-        private_copy(ctx.approvals_path, post_unify_dir / "exec-approvals.json")
+        post_unify_approvals = backup_approvals(
+            load_approvals(ctx.openclaw_root), post_unify_dir, "exec-approvals"
+        )
         manifest.update(
             {
                 "unify_manifest": unify_manifest,
                 "post_unify_config": str(post_unify_dir / "openclaw.json"),
-                "post_unify_approvals": str(post_unify_dir / "exec-approvals.json"),
+                "post_unify_approvals": post_unify_approvals["path"],
+                "post_unify_approvals_backup": post_unify_approvals,
+                "post_unify_approvals_backend": post_unify_approvals.get("backend"),
+                "post_unify_approvals_exists": bool(post_unify_approvals.get("exists")),
             }
         )
         atomic_write_json(manifest_path, manifest)
@@ -1227,7 +1325,7 @@ def apply_workflow(ctx: Context, runner: Runner) -> None:
             ),
             ctx.telegram_ids,
         )
-        violations = final_violations(ctx, load_json(ctx.config_path), load_json(ctx.approvals_path))
+        violations = final_violations(ctx, load_json(ctx.config_path), approvals_document(ctx))
         if violations:
             raise WorkflowError("Final file compliance failed: " + ", ".join(violations))
         sync_skills(ctx, operation_dir, manifest["skill_sync"])
@@ -1327,7 +1425,7 @@ def main() -> int:
             args.dry_run_rollback,
         )
         return 0
-    violations = final_violations(ctx, load_json(ctx.config_path), load_json(ctx.approvals_path))
+    violations = final_violations(ctx, load_json(ctx.config_path), approvals_document(ctx))
     if args.dry_run:
         skill_sync_required = not skills_in_sync(ctx)
         print(f"final_violation_count={len(violations) + int(skill_sync_required)}")
@@ -1360,6 +1458,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (OSError, ValueError, json.JSONDecodeError, WorkflowError) as error:
+    except (OSError, ValueError, json.JSONDecodeError, NativeApprovalsError, WorkflowError) as error:
         print(f"error={sanitize_output(str(error), [])}", file=sys.stderr)
         sys.exit(1)

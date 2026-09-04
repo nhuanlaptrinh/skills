@@ -23,6 +23,10 @@ Ba giá trị Host/Mode/Strict nằm trong `openclaw.json`. Security/Ask và fal
 
 1. Đọc tài liệu Second AI Brain, project note, `AGENTS.md` gần project và checklist production.
 2. Xác định đúng member/OpenClaw root và agent ID. Không đoán agent khi có nhiều agent.
+   OpenClaw 2026.8 lưu approval trong `state/openclaw.sqlite` (bảng
+   `exec_approvals_config`); helper `scripts/native_approvals.py` được đồng bộ
+   cùng skill để đọc/backup/restore backend này. Bản OpenClaw cũ dùng
+   `exec-approvals.json` và vẫn được hỗ trợ.
 3. Chạy dry-run:
 
 ```bash
@@ -83,10 +87,14 @@ bash scripts/set_openclaw_agent_full_exec.sh \
 
 ## Script thực hiện
 
-1. Xác nhận agent tồn tại đúng một lần và hai file JSON hợp lệ.
-2. Chỉ tạo candidate cho `agents.list[].tools.exec` của agent đích và `agents[agent-id]` trong approval policy.
+1. Xác nhận agent tồn tại đúng một lần và `openclaw.json` hợp lệ; approval
+   được đọc từ native SQLite hoặc legacy JSON tùy backend đang hoạt động.
+2. Chỉ tạo candidate cho `agents.entries.<agent-id>.tools.exec` (hoặc legacy
+   `agents.list[].tools.exec`) của agent đích và `agents[agent-id]` trong approval policy.
 3. Dry-run chỉ in các field Exec an toàn; không in toàn bộ config, token hoặc socket credential.
-4. Apply tạo backup root-only, ghi file atomic và giữ owner/mode.
+4. Apply tạo backup root-only, ghi config atomic và cập nhật approval native qua
+   `openclaw approvals set --stdin --json` (không tạo file legacy dai dẳng); với
+   backend cũ vẫn ghi JSON atomic và giữ owner/mode.
 5. Chạy `openclaw config validate`; tự rollback file nếu validation lỗi.
 6. Với member VPS, chỉ signal riêng `openclaw-gateway` khi parent là Supervisor; không restart/recreate container.
 7. Kiểm tra runtime Gateway approval, connectivity và channel probe mà không gửi tin nhắn thật.
@@ -102,7 +110,8 @@ Input:
 Output:
 
 - Config Exec và approval policy khớp đủ năm giá trị.
-- Backup timestamped chứa file trước thay đổi và checksum.
+- Backup timestamped chứa config cùng SQLite snapshot (hoặc legacy JSON) trước
+  thay đổi và checksum; metadata ghi backend/locator đã khử secret.
 - Báo cáo validation/restart đã khử secret.
 
 Backup mặc định:
@@ -114,7 +123,8 @@ Backup mặc định:
 ## Rerun và rollback
 
 - Script idempotent: apply lại khi đã đúng không ghi file hoặc restart Gateway.
-- Rollback bằng hai file trong backup gần nhất, giữ owner/mode, validate rồi respawn riêng Gateway.
+- Rollback bằng config và snapshot approval trong backup gần nhất, giữ nguyên
+  socket token/native state, validate rồi respawn riêng Gateway.
 - Nếu restart lỗi sau khi validation đạt, không restart cả container; kiểm tra Supervisor/Gateway và dùng backup để rollback có kiểm soát.
 
 ## Quy tắc an toàn

@@ -14,6 +14,19 @@ import subprocess
 import sys
 import tempfile
 
+try:
+    from native_approvals import (
+        NativeApprovalsError,
+        backup_approvals,
+        load_approvals,
+        restore_approvals,
+        save_approvals,
+    )
+except ImportError as error:  # pragma: no cover - protects incomplete skill syncs
+    raise RuntimeError(
+        "Missing native_approvals.py; sync the unify-openclaw-bot-workspace skill"
+    ) from error
+
 
 CONTROL_FILES = {
     "AGENTS.md",
@@ -130,6 +143,14 @@ def sha256_file(path):
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def approvals_digest(openclaw_root):
+    """Return a digest of the active approval backend (file or native SQLite)."""
+    snapshot = load_approvals(openclaw_root)
+    if snapshot.backend == "sqlite":
+        return sha256_file(snapshot.db_path) if snapshot.db_path.is_file() else snapshot.hash
+    return sha256_file(snapshot.legacy_path)
 
 
 def path_is_within(path, root):
@@ -259,13 +280,54 @@ def require_telegram_owner_ids(values):
     return owners
 
 
-def find_agent(config, agent_id):
+def agent_collection(config):
+    """Return the active agent collection without materializing a legacy list."""
     agents = config.get("agents")
-    entries = agents.get("list", []) if isinstance(agents, dict) else []
-    matches = [entry for entry in entries if isinstance(entry, dict) and entry.get("id") == agent_id]
+    if not isinstance(agents, dict):
+        return "list", []
+    if "entries" in agents:
+        entries = agents.get("entries")
+        if not isinstance(entries, dict):
+            raise ValueError("Expected object at agents.entries")
+        return "entries", entries
+    if "list" not in agents:
+        return "list", []
+    listed = agents.get("list")
+    if not isinstance(listed, list):
+        raise ValueError("Expected array at agents.list")
+    return "list", listed
+
+
+def find_agent(config, agent_id):
+    mode, entries = agent_collection(config)
+    if mode == "entries":
+        value = entries.get(agent_id)
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError(f"Agent entry must be an object: {agent_id}")
+        return value
+    matches = [
+        entry
+        for entry in entries
+        if isinstance(entry, dict) and entry.get("id") == agent_id
+    ]
     if len(matches) > 1:
         raise ValueError(f"Duplicate agent id: {agent_id}")
     return matches[0] if matches else None
+
+
+def iter_agents(config):
+    """Yield ``(agent_id, entry)`` for either OpenClaw agent schema."""
+    mode, entries = agent_collection(config)
+    if mode == "entries":
+        for agent_id, entry in entries.items():
+            if isinstance(entry, dict):
+                yield str(agent_id), entry
+        return
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("id"):
+            yield str(entry["id"]), entry
 
 
 def runtime_path_for_agent(config, runtime_root, agent_id, kind):
@@ -334,26 +396,46 @@ def transform_config(
         raise ValueError(f"Target agent does not exist: {target_id}")
 
     agents = ensure_object(updated, "agents")
-    entries = ensure_array(agents, "list")
+    collection_mode, collection = agent_collection(updated)
     defaults = ensure_object(agents, "defaults")
-    if target is None:
-        target = {"id": "main", "default": True}
-        entries.insert(0, target)
+    if collection_mode == "entries":
+        entries = collection
+        if target is None:
+            if target_id != "main":
+                raise ValueError(f"Target agent does not exist: {target_id}")
+            target = {}
+            entries[target_id] = target
+        target_workspace = runtime_path_for_agent(config, runtime_root, target_id, "workspace")
+        target_agent_dir = runtime_path_for_agent(config, runtime_root, target_id, "agentDir")
+        target["workspace"] = str(target_workspace)
+        target["agentDir"] = str(target_agent_dir)
+        # ``default`` was a list-schema marker and is rejected in entries values.
+        for entry in entries.values():
+            if isinstance(entry, dict):
+                entry.pop("default", None)
+        for source_id in source_set:
+            if source_id != target_id:
+                entries.pop(source_id, None)
+    else:
+        entries = collection
+        if target is None:
+            target = {"id": "main", "default": True}
+            entries.insert(0, target)
 
-    target_workspace = runtime_path_for_agent(config, runtime_root, target_id, "workspace")
-    target_agent_dir = runtime_path_for_agent(config, runtime_root, target_id, "agentDir")
-    target["workspace"] = str(target_workspace)
-    target["agentDir"] = str(target_agent_dir)
-    target["default"] = True
+        target_workspace = runtime_path_for_agent(config, runtime_root, target_id, "workspace")
+        target_agent_dir = runtime_path_for_agent(config, runtime_root, target_id, "agentDir")
+        target["workspace"] = str(target_workspace)
+        target["agentDir"] = str(target_agent_dir)
+        target["default"] = True
 
-    for entry in entries:
-        if isinstance(entry, dict) and entry is not target and entry.get("default") is True:
-            entry.pop("default", None)
-    agents["list"] = [
-        entry
-        for entry in entries
-        if not (isinstance(entry, dict) and str(entry.get("id")) in source_set)
-    ]
+        for entry in entries:
+            if isinstance(entry, dict) and entry is not target and entry.get("default") is True:
+                entry.pop("default", None)
+        agents["list"] = [
+            entry
+            for entry in entries
+            if not (isinstance(entry, dict) and str(entry.get("id")) in source_set)
+        ]
 
     bindings = ensure_array(updated, "bindings")
     for binding in bindings:
@@ -723,10 +805,7 @@ def check_config(
 
     workspace_map = {}
     agent_dir_map = {}
-    for entry in config.get("agents", {}).get("list", []):
-        if not isinstance(entry, dict) or not entry.get("id"):
-            continue
-        agent_id = str(entry["id"])
+    for agent_id, entry in iter_agents(config):
         workspace = str(runtime_path_for_agent(config, runtime_root, agent_id, "workspace"))
         agent_dir = str(runtime_path_for_agent(config, runtime_root, agent_id, "agentDir"))
         if workspace in workspace_map and workspace_map[workspace] != agent_id:
@@ -745,7 +824,7 @@ def rollback_from_manifest(manifest_path):
     require_root_owned_private(transaction, "transaction directory")
     require_root_owned_private(manifest_path, "rollback manifest")
     manifest = load_json(manifest_path)
-    if manifest.get("version") != 2 or manifest.get("status") != "applied":
+    if manifest.get("version") not in {2, 3} or manifest.get("status") != "applied":
         raise ValueError("Unsupported or incomplete rollback manifest")
     if pathlib.Path(manifest.get("transaction_dir", "")).resolve() != transaction:
         raise ValueError("Rollback manifest transaction directory mismatch")
@@ -754,28 +833,49 @@ def rollback_from_manifest(manifest_path):
     target_workspace = pathlib.Path(manifest["target_workspace"]).resolve()
     config_path = pathlib.Path(manifest["config_path"]).absolute()
     config_backup = pathlib.Path(manifest["config_backup"]).absolute()
-    exec_path = pathlib.Path(manifest["exec_path"]).absolute()
     exec_backup = pathlib.Path(manifest["exec_backup"]).absolute()
-    for active_path, expected_name in (
-        (config_path, "openclaw.json"),
-        (exec_path, "exec-approvals.json"),
-    ):
-        if active_path.name != expected_name or not path_is_within(active_path, filesystem_root):
-            raise ValueError(f"Unsafe active rollback path: {active_path}")
-        if active_path.is_symlink() or not active_path.is_file():
-            raise ValueError(f"Active rollback file is unsafe or missing: {active_path}")
+    if config_path.name != "openclaw.json" or not path_is_within(config_path, filesystem_root):
+        raise ValueError(f"Unsafe active rollback path: {config_path}")
+    if config_path.is_symlink() or not config_path.is_file():
+        raise ValueError(f"Active rollback file is unsafe or missing: {config_path}")
+    approvals_snapshot = load_approvals(filesystem_root)
+    expected_backend = manifest.get("exec_backend", "legacy")
+    if approvals_snapshot.backend != expected_backend:
+        raise ValueError("Active approvals backend changed after migration")
+    if expected_backend == "legacy":
+        exec_path = pathlib.Path(manifest["exec_path"]).absolute()
+        if (
+            exec_path.name != "exec-approvals.json"
+            or not path_is_within(exec_path, filesystem_root)
+            or exec_path.is_symlink()
+            or not exec_path.is_file()
+        ):
+            raise ValueError(f"Unsafe active rollback path: {exec_path}")
+    elif expected_backend == "sqlite":
+        exec_path = approvals_snapshot.db_path
+        if (
+            exec_path.name != "openclaw.sqlite"
+            or not path_is_within(exec_path, filesystem_root)
+            or (exec_path.exists() and (exec_path.is_symlink() or not exec_path.is_file()))
+        ):
+            raise ValueError(f"Unsafe active rollback path: {exec_path}")
+    else:
+        raise ValueError("Unsupported approvals backend in rollback manifest")
     for backup_path in (config_backup, exec_backup):
         if not path_is_within(backup_path, transaction):
             raise ValueError(f"Backup escapes transaction: {backup_path}")
         require_root_owned_private(backup_path, "rollback backup")
     if sha256_file(config_path) != manifest.get("config_after_sha256"):
         raise ValueError("Refusing rollback because openclaw.json changed after migration")
-    if sha256_file(exec_path) != manifest.get("exec_after_sha256"):
-        raise ValueError("Refusing rollback because exec-approvals.json changed after migration")
+    if approvals_snapshot.hash != manifest.get("exec_after_sha256"):
+        raise ValueError("Refusing rollback because exec approvals changed after migration")
     if sha256_file(config_backup) != manifest.get("config_before_sha256"):
         raise ValueError("Rollback config backup checksum mismatch")
-    if sha256_file(exec_backup) != manifest.get("exec_before_sha256"):
-        raise ValueError("Rollback exec backup checksum mismatch")
+    if expected_backend == "legacy":
+        if sha256_file(exec_backup) != manifest.get("exec_before_sha256"):
+            raise ValueError("Rollback exec backup checksum mismatch")
+    elif sha256_file(exec_backup) != manifest.get("exec_backup_sha256"):
+        raise ValueError("Rollback native approvals backup checksum mismatch")
 
     for record in manifest.get("added_files", []):
         path = pathlib.Path(record["path"]).absolute()
@@ -798,7 +898,16 @@ def rollback_from_manifest(manifest_path):
     )
     restore_moved(manifest.get("moved", []))
     copy_backup(config_backup, config_path)
-    copy_backup(exec_backup, exec_path)
+    approval_backup = {
+        "backend": expected_backend,
+        "path": str(exec_backup),
+        "exists": manifest.get("exec_backup_exists", True),
+    }
+    restore_approvals(
+        approvals_snapshot,
+        approval_backup,
+        config_path=config_path,
+    )
     print(f"mode=rollback\nmanifest={manifest_path}\nstatus=rolled-back")
 
 
@@ -821,14 +930,13 @@ def main():
     filesystem_root = pathlib.Path(args.openclaw_root).expanduser().resolve()
     runtime_root = pathlib.Path(args.runtime_openclaw_root).expanduser() if args.runtime_openclaw_root else filesystem_root
     config_path = filesystem_root / "openclaw.json"
-    exec_path = filesystem_root / "exec-approvals.json"
     if not config_path.is_file() or config_path.is_symlink():
         raise FileNotFoundError(f"Safe OpenClaw config not found: {config_path}")
-    if not exec_path.is_file() or exec_path.is_symlink():
-        raise FileNotFoundError(f"Safe exec approvals file not found: {exec_path}")
+    approvals_snapshot = load_approvals(filesystem_root)
+    exec_path = approvals_snapshot.path
 
     config = load_json(config_path)
-    exec_value = load_json(exec_path)
+    exec_value = approvals_snapshot.document
 
     if args.check:
         violations, owner_count = check_config(
@@ -923,12 +1031,14 @@ def main():
     transaction.mkdir(parents=True, mode=0o700, exist_ok=False)
     os.chmod(transaction, 0o700)
     config_backup = transaction / "openclaw.before.json"
-    exec_backup = transaction / "exec-approvals.before.json"
     copy_backup(config_path, config_backup)
-    copy_backup(exec_path, exec_backup)
+    approval_backup = backup_approvals(
+        approvals_snapshot, transaction, "exec-approvals.before"
+    )
+    exec_backup = pathlib.Path(approval_backup["path"])
 
     manifest = {
-        "version": 2,
+        "version": 3,
         "status": "applying",
         "created_at": stamp,
         "transaction_dir": str(transaction),
@@ -943,7 +1053,15 @@ def main():
         "config_before_sha256": sha256_file(config_backup),
         "exec_path": str(exec_path),
         "exec_backup": str(exec_backup),
-        "exec_before_sha256": sha256_file(exec_backup),
+        "exec_backup_sha256": sha256_file(exec_backup),
+        "exec_backend": approvals_snapshot.backend,
+        "exec_locator": approvals_snapshot.locator,
+        "exec_backup_exists": bool(approval_backup.get("exists")),
+        "exec_before_sha256": (
+            approvals_snapshot.hash
+            if approvals_snapshot.backend == "sqlite"
+            else sha256_file(exec_backup)
+        ),
         "added_files": [],
         "moved": [],
         "workspace_counts": total_counts,
@@ -952,9 +1070,13 @@ def main():
     try:
         manifest["added_files"] = copy_actions(all_actions, target_workspace)
         atomic_write_json(config_path, updated_config)
-        atomic_write_json(exec_path, updated_exec)
+        save_approvals(
+            approvals_snapshot,
+            updated_exec,
+            config_path=config_path,
+        )
         manifest["config_after_sha256"] = sha256_file(config_path)
-        manifest["exec_after_sha256"] = sha256_file(exec_path)
+        manifest["exec_after_sha256"] = load_approvals(filesystem_root).hash
         retired_root = transaction / "retired"
         for record in source_records:
             moved_workspace = move_to_retired(
@@ -974,7 +1096,7 @@ def main():
             restore_moved(manifest.get("moved", []))
             remove_added_files(manifest.get("added_files", []), transaction / "rollback-conflicts")
             copy_backup(config_backup, config_path)
-            copy_backup(exec_backup, exec_path)
+            restore_approvals(approvals_snapshot, approval_backup, config_path=config_path)
             atomic_write_json(transaction / "failed-manifest.json", manifest)
         except Exception as rollback_error:
             print(f"rollback_error={type(rollback_error).__name__}", file=sys.stderr)
@@ -988,6 +1110,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, json.JSONDecodeError, NativeApprovalsError) as error:
         print(f"error={error}", file=sys.stderr)
         sys.exit(1)

@@ -79,8 +79,7 @@
   "commands": {
     "native": "auto",
     "nativeSkills": "auto",
-    "restart": true,
-    "ownerDisplay": "raw"
+    "restart": true
   },
   "session": {
     "dmScope": "per-channel-peer"
@@ -128,7 +127,6 @@
       "0.0.0.0/0"
     ],
     "controlUi": {
-      "allowInsecureAuth": true,
       "allowedOrigins": [
         "*"
       ]

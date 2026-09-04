@@ -255,6 +255,59 @@ def main():
         assert digest(config_path) == before_config
         assert digest(approvals_path) == before_approvals
 
+    # OpenClaw 2026.8.x stores agents as a keyed object under agents.entries.
+    with tempfile.TemporaryDirectory(prefix="unify-openclaw-entries-test-") as temporary:
+        root = pathlib.Path(temporary) / ".openclaw"
+        workspace = root / "workspace"
+        workspace.mkdir(parents=True)
+        (root / "agents/main/agent").mkdir(parents=True)
+        config = {
+            "agents": {
+                "defaults": {"workspace": "/root/.openclaw/workspace"},
+                "entries": {
+                    "main": {
+                        "workspace": "/root/.openclaw/workspace",
+                        "agentDir": "/root/.openclaw/agents/main/agent",
+                    }
+                },
+            },
+            "bindings": [],
+            "channels": {
+                "telegram": {
+                    "allowFrom": [],
+                    "accounts": {"bot": {"allowFrom": []}},
+                }
+            },
+            "commands": {"ownerAllowFrom": []},
+            "approvals": {"plugin": {"targets": []}},
+        }
+        approvals = {"version": 1, "defaults": {}, "agents": {}}
+        config_path = root / "openclaw.json"
+        approvals_path = root / "exec-approvals.json"
+        write_json(config_path, config)
+        write_json(approvals_path, approvals)
+        common = [
+            "--openclaw-root", root,
+            "--runtime-openclaw-root", "/root/.openclaw",
+            "--account-id", "bot",
+            "--target-agent", "main",
+            "--owner-id", "333333",
+            "--backup-dir", pathlib.Path(temporary) / "backups",
+        ]
+        dry = run(*common)
+        assert "status=changes-required" in dry.stdout
+        applied = run(*common, "--apply", "--gateway-stopped")
+        assert "status=applied" in applied.stdout
+        updated = json.loads(config_path.read_text(encoding="utf-8"))
+        assert isinstance(updated["agents"]["entries"], dict)
+        assert "list" not in updated["agents"]
+        assert updated["agents"]["entries"]["main"]["tools"]["profile"] == "full"
+        assert updated["bindings"] == [
+            {"agentId": "main", "match": {"channel": "telegram", "accountId": "bot"}}
+        ]
+        checked = run(*common, "--check")
+        assert "status=compliant" in checked.stdout
+
     print("unify_bot_workspace_test=ok")
 
 

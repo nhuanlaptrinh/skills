@@ -113,7 +113,6 @@
       "resetOnExit": false
     },
     "controlUi": {
-      "allowInsecureAuth": true,
       "allowedOrigins": [
         "*"
       ]
@@ -403,7 +402,6 @@
     "native": "auto",
     "nativeSkills": "auto",
     "restart": true,
-    "ownerDisplay": "raw",
     "ownerAllowFrom": [
       "telegram:Nhap_User_ID_Cua_Ban"
     ]

@@ -12,8 +12,14 @@ BACKUP_BASE="/root/_Backups/openclaw-agent-full-exec"
 NO_RESTART=false
 CONFIG_CANDIDATE=""
 APPROVALS_CANDIDATE=""
+APPROVALS_CURRENT=""
 CONFIG_CHANGED=true
 APPROVALS_CHANGED=true
+APPROVALS_BACKEND=""
+NATIVE_DB=""
+APPROVALS_LOCATOR=""
+BACKUP_APPROVALS_PATH=""
+BACKUP_APPROVALS_EXISTS=false
 
 usage() {
   cat <<'EOF'
@@ -23,7 +29,7 @@ Usage:
 
 Options:
   --member NAME          Use the standard member VPS paths and container user-NAME.
-  --openclaw-root PATH   Host path containing openclaw.json and exec-approvals.json.
+  --openclaw-root PATH   Host path containing openclaw.json and OpenClaw approval state.
   --agent ID             Agent ID to update (default: main).
   --container NAME       Runtime container for validate/restart.
   --runtime-home PATH    HOME used by OpenClaw at runtime.
@@ -44,6 +50,7 @@ die() {
 cleanup() {
   [ -z "$CONFIG_CANDIDATE" ] || rm -f -- "$CONFIG_CANDIDATE"
   [ -z "$APPROVALS_CANDIDATE" ] || rm -f -- "$APPROVALS_CANDIDATE"
+  [ -z "$APPROVALS_CURRENT" ] || rm -f -- "$APPROVALS_CURRENT"
 }
 trap cleanup EXIT
 
@@ -143,12 +150,22 @@ OPENCLAW_ROOT="$(realpath "$OPENCLAW_ROOT")"
 
 CONFIG_FILE="$OPENCLAW_ROOT/openclaw.json"
 APPROVALS_FILE="$OPENCLAW_ROOT/exec-approvals.json"
+NATIVE_DB="$OPENCLAW_ROOT/state/openclaw.sqlite"
+NATIVE_HELPER="$(dirname "$0")/native_approvals.py"
 [ -f "$CONFIG_FILE" ] || die "Missing config: $CONFIG_FILE"
 [ ! -L "$CONFIG_FILE" ] || die "Refusing symlink config: $CONFIG_FILE"
 [ ! -e "$APPROVALS_FILE" ] || [ -f "$APPROVALS_FILE" ] || die "Approval path is not a regular file"
 [ ! -L "$APPROVALS_FILE" ] || die "Refusing symlink approvals file"
+[ ! -L "$OPENCLAW_ROOT/state" ] || die "Refusing symlink native state directory"
+[ ! -e "$OPENCLAW_ROOT/state" ] || [ -d "$OPENCLAW_ROOT/state" ] || die "Native state path is not a directory"
+[ ! -L "$NATIVE_DB" ] || die "Refusing symlink native approvals database"
 
-for command_name in jq mktemp sha256sum stat realpath; do
+if { [ -e "$NATIVE_HELPER" ] && [ ! -f "$NATIVE_HELPER" ]; } || [ -L "$NATIVE_HELPER" ]; then
+  die "Native approvals helper is not a regular file"
+fi
+[ -f "$NATIVE_HELPER" ] || die "Missing native approvals helper: $NATIVE_HELPER"
+
+for command_name in jq mktemp sha256sum stat realpath python3; do
   command -v "$command_name" >/dev/null 2>&1 || die "Missing dependency: $command_name"
 done
 
@@ -157,33 +174,176 @@ if [ -f "$APPROVALS_FILE" ]; then
   jq empty "$APPROVALS_FILE" >/dev/null || die "Invalid JSON: $APPROVALS_FILE"
 fi
 
-AGENT_COUNT="$(jq --arg agent "$AGENT_ID" '[.agents.list[]? | select(.id == $agent)] | length' "$CONFIG_FILE")"
+native_schema_present() {
+  [ -f "$NATIVE_DB" ] || return 1
+  python3 - "$NATIVE_DB" <<'PY'
+import sqlite3
+import sys
+
+path = sys.argv[1]
+try:
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='exec_approvals_config'"
+        ).fetchone()
+        raise SystemExit(0 if row else 1)
+    finally:
+        connection.close()
+except sqlite3.Error:
+    raise SystemExit(2)
+PY
+}
+
+if [ -f "$NATIVE_DB" ]; then
+  if native_schema_present; then
+    native_status=0
+  else
+    native_status=$?
+  fi
+  if [ "$native_status" -eq 0 ]; then
+    APPROVALS_BACKEND="sqlite"
+  elif [ -f "$APPROVALS_FILE" ]; then
+    APPROVALS_BACKEND="legacy"
+  else
+    die "Native approvals database is missing the OpenClaw schema"
+  fi
+elif [ -f "$APPROVALS_FILE" ]; then
+  APPROVALS_BACKEND="legacy"
+else
+  # A fresh 2026.8 root initializes the native row on first approval write.
+  APPROVALS_BACKEND="sqlite"
+fi
+
+if [ "$APPROVALS_BACKEND" = sqlite ]; then
+  APPROVALS_LOCATOR="$NATIVE_DB#exec_approvals_config"
+else
+  APPROVALS_LOCATOR="$APPROVALS_FILE"
+fi
+
+APPROVALS_CURRENT="$(mktemp "$OPENCLAW_ROOT/.exec-approvals.current.XXXXXX")"
+chmod 600 "$APPROVALS_CURRENT"
+
+load_current_approvals() {
+  local metadata
+  if [ "$APPROVALS_BACKEND" = sqlite ]; then
+    metadata="$(python3 "$NATIVE_HELPER" export --root "$OPENCLAW_ROOT" --output "$APPROVALS_CURRENT")" \
+      || die "Unable to read native OpenClaw approvals"
+  else
+    cp -a -- "$APPROVALS_FILE" "$APPROVALS_CURRENT"
+    chmod 600 "$APPROVALS_CURRENT"
+    metadata=''
+  fi
+  jq empty "$APPROVALS_CURRENT" >/dev/null || die "Invalid active approvals document"
+}
+
+load_current_approvals
+
+backup_approvals_state() {
+  local destination="$1" metadata
+  metadata="$(python3 "$NATIVE_HELPER" backup \
+    --root "$OPENCLAW_ROOT" --destination "$destination" --label exec-approvals)" \
+    || die "Unable to back up active OpenClaw approvals"
+  BACKUP_APPROVALS_PATH="$(jq -r '.path // empty' <<<"$metadata")"
+  [ -n "$BACKUP_APPROVALS_PATH" ] || die "Approval backup path was not returned"
+  BACKUP_APPROVALS_EXISTS="$(jq -r 'if .exists then "true" else "false" end' <<<"$metadata")"
+  printf '%s\n' "$metadata" > "$destination/approval-backup-metadata.json"
+  chmod 600 "$destination/approval-backup-metadata.json"
+}
+
+restore_approvals_state() {
+  local path="$1" backend="$2" exists="$3"
+  local -a command=(python3 "$NATIVE_HELPER" restore
+    --root "$OPENCLAW_ROOT" --backend "$backend" --path "$path")
+  [ "$exists" = true ] && command+=(--exists)
+  "${command[@]}" >/dev/null || die "Unable to restore OpenClaw approvals"
+  load_current_approvals
+}
+
+save_approvals_state() {
+  if [ "$APPROVALS_BACKEND" = sqlite ]; then
+    # The native CLI owns schema initialization and socket-token preservation.
+    local status
+    if OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" \
+      openclaw approvals set --stdin --json < "$APPROVALS_CANDIDATE" \
+      >/dev/null 2>/dev/null; then
+      status=0
+    else
+      status=$?
+    fi
+    [ "$status" -eq 0 ] || die "Native OpenClaw approvals update failed"
+  else
+    local mode owner group
+    if [ -f "$APPROVALS_FILE" ]; then
+      mode="$(stat -c '%a' "$APPROVALS_FILE")"
+      owner="$(stat -c '%u' "$APPROVALS_FILE")"
+      group="$(stat -c '%g' "$APPROVALS_FILE")"
+      chmod "$mode" "$APPROVALS_CANDIDATE"
+      chown "$owner:$group" "$APPROVALS_CANDIDATE"
+    else
+      chmod 600 "$APPROVALS_CANDIDATE"
+      chown --reference="$CONFIG_FILE" "$APPROVALS_CANDIDATE"
+    fi
+    mv -f -- "$APPROVALS_CANDIDATE" "$APPROVALS_FILE"
+    APPROVALS_CANDIDATE=""
+  fi
+  load_current_approvals
+}
+
+AGENT_SCHEMA="$(jq -r '
+  if ((.agents | type) == "object" and (.agents | has("entries"))) then
+    if (.agents.entries | type) == "object" then "entries" else "unsupported" end
+  elif ((.agents | type) == "object" and (.agents | has("list"))) then
+    if (.agents.list | type) == "array" then "list" else "unsupported" end
+  else "unsupported"
+  end
+' "$CONFIG_FILE")"
+[ "$AGENT_SCHEMA" != unsupported ] || die "Unsupported agents schema; expected agents.entries or agents.list"
+if [ "$AGENT_SCHEMA" = entries ]; then
+  AGENT_COUNT="$(jq --arg agent "$AGENT_ID" '[.agents.entries[$agent] | select(type == "object")] | length' "$CONFIG_FILE")"
+else
+  AGENT_COUNT="$(jq --arg agent "$AGENT_ID" '[.agents.list[]? | select(.id == $agent)] | length' "$CONFIG_FILE")"
+fi
 [ "$AGENT_COUNT" -eq 1 ] || die "Agent '$AGENT_ID' must exist exactly once; found $AGENT_COUNT"
 
 config_snapshot() {
-  jq -c --arg agent "$AGENT_ID" '
-    .agents.list[] | select(.id == $agent) |
-    {
-      host: (.tools.exec.host // null),
-      mode: (.tools.exec.mode // null),
-      security_override: (.tools.exec.security // null),
-      ask_override: (.tools.exec.ask // null),
-      strictInlineEval: (
-        if (.tools.exec | has("strictInlineEval"))
-        then .tools.exec.strictInlineEval
-        else null
-        end
-      )
-    }
-  ' "$1"
+  if [ "$AGENT_SCHEMA" = entries ]; then
+    jq -c --arg agent "$AGENT_ID" '
+      .agents.entries[$agent] |
+      {
+        host: (.tools.exec.host // null),
+        mode: (.tools.exec.mode // null),
+        security_override: (.tools.exec.security // null),
+        ask_override: (.tools.exec.ask // null),
+        strictInlineEval: (
+          if (.tools.exec | has("strictInlineEval"))
+          then .tools.exec.strictInlineEval
+          else null
+          end
+        )
+      }
+    ' "$1"
+  else
+    jq -c --arg agent "$AGENT_ID" '
+      .agents.list[] | select(.id == $agent) |
+      {
+        host: (.tools.exec.host // null),
+        mode: (.tools.exec.mode // null),
+        security_override: (.tools.exec.security // null),
+        ask_override: (.tools.exec.ask // null),
+        strictInlineEval: (
+          if (.tools.exec | has("strictInlineEval"))
+          then .tools.exec.strictInlineEval
+          else null
+          end
+        )
+      }
+    ' "$1"
+  fi
 }
 
 approvals_snapshot() {
   local file="$1"
-  if [ ! -f "$file" ]; then
-    printf '%s\n' '{"security":null,"ask":null,"askFallback":null,"autoAllowSkills":null,"allowlist_count":0}'
-    return
-  fi
   jq -c --arg agent "$AGENT_ID" '
     (.agents[$agent] // {}) |
     {
@@ -207,11 +367,11 @@ json_equal() {
 
 make_candidates() {
   CONFIG_CANDIDATE="$(mktemp "$OPENCLAW_ROOT/.openclaw.json.full-exec.XXXXXX")"
-  APPROVALS_CANDIDATE="$(mktemp "$OPENCLAW_ROOT/.exec-approvals.json.full-exec.XXXXXX")"
+  APPROVALS_CANDIDATE="$(mktemp "$OPENCLAW_ROOT/.exec-approvals.full-exec.XXXXXX")"
 
-  jq --arg agent "$AGENT_ID" '
-    .agents.list |= map(
-      if .id == $agent then
+  if [ "$AGENT_SCHEMA" = entries ]; then
+    jq --arg agent "$AGENT_ID" '
+      .agents.entries[$agent] |= (
         .tools = (.tools // {}) |
         .tools.exec = ((.tools.exec // {}) + {
           host: "gateway",
@@ -220,41 +380,35 @@ make_candidates() {
         }) |
         if .tools.exec.security? != null then .tools.exec.security = "full" else . end |
         if .tools.exec.ask? != null then .tools.exec.ask = "off" else . end
-      else . end
-    )
-  ' "$CONFIG_FILE" > "$CONFIG_CANDIDATE"
-
-  if [ -f "$APPROVALS_FILE" ]; then
-    jq --arg agent "$AGENT_ID" '
-      .version = (.version // 1) |
-      .agents = (.agents // {}) |
-      .agents[$agent] = ((.agents[$agent] // {}) + {
-        security: "full",
-        ask: "off",
-        askFallback: "full",
-        autoAllowSkills: true
-      })
-    ' "$APPROVALS_FILE" > "$APPROVALS_CANDIDATE"
+      )
+    ' "$CONFIG_FILE" > "$CONFIG_CANDIDATE"
   else
-    jq -n --arg agent "$AGENT_ID" '{
-      version: 1,
-      defaults: {
-        security: "allowlist",
-        ask: "on-miss",
-        askFallback: "deny",
-        autoAllowSkills: false
-      },
-      agents: {
-        ($agent): {
-          security: "full",
-          ask: "off",
-          askFallback: "full",
-          autoAllowSkills: true,
-          allowlist: []
-        }
-      }
-    }' > "$APPROVALS_CANDIDATE"
+    jq --arg agent "$AGENT_ID" '
+      .agents.list |= map(
+        if .id == $agent then
+          .tools = (.tools // {}) |
+          .tools.exec = ((.tools.exec // {}) + {
+            host: "gateway",
+            mode: "full",
+            strictInlineEval: false
+          }) |
+          if .tools.exec.security? != null then .tools.exec.security = "full" else . end |
+          if .tools.exec.ask? != null then .tools.exec.ask = "off" else . end
+        else . end
+      )
+    ' "$CONFIG_FILE" > "$CONFIG_CANDIDATE"
   fi
+
+  jq --arg agent "$AGENT_ID" '
+    .version = (.version // 1) |
+    .agents = (.agents // {}) |
+    .agents[$agent] = ((.agents[$agent] // {}) + {
+      security: "full",
+      ask: "off",
+      askFallback: "full",
+      autoAllowSkills: true
+    })
+  ' "$APPROVALS_CURRENT" > "$APPROVALS_CANDIDATE"
 
   jq empty "$CONFIG_CANDIDATE" >/dev/null || die "Generated invalid config candidate"
   jq empty "$APPROVALS_CANDIDATE" >/dev/null || die "Generated invalid approvals candidate"
@@ -262,28 +416,38 @@ make_candidates() {
   CONFIG_CHANGED=true
   APPROVALS_CHANGED=true
   json_equal "$CONFIG_FILE" "$CONFIG_CANDIDATE" && CONFIG_CHANGED=false
-  if [ -f "$APPROVALS_FILE" ]; then
-    json_equal "$APPROVALS_FILE" "$APPROVALS_CANDIDATE" && APPROVALS_CHANGED=false
-  fi
+  json_equal "$APPROVALS_CURRENT" "$APPROVALS_CANDIDATE" && APPROVALS_CHANGED=false
   return 0
 }
 
 files_compliant() {
-  jq -e --arg agent "$AGENT_ID" '
-    (.agents.list[] | select(.id == $agent) | .tools.exec) as $exec |
-    $exec.host == "gateway" and
-    $exec.mode == "full" and
-    $exec.strictInlineEval == false and
-    (($exec.security // "full") == "full") and
-    (($exec.ask // "off") == "off")
-  ' "$CONFIG_FILE" >/dev/null 2>&1 &&
-  [ -f "$APPROVALS_FILE" ] &&
+  local status=0
+  if [ "$AGENT_SCHEMA" = entries ]; then
+    jq -e --arg agent "$AGENT_ID" '
+      (.agents.entries[$agent].tools.exec) as $exec |
+      $exec.host == "gateway" and
+      $exec.mode == "full" and
+      $exec.strictInlineEval == false and
+      (($exec.security // "full") == "full") and
+      (($exec.ask // "off") == "off")
+    ' "$CONFIG_FILE" >/dev/null 2>&1 || status=$?
+  else
+    jq -e --arg agent "$AGENT_ID" '
+      (.agents.list[] | select(.id == $agent) | .tools.exec) as $exec |
+      $exec.host == "gateway" and
+      $exec.mode == "full" and
+      $exec.strictInlineEval == false and
+      (($exec.security // "full") == "full") and
+      (($exec.ask // "off") == "off")
+    ' "$CONFIG_FILE" >/dev/null 2>&1 || status=$?
+  fi
+  [ "$status" -eq 0 ] &&
   jq -e --arg agent "$AGENT_ID" '
     .agents[$agent].security == "full" and
     .agents[$agent].ask == "off" and
     .agents[$agent].askFallback == "full" and
     .agents[$agent].autoAllowSkills == true
-  ' "$APPROVALS_FILE" >/dev/null 2>&1
+  ' "$APPROVALS_CURRENT" >/dev/null 2>&1
 }
 
 validate_runtime() {
@@ -294,7 +458,7 @@ validate_runtime() {
     output="$(docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw config validate 2>&1)" || status=$?
   else
     command -v openclaw >/dev/null 2>&1 || die "openclaw command not found"
-    output="$(HOME="$RUNTIME_HOME" openclaw config validate 2>&1)" || status=$?
+    output="$(HOME="$RUNTIME_HOME" OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" openclaw config validate 2>&1)" || status=$?
   fi
   printf '%s\n' "$output" | sanitize_output
   [ "${status:-0}" -eq 0 ] || return "$status"
@@ -305,7 +469,7 @@ runtime_approval_check() {
   if [ -n "$CONTAINER" ]; then
     snapshot="$(docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw approvals get --gateway --json 2>/dev/null)" || return 1
   else
-    snapshot="$(HOME="$RUNTIME_HOME" openclaw approvals get --gateway --json 2>/dev/null)" || return 1
+    snapshot="$(HOME="$RUNTIME_HOME" OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" openclaw approvals get --gateway --json 2>/dev/null)" || return 1
   fi
   printf '%s\n' "$snapshot" | jq -e --arg agent "$AGENT_ID" '
     ((.file.agents // .agents)[$agent]) as $policy |
@@ -351,7 +515,7 @@ restart_gateway() {
     docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw gateway status 2>&1 | sanitize_output | grep -E 'Connectivity probe|Listening|Gateway version' || true
     docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw channels status --probe 2>&1 | sanitize_output | grep -E 'Gateway reachable|Telegram|Zalo' || true
   else
-    HOME="$RUNTIME_HOME" openclaw gateway restart 2>&1 | sanitize_output
+    HOME="$RUNTIME_HOME" OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" openclaw gateway restart 2>&1 | sanitize_output
   fi
 }
 
@@ -359,7 +523,9 @@ print_summary() {
   printf 'target=%s\nagent=%s\nopenclaw_root=%s\n' "$TARGET_LABEL" "$AGENT_ID" "$OPENCLAW_ROOT"
   [ -z "$CONTAINER" ] || printf 'container=%s\n' "$CONTAINER"
   printf 'config_exec=%s\n' "$(config_snapshot "$CONFIG_FILE")"
-  printf 'approval_policy=%s\n' "$(approvals_snapshot "$APPROVALS_FILE")"
+  printf 'approval_locator=%s\n' "$APPROVALS_LOCATOR"
+  printf 'approval_backend=%s\n' "$APPROVALS_BACKEND"
+  printf 'approval_policy=%s\n' "$(approvals_snapshot "$APPROVALS_CURRENT")"
 }
 
 if [ "$ACTION" = "check" ]; then
@@ -383,7 +549,7 @@ if [ "$ACTION" = "dry-run" ]; then
   printf 'target=%s\nagent=%s\n' "$TARGET_LABEL" "$AGENT_ID"
   printf 'config_before=%s\n' "$(config_snapshot "$CONFIG_FILE")"
   printf 'config_after=%s\n' "$(config_snapshot "$CONFIG_CANDIDATE")"
-  printf 'approvals_before=%s\n' "$(approvals_snapshot "$APPROVALS_FILE")"
+  printf 'approvals_before=%s\n' "$(approvals_snapshot "$APPROVALS_CURRENT")"
   printf 'approvals_after=%s\n' "$(approvals_snapshot "$APPROVALS_CANDIDATE")"
   if ! $CONFIG_CHANGED && ! $APPROVALS_CHANGED; then
     printf 'changes_required=false\n'
@@ -419,17 +585,15 @@ BACKUP_DIR="$BACKUP_BASE/$TARGET_LABEL/$TIMESTAMP"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 cp -a "$CONFIG_FILE" "$BACKUP_DIR/openclaw.json"
-if [ -f "$APPROVALS_FILE" ]; then
-  cp -a "$APPROVALS_FILE" "$BACKUP_DIR/exec-approvals.json"
-else
-  : > "$BACKUP_DIR/exec-approvals.json.missing"
-  chmod 600 "$BACKUP_DIR/exec-approvals.json.missing"
-fi
+backup_approvals_state "$BACKUP_DIR"
 sha256sum "$BACKUP_DIR/openclaw.json" > "$BACKUP_DIR/SHA256SUMS"
-if [ -f "$BACKUP_DIR/exec-approvals.json" ]; then
-  sha256sum "$BACKUP_DIR/exec-approvals.json" >> "$BACKUP_DIR/SHA256SUMS"
+if [ -f "$BACKUP_APPROVALS_PATH" ]; then
+  sha256sum "$BACKUP_APPROVALS_PATH" >> "$BACKUP_DIR/SHA256SUMS"
 fi
 printf 'target=%s\nagent=%s\ncreated_utc=%s\n' "$TARGET_LABEL" "$AGENT_ID" "$TIMESTAMP" > "$BACKUP_DIR/metadata.txt"
+printf 'approval_backend=%s\napproval_locator=%s\napproval_backup=%s\napproval_backup_exists=%s\n' \
+  "$APPROVALS_BACKEND" "$APPROVALS_LOCATOR" "$BACKUP_APPROVALS_PATH" "$BACKUP_APPROVALS_EXISTS" \
+  >> "$BACKUP_DIR/metadata.txt"
 chmod 600 "$BACKUP_DIR/SHA256SUMS" "$BACKUP_DIR/metadata.txt"
 
 if $CONFIG_CHANGED; then
@@ -443,15 +607,7 @@ else
 fi
 
 if $APPROVALS_CHANGED; then
-  if [ -f "$APPROVALS_FILE" ]; then
-    chmod --reference="$APPROVALS_FILE" "$APPROVALS_CANDIDATE"
-    chown --reference="$APPROVALS_FILE" "$APPROVALS_CANDIDATE"
-  else
-    chmod 600 "$APPROVALS_CANDIDATE"
-    chown --reference="$CONFIG_FILE" "$APPROVALS_CANDIDATE"
-  fi
-  mv -f -- "$APPROVALS_CANDIDATE" "$APPROVALS_FILE"
-  APPROVALS_CANDIDATE=""
+  save_approvals_state
 else
   rm -f -- "$APPROVALS_CANDIDATE"
   APPROVALS_CANDIDATE=""
@@ -459,10 +615,8 @@ fi
 
 if ! validate_runtime; then
   cp -a "$BACKUP_DIR/openclaw.json" "$CONFIG_FILE"
-  if [ -f "$BACKUP_DIR/exec-approvals.json" ]; then
-    cp -a "$BACKUP_DIR/exec-approvals.json" "$APPROVALS_FILE"
-  else
-    rm -f -- "$APPROVALS_FILE"
+  if $APPROVALS_CHANGED; then
+    restore_approvals_state "$BACKUP_APPROVALS_PATH" "$APPROVALS_BACKEND" "$BACKUP_APPROVALS_EXISTS"
   fi
   die "Validation failed; files restored from $BACKUP_DIR"
 fi

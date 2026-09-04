@@ -57,7 +57,11 @@ def main():
                         },
                     }
                 },
-                "commands": {"ownerAllowFrom": []},
+                "commands": {
+                    "ownerAllowFrom": [],
+                    "ownerDisplay": "raw",
+                    "ownerDisplaySecret": "legacy-fixture",
+                },
                 "tools": {"profile": "full"},
             },
         )
@@ -99,6 +103,8 @@ def main():
         assert main["tools"]["toolsBySender"]["channel:telegram:123456"] == {}
         assert "group:runtime" in main["tools"]["toolsBySender"]["*"]["deny"]
         assert config["tools"]["elevated"]["allowFrom"]["telegram"] == ["123456"]
+        assert "ownerDisplay" not in config["commands"]
+        assert "ownerDisplaySecret" not in config["commands"]
         assert config["channels"]["telegram"]["execApprovals"]["target"] == "dm"
         assert "commands" not in config["channels"]["telegram"]
         assert config["approvals"]["plugin"]["targets"] == [
@@ -109,6 +115,67 @@ def main():
         assert approvals["socket"]["token"] == "fixture-secret"
         assert approvals["agents"]["main"]["security"] == "allowlist"
         assert approvals["agents"]["main"]["allowlist"] == []
+
+    # OpenClaw 2026.8.x uses keyed agents.entries rather than agents.list.
+    with tempfile.TemporaryDirectory(prefix="grant-telegram-admin-entries-test-") as temporary:
+        root = pathlib.Path(temporary) / ".openclaw"
+        workspace = root / "workspace"
+        workspace.mkdir(parents=True)
+        (root / "agents/main/agent").mkdir(parents=True)
+        write_json(
+            root / "openclaw.json",
+            {
+                "agents": {
+                    "defaults": {"workspace": "/root/.openclaw/workspace"},
+                    "entries": {
+                        "main": {
+                            "workspace": "/root/.openclaw/workspace",
+                            "agentDir": "/root/.openclaw/agents/main/agent",
+                        }
+                    },
+                },
+                "bindings": [
+                    {"agentId": "main", "match": {"channel": "telegram", "accountId": "bot"}}
+                ],
+                "channels": {
+                    "telegram": {
+                        "dmPolicy": "pairing",
+                        "allowFrom": [],
+                        "accounts": {"bot": {"dmPolicy": "pairing", "allowFrom": []}},
+                    }
+                },
+                "commands": {
+                    "ownerAllowFrom": [],
+                    "ownerDisplay": "raw",
+                    "ownerDisplaySecret": "legacy-fixture",
+                },
+                "tools": {"profile": "full"},
+            },
+        )
+        write_json(
+            root / "exec-approvals.json",
+            {"version": 1, "defaults": {}, "agents": {}},
+        )
+        common = [
+            "--telegram-id", "123456",
+            "--openclaw-root", root,
+            "--runtime-openclaw-root", "/root/.openclaw",
+            "--account-id", "bot",
+            "--agent-id", "main",
+            "--backup-dir", pathlib.Path(temporary) / "backups",
+        ]
+        assert "status=changes-required" in run(*common).stdout
+        run(*common, "--apply")
+        assert "status=compliant" in run(*common, "--check").stdout
+        config = json.loads((root / "openclaw.json").read_text(encoding="utf-8"))
+        assert "list" not in config["agents"]
+        assert "ownerDisplay" not in config["commands"]
+        assert "ownerDisplaySecret" not in config["commands"]
+        main = config["agents"]["entries"]["main"]
+        assert main["tools"]["toolsBySender"]["channel:telegram:123456"] == {}
+        assert config["bindings"] == [
+            {"agentId": "main", "match": {"channel": "telegram", "accountId": "bot"}}
+        ]
 
     print("grant_telegram_admin_test=ok")
 

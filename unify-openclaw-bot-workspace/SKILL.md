@@ -9,6 +9,10 @@ Enforce `one Telegram account -> one agent -> one workspace`. Keep sessions sepa
 
 Owners are permissions on that canonical agent, not separate agents. For the existing bot, route owners, normal DMs, and groups to `main` at `/root/.openclaw/workspace`. Create another agent/workspace only for another bot/account.
 
+The bundled script understands the OpenClaw 2026.8.x keyed `agents.entries` schema
+and the older `agents.list` schema. It preserves the active schema and never creates
+`agents.list` when `agents.entries` is present.
+
 ## Safety Model
 
 - Read the VPS runbook, project `AGENTS.md`, production checklist, and related project note first.

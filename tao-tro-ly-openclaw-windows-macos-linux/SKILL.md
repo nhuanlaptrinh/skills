@@ -11,7 +11,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 
 ## Chính sách root bắt buộc
 
-- Không được báo hoàn tất nếu chưa cài `openclaw@2026.7.1-2`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
+- Không được báo hoàn tất nếu chưa cài `openclaw@2026.8.2`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
 - Linux/VPS/container member bắt buộc chạy OpenClaw bằng `root`, `HOME=/root`, OpenClaw root `/root/.openclaw` và workspace `/root/.openclaw/workspace`.
 - `/root/.openclaw` trong container phải là thư mục thật nằm trên volume persistent riêng của member; không dùng symlink sang home khác.
 - macOS dùng tài khoản root quản trị với OpenClaw root `/var/root/.openclaw`. Windows dùng PowerShell **Run as Administrator** và OpenClaw root trong profile Administrator: `$env:USERPROFILE\.openclaw`.
@@ -60,7 +60,7 @@ Việc áp dụng này chỉ lưu skill dưới `workspace/skills` và policy tr
 
 ### Mặc định chung
 
-- Luôn cài cố định `openclaw@2026.7.1-2`; không dùng `latest` và không tự đổi version. Sau khi cài phải xác nhận `openclaw --version` trả đúng `2026.7.1-2`.
+- Luôn cài cố định `openclaw@2026.8.2`; không dùng `latest` và không tự đổi version. Sau khi cài phải xác nhận `openclaw --version` trả đúng `2026.8.2`.
 - Cài Node.js LTS, npm, Python 3 và pip trước khi cài OpenClaw.
 - Bắt buộc chạy bằng quyền root/Administrator và chuẩn bị đầy đủ root nguồn skill trước khi onboarding.
 - Dashboard local mặc định: `http://127.0.0.1:18789/`.
@@ -78,7 +78,7 @@ winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --acce
 winget install --id Python.Python.3.12 --exact --accept-package-agreements --accept-source-agreements
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip
-npm install -g openclaw@2026.7.1-2
+npm install -g openclaw@2026.8.2
 $SkillDir = (Get-Location).Path
 $OpenClawRoot = Join-Path $env:USERPROFILE ".openclaw"
 $Workspace = Join-Path $OpenClawRoot "workspace"
@@ -104,7 +104,7 @@ brew install node python
 python3 -m ensurepip --upgrade || true
 python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip
 SKILL_DIR="$(pwd -P)"
-sudo -H npm install -g openclaw@2026.7.1-2
+sudo -H npm install -g openclaw@2026.8.2
 sudo -H env HOME=/var/root openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /var/root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw --check
@@ -128,7 +128,7 @@ export HOME=/root
 SKILL_DIR="$(pwd -P)"
 apt-get update
 apt-get install -y curl ca-certificates nodejs npm python3 python3-pip python3-venv
-npm install -g openclaw@2026.7.1-2
+npm install -g openclaw@2026.8.2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw --check
@@ -228,8 +228,8 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 4. Cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào; chạy owner setup, unify về `main`, rồi bật Full Exec cho `main` theo đúng thứ tự trước khi bàn giao.
 5. Chỉ start Gateway sau các file check; sau khi Gateway lên, chạy lại Full Exec runtime check và channel probe.
 6. Nếu người dùng thực sự chỉ cần một container Linux không có OpenClaw, task đó không thuộc skill tạo trợ lý này; chuyển sang workflow quản lý container/VPS riêng và không báo đã tạo trợ lý.
-- OpenClaw phải luôn cài cố định `openclaw@2026.7.1-2`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
-- Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.7.1-2 engines --json`; version này yêu cầu Node `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`.
+- OpenClaw phải luôn cài cố định `openclaw@2026.8.2`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
+- Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.8.2 engines --json`; version này yêu cầu Node `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`.
 - Mọi member mới phải có `python3`, `python3-full`, `python3-venv`, `python3-pip`.
 - Mọi member mới phải có Poppler (`pdfinfo`, `pdftotext`), `file`, `unzip`, `zip`.
 - Mọi member mới phải có document venv tại `/root/.openclaw/tools/document-venv` với OpenPyXL, PyPDF, pdfplumber, PyMuPDF, Pillow, XlsxWriter và pandas.
@@ -240,7 +240,7 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Gateway URL trong container là `http://127.0.0.1:18789/`.
 - Gateway Token phải được sinh ngẫu nhiên riêng cho từng member, trừ khi người dùng truyền `OPENCLAW_GATEWAY_TOKEN`; không dùng token cố định dùng chung.
 - Chỉ báo dashboard public sau khi Docker đã map rõ `<web_port>:80` và Nginx trong container reverse proxy port `80` tới `127.0.0.1:18789` với WebSocket headers; `manage-user.sh` hiện không tự làm hai việc này.
-- Dashboard public HTTP mặc định chỉ yêu cầu Gateway Token: đặt `gateway.controlUi.allowedOrigins` đúng URL public, `gateway.controlUi.allowInsecureAuth = true`, và `gateway.controlUi.dangerouslyDisableDeviceAuth = true`.
+- Dashboard public HTTP token-only chỉ được bật khi người vận hành đặt `OPENCLAW_ALLOW_INSECURE_DASHBOARD=true`; khi đó đặt `gateway.controlUi.allowedOrigins` đúng URL public và `gateway.controlUi.dangerouslyDisableDeviceAuth = true` (không dùng key `allowInsecureAuth`, vì key này không có trong schema 2026.8).
 - Lưu Gateway Token tại `/root/.openclaw_dashboard_token` với quyền `600`; khi đăng nhập nhập Token Gateway và để trống ô mật khẩu.
 - Phải báo link public tương ứng web port sau khi tạo và xác minh URL trả HTTP `200`. Nếu không tự lấy được public IPv4, dùng `OPENCLAW_PUBLIC_IP`.
 - Cấu hình HTTP token-only giảm bảo mật; khi có domain HTTPS phải ưu tiên HTTPS và tắt `dangerouslyDisableDeviceAuth`.
@@ -304,9 +304,6 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
     "imageModel": {
       "primary": "token-codex/GPT-5.6-sol"
     },
-    "imageGenerationModel": {
-      "primary": "token-codex/GPT-5.6-sol"
-    },
     "models": {
       "token-codex/GPT-5.6-sol": {},
       "token-codex/GPT-5.6-terra": {},
@@ -316,7 +313,13 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 }
 ```
 - Mặc định cấu hình hiểu ảnh bằng `token-codex/GPT-5.6-sol`: `agents.defaults.imageModel.primary` và model chính `agents.defaults.model.primary` phải dùng model này; `agents.defaults.models` phải có đủ ba model và model catalog phải giữ `input: ["text", "image"]` cùng `maxTokens: 4096`. Chỉ đặt `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
-- `imageGenerationModel.primary` chỉ dùng cho tính năng tạo ảnh, không được coi là bước thay thế cho khả năng đọc ảnh input.
+- `agents.defaults.mediaModels.image.primary` chỉ dùng cho tính năng tạo ảnh,
+  không được coi là bước thay thế cho khả năng đọc ảnh input. Không gán
+  `token-codex/GPT-5.6-sol` vào key này: catalog Token Codex trong workflow
+  này chỉ khai báo text/image input. Chỉ thêm `mediaModels.image` sau khi đã
+  cấu hình một provider tạo ảnh thực sự, kiểm tra `openclaw infer image providers --json`
+  và xác minh một lượt tạo ảnh không chứa dữ liệu riêng tư. OpenClaw 2026.8
+  không hỗ trợ key legacy `agents.defaults.imageGenerationModel`.
 - **Kiểm tra bắt buộc khả năng đọc ảnh:** sau `openclaw config validate`, tạo một ảnh kiểm thử không chứa dữ liệu riêng tư rồi chạy `openclaw infer image describe` bằng `token-codex/GPT-5.6-sol`. Kết quả phải nhận diện được chữ kiểm thử `OPENCLAW_VISION_OK_2026` hoặc nội dung hình đã biết; chỉ HTTP `200` không đủ để kết luận đọc ảnh hoạt động.
 
 ```bash
@@ -541,7 +544,7 @@ docker exec -e HOME=/root user-<ten_user> sh -lc '
   command -v node
   command -v npm
   command -v python3
-  npm install -g openclaw@2026.7.1-2
+  npm install -g openclaw@2026.8.2
   openclaw --version
 '
 
@@ -645,9 +648,9 @@ Không ghi token thật vào skill, README, nhật ký, câu trả lời, Git ho
 
 ## Cấu hình chủ sở hữu và quyền duyệt Telegram bắt buộc
 
-Đầu vào: `--openclaw-root` trỏ tới runtime OpenClaw; `--account-id` là Telegram account đã tồn tại; `--agent-id` và `--owner-id` có thể lặp. Đầu ra: cập nhật `openclaw.json`, `exec-approvals.json` và tạo backup trong `<OPENCLAW_ROOT>/backups/telegram-owner/` khi apply có thay đổi.
+Đầu vào: `--openclaw-root` trỏ tới runtime OpenClaw; `--account-id` là Telegram account đã tồn tại; `--agent-id` và `--owner-id` có thể lặp. Đầu ra: cập nhật `openclaw.json` và approval backend đang hoạt động (SQLite `state/openclaw.sqlite#exec_approvals_config` trên OpenClaw 2026.8 hoặc `exec-approvals.json` ở bản legacy), đồng thời tạo backup trong `<OPENCLAW_ROOT>/backups/telegram-owner/` khi apply có thay đổi.
 
-Dùng script idempotent đi kèm thay vì ghi đè mảng thủ công. Script đọc owner Telegram đã có trong `commands.ownerAllowFrom`, merge thêm các `--owner-id` đã xác minh, cấu hình cả `openclaw.json` và host-local `exec-approvals.json`, backup trước khi apply và không đọc/in bot token.
+Dùng script idempotent đi kèm thay vì ghi đè mảng thủ công. Script đọc owner Telegram đã có trong `commands.ownerAllowFrom`, merge thêm các `--owner-id` đã xác minh, cấu hình cả `openclaw.json` và host approvals qua adapter native/legacy, backup trước khi apply và không đọc/in bot token. Trên OpenClaw 2026.8, script không tự tạo lại file legacy `exec-approvals.json`.
 
 Với member Docker, chạy trên root volume persistent sau khi Telegram account đã tồn tại trong config:
 
@@ -674,9 +677,9 @@ docker exec -e HOME=/root user-<ten_user> openclaw exec-policy show
 
 Lặp `--owner-id` cho nhiều owner đã xác minh. Nếu target config đã có owner, script giữ lại các owner đó; nếu chưa có owner, bắt buộc truyền ít nhất một `--owner-id`. Với nhiều agent cần quyền exec, lặp `--agent-id`. Trên Windows/macOS/Linux local, dùng cùng script với đúng `--openclaw-root`; nếu có Telegram account nhiều tài khoản, chạy lại riêng cho từng `--account-id`.
 
-Sau `--apply`, hạn chế quyền hai file runtime về owner-only: Linux/macOS chạy `chmod 600 <OPENCLAW_ROOT>/openclaw.json <OPENCLAW_ROOT>/exec-approvals.json`; Windows giữ ACL chỉ cho Administrator/SYSTEM theo policy máy. Không đổi quyền bot token hoặc credential ngoài phạm vi này.
+Sau `--apply`, hạn chế quyền config và approval snapshot runtime về owner-only theo backend (SQLite DB hoặc JSON legacy); không đổi quyền bot token hoặc credential ngoài phạm vi này.
 
-Rerun/repair: chạy lại dry-run rồi `--apply`; script idempotent sẽ chỉ bổ sung phần thiếu. Vì script owner đặt policy guarded trung gian, mọi lần apply/repair owner phải chạy lại `set-openclaw-agent-full-exec` cho `main` sau cùng. Rollback: dừng Gateway, lấy đúng cặp backup `openclaw-before-required-owner-*.json` và `exec-approvals-before-required-owner-*.json` cùng timestamp, kiểm tra không chứa cấu hình mới cần giữ, rồi restore thủ công và validate trước khi restart.
+Rerun/repair: chạy lại dry-run rồi `--apply`; script idempotent sẽ chỉ bổ sung phần thiếu. Vì script owner đặt policy guarded trung gian, mọi lần apply/repair owner phải chạy lại `set-openclaw-agent-full-exec` cho `main` sau cùng. Rollback: dừng Gateway, lấy đúng cặp backup config và approval backend cùng timestamp, kiểm tra không chứa cấu hình mới cần giữ, rồi restore theo metadata backend và validate trước khi restart.
 
 Không dùng key `allowlist` trong OpenClaw config vì key đúng cho người gửi Telegram là `allowFrom`. Giữ `skills.workshop.approvalPolicy = "pending"`; Full Exec chỉ bỏ bước duyệt lệnh Exec của `main`, không tự động duyệt proposal/plugin hoặc mở quyền cho sender đang bị `toolsBySender` deny.
 
@@ -951,15 +954,15 @@ chmod 600 "$BACKUP_DIR/openclaw_before.tar.gz"
 
 ### Cài plugin Zalo đúng version
 
-Với OpenClaw pin `2026.7.1-2`:
+Với OpenClaw pin `2026.8.2`:
 
 ```bash
 docker exec -e HOME=/root user-<ten_user> \
-  openclaw plugins install --pin '@openclaw/zalouser@2026.7.1'
+  openclaw plugins install --pin '@openclaw/zalouser@2026.8.2'
 docker exec -e HOME=/root user-<ten_user> openclaw config validate
 ```
 
-Trước khi cài plugin, chạy `npm view @openclaw/zalouser@2026.7.1 peerDependencies --json` và xác nhận core `2026.7.1-2` đáp ứng peer dependency `openclaw >=2026.7.1`.
+Trước khi cài plugin, chạy `npm view @openclaw/zalouser@2026.8.2 peerDependencies --json` và xác nhận core `2026.8.2` đáp ứng peer dependency `openclaw >=2026.8.2`.
 
 ### Gửi QR mới trực tiếp vào Telegram allowlist
 
@@ -1165,7 +1168,8 @@ config.agents ??= {};
 config.agents.defaults ??= {};
 config.agents.defaults.model = { primary: 'token-codex/GPT-5.6-sol' };
 config.agents.defaults.imageModel = { primary: 'token-codex/GPT-5.6-sol' };
-config.agents.defaults.imageGenerationModel = { primary: 'token-codex/GPT-5.6-sol' };
+// Token Codex is configured for chat/vision input, not image generation.
+// Set mediaModels.image only after a real image-generation provider is ready.
 const modelIds = ['GPT-5.6-sol', 'GPT-5.6-terra', 'GPT-5.6-luna'];
 config.agents.defaults.models = Object.fromEntries(modelIds.map((id) => [`token-codex/${id}`, config.agents.defaults.models?.[`token-codex/${id}`] || {}]));
 config.models ??= {};

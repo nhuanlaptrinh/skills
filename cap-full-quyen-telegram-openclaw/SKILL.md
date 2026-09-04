@@ -7,6 +7,10 @@ description: Chuẩn hóa một Telegram bot OpenClaw về agent main/workspace 
 
 Điều phối ba skill gốc theo thứ tự an toàn. Không sao chép logic sửa JSON vào skill này.
 
+Các helper đi kèm đã hỗ trợ cấu hình OpenClaw 2026.8.x với agent keyed dưới
+`agents.entries`; cấu hình legacy `agents.list` vẫn được giữ tương thích. Không
+để workflow tự tạo lại `agents.list` trên runtime mới.
+
 ## Chuẩn bị
 
 1. Đọc runbook VPS, project note, `AGENTS.md` gần member và checklist production.

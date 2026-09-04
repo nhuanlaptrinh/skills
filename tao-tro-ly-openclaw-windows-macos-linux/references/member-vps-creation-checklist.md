@@ -22,7 +22,7 @@
 - [ ] Không lộ secret
 
 ## OpenClaw root và skills
-- [ ] OpenClaw pin `2026.7.1-2` đã cài bằng root trong container
+- [ ] OpenClaw pin `2026.8.2` đã cài bằng root trong container
 - [ ] `HOME=/root`, OpenClaw root `/root/.openclaw`, workspace `/root/.openclaw/workspace`
 - [ ] Không dùng `--skip-skills`
 - [ ] Toàn bộ folder có `SKILL.md` từ root nguồn đã nằm trực tiếp trong `/root/.openclaw/workspace/skills`
@@ -51,7 +51,7 @@
 
 ## Command owner
 - [ ] `commands.ownerAllowFrom` có các `telegram:<verified_owner_id>` tương ứng
-- [ ] `commands.ownerDisplay` là `raw`
+- [ ] Không ghi `commands.ownerDisplay` (OpenClaw 2026.8 hiển thị owner ID raw mặc định)
 - [ ] Khi đổi owner vẫn merge giữ owner hợp lệ hiện có; không ghi đè toàn bộ mảng
 
 ## Owner approval và Full Exec cuối
@@ -61,7 +61,7 @@
 - [ ] Telegram DM inline buttons đã bật
 - [ ] `ensure_default_telegram_owner.py` đã chạy trước bước unify/Full Exec
 - [ ] Agent `main` dùng `tools.exec.host=gateway`, `tools.exec.mode=full`, `strictInlineEval=false`
-- [ ] `exec-approvals.json` của `main` có `security=full`, `ask=off`, `askFallback=full`, `autoAllowSkills=true`
+- [ ] Approval backend của `main` (SQLite `state/openclaw.sqlite#exec_approvals_config` trên OpenClaw 2026.8 hoặc legacy `exec-approvals.json`) có `security=full`, `ask=off`, `askFallback=full`, `autoAllowSkills=true`
 - [ ] `set-openclaw-agent-full-exec --check` xác nhận effective runtime `full/off`
 - [ ] Hiểu rõ Full Exec không hiện approval prompt cho lệnh Exec; approver vẫn dùng cho plugin/Skill Workshop theo policy riêng
 
@@ -111,7 +111,7 @@
 - [ ] Tạo session `agent:main:telegram:group:<GROUP_ID>` và có outbound hoặc user xác nhận phản hồi
 
 ## Runtime
-- [ ] `openclaw --version` đúng `2026.7.1-2`
+- [ ] `openclaw --version` đúng `2026.8.2`
 - [ ] `ensure_default_telegram_owner.py --check` đạt sau khi Telegram account tồn tại và trước Full Exec
 - [ ] Member sạch đã chạy unify normalize-only dry-run/apply/check; member legacy đã chạy merge với đúng source agent
 - [ ] `unify-openclaw-bot-workspace --check` đạt trước Full Exec: một account, một `main`, một workspace, một agent state
@@ -128,7 +128,7 @@
 - [ ] Lấy public IPv4 hoặc đặt `OPENCLAW_PUBLIC_IP`
 - [ ] Nginx reverse proxy tới `127.0.0.1:18789` có WebSocket headers
 - [ ] `allowedOrigins` đúng URL public
-- [ ] `allowInsecureAuth` true
+- [ ] Chỉ bật HTTP token-only khi `OPENCLAW_ALLOW_INSECURE_DASHBOARD=true` đã được xác nhận rõ
 - [ ] `dangerouslyDisableDeviceAuth` true cho HTTP token-only
 - [ ] Token lưu tại `/root/.openclaw_dashboard_token`, quyền 600
 - [ ] UFW mở đúng web port
@@ -141,6 +141,7 @@
 - [ ] Cả ba model provider khai báo `input: ["text", "image"]`
 - [ ] Cả ba model provider khai báo `maxTokens: 4096`
 - [ ] `agents.defaults.model.primary` và `agents.defaults.imageModel.primary` là `token-codex/GPT-5.6-sol`
+- [ ] Nếu cần image generation, chỉ dùng `agents.defaults.mediaModels.image.primary` sau khi provider tạo ảnh đã được cấu hình và `openclaw infer image providers --json` xác nhận; không dùng `token-codex/GPT-5.6-sol` hoặc key legacy `imageGenerationModel`
 - [ ] API Token Codex đã cấu hình và cả ba model chat test thành công
 - [ ] Ảnh smoke test được `openclaw infer image describe` đọc đúng chữ/nội dung đã biết
 - [ ] Ảnh không nhạy cảm đi qua đúng Telegram/Zalo/dashboard được bot mô tả đúng nếu channel đó đã cấu hình

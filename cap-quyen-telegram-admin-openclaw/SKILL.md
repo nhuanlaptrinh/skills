@@ -21,6 +21,9 @@ description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS o
 - Exec dùng `host=gateway`, `mode=auto`, `strictInlineEval=true`; host approvals dùng `allowlist/on-miss/deny`.
 - Không mở wildcard owner, không in credential và không gửi tin thật khi kiểm thử tự động.
 - Không thêm field ngoài schema như `channels.telegram.commands.enforceOwnerForCommands`; dùng `commands.ownerAllowFrom` làm nguồn owner.
+- Script hỗ trợ cả agent keyed của OpenClaw 2026.8.x (`agents.entries.<id>`) và
+  cấu hình legacy (`agents.list[]`), đồng thời không tạo collection legacy trên
+  runtime dùng `agents.entries`.
 
 ## Dry-Run
 

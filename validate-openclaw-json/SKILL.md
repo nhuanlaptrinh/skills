@@ -48,6 +48,8 @@ openclaw.json
 │   │   ├── model
 │   │   │   ├── primary          (string, bắt buộc)
 │   │   │   └── fallbacks        (array of string, tùy chọn)
+│   │   ├── imageModel            (string/object, tùy chọn - model hiểu ảnh)
+│   │   ├── mediaModels.image     (string/object, tùy chọn - model tạo ảnh)
 │   │   ├── models               (object, tùy chọn - alias cho models)
 │   │   ├── workspace            (string, bắt buộc - đường dẫn mặc định)
 │   │   ├── compaction.mode      (string: "default"|"safeguard")
@@ -106,7 +108,7 @@ openclaw.json
 │   ├── native                   (string: "auto")
 │   ├── nativeSkills             (string: "auto")
 │   ├── restart                  (boolean: true)
-│   └── ownerDisplay             (string: "raw")
+│   └── ownerAllowFrom           (array, exact verified owner senders)
 ├── session                      (object, nên có)
 │   └── dmScope                  (string: "per-channel-peer")
 ├── meta                         (object, tự động tạo)
@@ -153,7 +155,17 @@ openclaw.json
 - Chỉ tạo agent/workspace mới khi thêm một bot/account mới thật sự.
 - `channels.telegram.commands` chỉ dùng các field được schema hiện hành chấp nhận; luôn chạy `openclaw config validate` và không tự thêm field không có trong schema.
 
-#### Quy tắc 8: Agent/workspace mới phải có Reliable Media Delivery
+#### Quy tắc 8: Dùng đúng khóa model ảnh của OpenClaw 2026.8.x
+- `agents.defaults.imageModel` là model hiểu ảnh đầu vào khi model hội thoại
+  không nhận ảnh; đây không phải model tạo ảnh.
+- `agents.defaults.mediaModels.image` chỉ khai báo khi đã cấu hình một provider
+  có capability tạo ảnh và đã kiểm tra bằng `openclaw infer image providers --json`.
+- Không thêm khóa legacy `agents.defaults.imageGenerationModel`: khóa này chỉ
+  dành cho doctor/migration và bị schema cấu hình hiện hành từ chối.
+- Không thêm `commands.ownerDisplay`: OpenClaw 2026.8 hiển thị owner ID raw
+  mặc định; trường này cũng chỉ dành cho doctor/migration.
+
+#### Quy tắc 9: Agent/workspace mới phải có Reliable Media Delivery
 - Khi task thực sự tạo thêm agent/workspace, bắt buộc đồng bộ global skill `reliable-media-delivery` vào `<workspace>/skills/reliable-media-delivery`.
 - Đọc mục `Apply this skill to an agent` trong skill đó và append managed block vào `<workspace>/AGENTS.md`; không ghi đè nội dung sẵn có và không thêm block trùng marker.
 - Mỗi workspace mới phải được áp dụng riêng. Không dùng policy của workspace khác để thay thế.

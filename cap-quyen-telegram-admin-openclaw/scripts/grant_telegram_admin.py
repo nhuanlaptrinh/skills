@@ -12,6 +12,18 @@ import stat
 import sys
 import tempfile
 
+try:
+    from native_approvals import (
+        NativeApprovalsError,
+        backup_approvals,
+        load_approvals,
+        save_approvals,
+    )
+except ImportError as error:  # pragma: no cover - protects incomplete skill syncs
+    raise RuntimeError(
+        "Missing native_approvals.py; sync the cap-quyen-telegram-admin-openclaw skill"
+    ) from error
+
 
 NON_OWNER_DENY = [
     "group:runtime",
@@ -91,6 +103,42 @@ def ensure_array(parent, key):
     return value
 
 
+def agent_collection(config):
+    """Return the active agent collection, preserving the current schema."""
+    agents = config.get("agents")
+    if not isinstance(agents, dict):
+        return "list", []
+    if "entries" in agents:
+        entries = agents.get("entries")
+        if not isinstance(entries, dict):
+            raise ValueError("Expected object at agents.entries")
+        return "entries", entries
+    if "list" not in agents:
+        return "list", []
+    listed = agents.get("list")
+    if not isinstance(listed, list):
+        raise ValueError("Expected array at agents.list")
+    return "list", listed
+
+
+def find_agent(config, agent_id):
+    mode, collection = agent_collection(config)
+    if mode == "entries":
+        entry = collection.get(agent_id)
+        if entry is None:
+            return None
+        if not isinstance(entry, dict):
+            raise ValueError(f"Agent entry must be an object: {agent_id}")
+        return entry
+    matches = [
+        entry for entry in collection
+        if isinstance(entry, dict) and entry.get("id") == agent_id
+    ]
+    if len(matches) > 1:
+        raise ValueError(f"Duplicate agent id found: {agent_id}")
+    return matches[0] if matches else None
+
+
 def append_unique(values, candidate, normalize=str):
     normalized_candidate = normalize(candidate)
     if any(normalize(value) == normalized_candidate for value in values):
@@ -159,9 +207,12 @@ def merge_config(
         append_unique(owner_allow_from, f"telegram:{telegram_id}"),
         "add target to commands.ownerAllowFrom",
     )
-    if commands.get("ownerDisplay") != "raw":
-        commands["ownerDisplay"] = "raw"
-        changes.append("set commands.ownerDisplay=raw")
+    # OpenClaw 2026.8 renders raw owner IDs by default; these legacy keys are
+    # doctor-only and rejected by the active config schema.
+    for retired_key in ("ownerDisplay", "ownerDisplaySecret"):
+        if retired_key in commands:
+            commands.pop(retired_key, None)
+            changes.append(f"remove unsupported commands.{retired_key}")
 
     exec_approvals = ensure_object(telegram, "execApprovals")
     if exec_approvals.get("enabled") != "auto":
@@ -179,20 +230,30 @@ def merge_config(
         changes.append("send Telegram exec approvals to DM only")
 
     agents = ensure_object(config, "agents")
-    agent_list = ensure_array(agents, "list")
-    matching_agents = [entry for entry in agent_list if isinstance(entry, dict) and entry.get("id") == agent_id]
-    if len(matching_agents) > 1:
-        raise ValueError(f"Duplicate agent id found: {agent_id}")
-    if matching_agents:
-        admin_agent = matching_agents[0]
-    elif agent_id == "main":
-        admin_agent = {"id": "main", "default": True}
-        agent_list.insert(0, admin_agent)
-        changes.append("register implicit default agent main")
+    collection_mode, collection = agent_collection(config)
+    if collection_mode == "entries":
+        admin_agent = collection.get(agent_id)
+        if admin_agent is not None and not isinstance(admin_agent, dict):
+            raise ValueError(f"Agent entry must be an object: {agent_id}")
+        if admin_agent is None:
+            raise ValueError(
+                f"Agent does not exist: {agent_id}. Create a new agent only when creating a new bot."
+            )
     else:
-        raise ValueError(
-            f"Agent does not exist: {agent_id}. Create a new agent only when creating a new bot."
-        )
+        agent_list = collection
+        matching_agents = [entry for entry in agent_list if isinstance(entry, dict) and entry.get("id") == agent_id]
+        if len(matching_agents) > 1:
+            raise ValueError(f"Duplicate agent id found: {agent_id}")
+        if matching_agents:
+            admin_agent = matching_agents[0]
+        elif agent_id == "main":
+            admin_agent = {"id": "main", "default": True}
+            agent_list.insert(0, admin_agent)
+            changes.append("register implicit default agent main")
+        else:
+            raise ValueError(
+                f"Agent does not exist: {agent_id}. Create a new agent only when creating a new bot."
+            )
 
     if not admin_agent.get("workspace") or (
         normalize_agent_paths and str(admin_agent.get("workspace")) != str(workspace)
@@ -413,6 +474,7 @@ def print_summary(
 ):
     print(f"mode={mode}")
     print(f"config={config_path}")
+    # ``approvals_path`` is a display locator; native 2026.8 uses SQLite.
     print(f"host_approvals={approvals_path}")
     print(f"telegram_id={telegram_id}")
     print(f"account_id={account_id}")
@@ -449,18 +511,15 @@ def main():
     if approvals_path.is_symlink():
         raise ValueError("Refusing to modify symlinked host exec approvals")
 
+    approvals_snapshot = load_approvals(openclaw_root)
+
     with config_path.open("r", encoding="utf-8") as config_file:
         original_config = json.load(config_file)
     if not isinstance(original_config, dict):
         raise ValueError("OpenClaw config root must be an object")
 
-    configured_agent = None
+    configured_agent = find_agent(original_config, agent_id)
     agents_config = original_config.get("agents")
-    if isinstance(agents_config, dict):
-        for entry in agents_config.get("list", []):
-            if isinstance(entry, dict) and entry.get("id") == agent_id:
-                configured_agent = entry
-                break
     defaults = agents_config.get("defaults", {}) if isinstance(agents_config, dict) else {}
     configured_workspace = configured_agent.get("workspace") if configured_agent else None
     if not configured_workspace and agent_id == "main" and isinstance(defaults, dict):
@@ -498,12 +557,7 @@ def main():
         )
     )
 
-    original_approvals = {}
-    if approvals_path.exists():
-        with approvals_path.open("r", encoding="utf-8") as approvals_file:
-            original_approvals = json.load(approvals_file)
-        if not isinstance(original_approvals, dict):
-            raise ValueError("Host exec approvals root must be an object")
+    original_approvals = approvals_snapshot.document
     updated_approvals = copy.deepcopy(original_approvals)
     host_changes = merge_host_approvals(updated_approvals, agent_id)
 
@@ -511,7 +565,7 @@ def main():
         print_summary(
             "check",
             config_path,
-            approvals_path,
+            approvals_snapshot.locator,
             account_id,
             agent_id,
             telegram_id,
@@ -528,7 +582,7 @@ def main():
         print_summary(
             "dry-run",
             config_path,
-            approvals_path,
+            approvals_snapshot.locator,
             account_id,
             agent_id,
             telegram_id,
@@ -547,7 +601,7 @@ def main():
         print_summary(
             "apply",
             config_path,
-            approvals_path,
+            approvals_snapshot.locator,
             account_id,
             agent_id,
             telegram_id,
@@ -560,21 +614,26 @@ def main():
     backup_paths = []
     if changes:
         backup_paths.append(create_backup(config_path, backup_dir, telegram_id))
-    if host_changes and approvals_path.exists():
-        backup_paths.append(
-            create_named_backup(
-                approvals_path, backup_dir, "exec-approvals", telegram_id
-            )
+    if host_changes:
+        backup = backup_approvals(
+            approvals_snapshot,
+            backup_dir,
+            f"exec-approvals-before-telegram-admin-{telegram_id}",
         )
+        backup_paths.append(pathlib.Path(backup["path"]))
     create_admin_directories(workspace_filesystem, agent_dir_filesystem, references_dir)
     if changes:
         atomic_write_json(config_path, updated_config)
     if host_changes:
-        atomic_write_json(approvals_path, updated_approvals)
+        save_approvals(
+            approvals_snapshot,
+            updated_approvals,
+            config_path=config_path,
+        )
     print_summary(
         "apply",
         config_path,
-        approvals_path,
+        approvals_snapshot.locator,
         account_id,
         agent_id,
         telegram_id,
@@ -589,6 +648,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, json.JSONDecodeError, NativeApprovalsError) as error:
         print(f"error={error}", file=sys.stderr)
         sys.exit(1)

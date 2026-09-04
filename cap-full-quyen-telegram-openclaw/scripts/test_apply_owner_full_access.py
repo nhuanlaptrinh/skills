@@ -185,6 +185,19 @@ class WorkflowTests(unittest.TestCase):
         config, approvals = compliant_fixture()
         self.assertEqual(MODULE.final_violations(self.make_context(), config, approvals), [])
 
+    def test_final_compliance_with_entries_schema(self):
+        config, approvals = compliant_fixture()
+        listed = config["agents"].pop("list")[0]
+        listed.pop("id", None)
+        listed.pop("default", None)
+        config["agents"]["entries"] = {"main": listed}
+        self.assertEqual(MODULE.final_violations(self.make_context(), config, approvals), [])
+        source, requires_unify = MODULE.detect_source_agent(
+            config, "demo", "main", "auto"
+        )
+        self.assertIsNone(source)
+        self.assertFalse(requires_unify)
+
     def test_missing_owner_is_reported(self):
         config, approvals = compliant_fixture()
         config["commands"]["ownerAllowFrom"] = []
