@@ -214,6 +214,54 @@ docker logs --since 5m telegram-bot-api 2>&1 | tail -100
 
 Do not send a test message to a real chat unless the user explicitly requests it. The safe verification is local getMe, channel probe, listener scope, and healthy polling connections. A real user can then send a video over 50 MB to the bot and ask it to send a video over 20 MB.
 
+## Mandatory slow-reply recovery gate before handoff
+
+Installing Local Bot API is not complete until the companion skill
+`/root/.agents/skills/openclaw-telegram-slow-reply-recovery/SKILL.md` has been used
+for the same VPS, Gateway, agent, and Telegram account. This gate is mandatory
+before declaring the Cloud -> Local handover healthy or handing the bot back to
+the user. Do not treat `getMe` or `connected` alone as proof that replies will
+dispatch promptly.
+
+Run the companion skill's account-scoped diagnostics after the Local API is
+reachable and the Gateway has restarted. At minimum, collect redacted results
+for config validation, Telegram probe JSON, effective agent/binding, active
+sessions and token counts, Gateway/Supervisor state, recent Telegram/dispatch/
+provider logs, and one-owner/polling checks. If the latency audit is available,
+run it for the target account; otherwise correlate only account-labeled inbound
+and outbound events and mark unpaired measurements as unverified.
+
+For a Docker member, use `docker exec` equivalents and the Supervisor program
+`openclaw-gateway`; never use the host systemd unit as a substitute. If the
+diagnostics show a stale/high offset, duplicate update spooling, `409 Conflict`,
+wrong routing, session lock/bloat, dispatch failure, provider timeout, or an
+event-loop stall, stop the affected Gateway, back up config/state, and follow
+`openclaw-telegram-slow-reply-recovery` plus
+`sua-loi-telegram-offset-openclaw` before handoff. For `tokenFile` members,
+resolve the token only into a mode-600 ephemeral config; for Local API offset
+checks use the sidecar Docker IP and never call `getUpdates` while the Gateway
+is running.
+
+The handoff gate passes only when all of these are true:
+
+- the target account reports `running`, `connected`, and `works`, with no active
+  reconnect loop or duplicate poller;
+- the effective account, agent, workspace, DM/group policy, and Local API root
+  are the intended ones;
+- no unaddressed offset mismatch, repeated update ID, `409 Conflict`, dispatch
+  error, provider timeout, or outbound Telegram error appears in the verification
+  window;
+- event-loop health and CPU are stable enough for the member's workload, and any
+  provider latency is recorded separately from Telegram transport latency;
+- config validation succeeds, the sidecar is healthy, the listener scope is
+  correct, and the backup path plus any remaining media/provider limitation are
+  recorded without secrets.
+
+Do not send a real Telegram test during this gate unless the user explicitly
+authorizes it. If any pass criterion is unknown or fails, stop the handoff,
+report the exact blocked check, and keep the previous known-good polling path
+until a verified repair is complete.
+
 ## Docker member workflow
 
 Use this workflow when OpenClaw runs in a member container under Supervisor (for example `user-<member>`). It leaves the main VPS OpenClaw and all other members unchanged.
@@ -403,6 +451,10 @@ ss -ltnp | grep ':8081\\b' || true
 ```
 
 The safe result is local `getMe ok=true`, webhook URL absent, member channel `connected/works`, sidecar `running`, no host `8081` listener, and the network containing only the target member plus its sidecar. For a final offset check, stop the Gateway and call the helper with the sidecar Docker IP as `--api-root http://<sidecar-ip>:8081`; never use `getUpdates` against a running poller.
+
+After these member checks, run the **Mandatory slow-reply recovery gate before
+handoff** above with the member's Supervisor/Gateway and account-specific paths.
+The member is not ready for handoff until that companion-skill gate passes.
 
 ## Troubleshooting
 

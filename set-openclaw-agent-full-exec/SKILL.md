@@ -99,6 +99,10 @@ bash scripts/set_openclaw_agent_full_exec.sh \
 6. Với member VPS, chỉ signal riêng `openclaw-gateway` khi parent là Supervisor; không restart/recreate container.
 7. Kiểm tra runtime Gateway approval, connectivity và channel probe mà không gửi tin nhắn thật.
 
+Các lệnh OpenClaw chạy trong member được helper bọc bằng shell nạp các env
+SecretRef root-only (`gateway.env` và `token-codex.env`) nếu có; giá trị bí mật
+không đi qua argv hoặc output.
+
 ## Input và output
 
 Input:

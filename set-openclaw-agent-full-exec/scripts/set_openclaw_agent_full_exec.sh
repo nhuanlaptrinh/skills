@@ -455,7 +455,7 @@ validate_runtime() {
   if [ -n "$CONTAINER" ]; then
     command -v docker >/dev/null 2>&1 || die "docker is required for --container"
     docker inspect "$CONTAINER" >/dev/null 2>&1 || die "Container not found: $CONTAINER"
-    output="$(docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw config validate 2>&1)" || status=$?
+    output="$(docker_openclaw config validate 2>&1)" || status=$?
   else
     command -v openclaw >/dev/null 2>&1 || die "openclaw command not found"
     output="$(HOME="$RUNTIME_HOME" OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" openclaw config validate 2>&1)" || status=$?
@@ -467,7 +467,7 @@ validate_runtime() {
 runtime_approval_check() {
   local snapshot
   if [ -n "$CONTAINER" ]; then
-    snapshot="$(docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw approvals get --gateway --json 2>/dev/null)" || return 1
+    snapshot="$(docker_openclaw approvals get --gateway --json 2>/dev/null)" || return 1
   else
     snapshot="$(HOME="$RUNTIME_HOME" OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" openclaw approvals get --gateway --json 2>/dev/null)" || return 1
   fi
@@ -475,6 +475,21 @@ runtime_approval_check() {
     ((.file.agents // .agents)[$agent]) as $policy |
     $policy.security == "full" and $policy.ask == "off"
   ' >/dev/null
+}
+
+# Resolve SecretRef-backed config in the same environment used by the member
+# Gateway. Values stay inside the container and are never passed in argv.
+docker_openclaw() {
+  [ -n "$CONTAINER" ] || die "docker_openclaw requires a container"
+  docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" sh -lc '
+    set -a
+    [ ! -r /root/.openclaw/gateway.env ] || . /root/.openclaw/gateway.env
+    [ ! -r /root/.openclaw/token-codex.env ] || . /root/.openclaw/token-codex.env
+    set +a
+    export HOME="$1"
+    shift
+    exec openclaw "$@"
+  ' sh "$RUNTIME_HOME" "$@"
 }
 
 preflight_restart() {
@@ -512,8 +527,8 @@ restart_gateway() {
     done
     [ -n "$new_pid" ] && [ "$new_pid" != "$old_pid" ] || die "Gateway did not respawn; config backup remains available"
     printf 'gateway_respawned=true old_pid=%s new_pid=%s\n' "$old_pid" "$new_pid"
-    docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw gateway status 2>&1 | sanitize_output | grep -E 'Connectivity probe|Listening|Gateway version' || true
-    docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" openclaw channels status --probe 2>&1 | sanitize_output | grep -E 'Gateway reachable|Telegram|Zalo' || true
+    docker_openclaw gateway status 2>&1 | sanitize_output | grep -E 'Connectivity probe|Listening|Gateway version' || true
+    docker_openclaw channels status --probe 2>&1 | sanitize_output | grep -E 'Gateway reachable|Telegram|Zalo' || true
   else
     HOME="$RUNTIME_HOME" OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" openclaw gateway restart 2>&1 | sanitize_output
   fi
