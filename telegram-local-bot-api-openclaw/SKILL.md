@@ -458,6 +458,14 @@ The member is not ready for handoff until that companion-skill gate passes.
 
 ## Troubleshooting
 
+### Docker member outbound media paths
+
+- `trustedLocalFileRoots` controls absolute `file_path` values returned by a self-hosted Local Bot API; it is not a general outbound media allowlist.
+- For a Docker member, use the path visible inside the member container. A host path such as `/root/Apps/member_vps/docker-users/data/<member>/...` is not visible there unless it is explicitly mounted at that exact path.
+- Prefer staging generated files under `<state-dir>/media/outbound/` and pass that member-visible path to `message`.
+- `tools.fs.workspaceOnly=false` widens outbound host-local media reads only when the agent/sender read policy allows it; it does not create a literal `/root` allowlist.
+- Use `openclaw-member-media-allowlist` for the complete member diagnosis, backup, repair, verification, and rollback workflow.
+
 - error: expected TELEGRAM_API_ID...: the env file is absent, empty, or unreadable. Stop; obtain real credentials instead of guessing.
 - 409 Conflict: an old gateway/container is still polling. Stop duplicate gateways, log out the bot from the currently active API server, then start only one poller.
 - 413 Request Entity Too Large: confirm OpenClaw loaded the local apiRoot, the Local Bot API is in --local mode, and mediaMaxMb is not below the file size.

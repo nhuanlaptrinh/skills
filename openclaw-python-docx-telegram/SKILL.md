@@ -16,7 +16,7 @@ description: Create and deliver Vietnamese DOCX reports from OpenClaw Telegram u
 - Python environment: `/root/.openclaw/tools/document-venv`
 - Script: `/root/.openclaw/workspace/skills/openclaw-python-docx-telegram/scripts/create_docx_report.py`
 - Input: JSON UTF-8 do agent tạo trong workspace, gồm `title`, `subtitle`, `metadata`, `sections`, `tables`, `footer`.
-- Output: DOCX trong workspace, thường dưới `reports/` hoặc `out/`.
+- Output: DOCX trung gian trong workspace; bản gửi Telegram nên stage tại `/root/.openclaw/media/outbound/`.
 
 ## Quy trình
 
@@ -34,8 +34,16 @@ description: Create and deliver Vietnamese DOCX reports from OpenClaw Telegram u
 
 4. Chạy thật bằng cùng lệnh, bỏ `--dry-run`.
 5. Kiểm tra JSON kết quả báo `valid=true`; nếu có thể, mở/preview DOCX hoặc kiểm tra ZIP structure trước khi gửi.
-6. Gửi nội dung hoàn tất và tệp bằng công cụ `message` tới đúng Telegram chat/group/thread của request hiện tại. Không đoán target từ owner mặc định.
-7. Chỉ coi là đã gửi khi công cụ trả `messageId` và metadata đích khớp; sau đó không gửi thêm tin trùng.
+6. Với member Docker, copy file hợp lệ vào `/root/.openclaw/media/outbound/` và dùng đường dẫn bên trong container khi gửi:
+
+```bash
+mkdir -p /root/.openclaw/media/outbound
+cp /root/.openclaw/workspace/reports/report.docx /root/.openclaw/media/outbound/report.docx
+```
+
+7. Không truyền đường dẫn host như `/root/Apps/member_vps/docker-users/data/<member>/...` vào `message`; đường dẫn đó không tồn tại bên trong member container.
+8. Gửi nội dung hoàn tất và tệp bằng công cụ `message` tới đúng Telegram chat/group/thread của request hiện tại. Không đoán target từ owner mặc định.
+9. Chỉ coi là đã gửi khi công cụ trả `messageId` và metadata đích khớp; sau đó không gửi thêm tin trùng.
 
 ## Rerun/rerender
 
@@ -47,5 +55,7 @@ description: Create and deliver Vietnamese DOCX reports from OpenClaw Telegram u
 
 - Không ghi token, API key, cookie, mật khẩu, private key hoặc ID đích riêng tư vào JSON, skill, log hay báo cáo vận hành.
 - Chỉ tạo file trong workspace được cấp; không sửa `.env` hoặc credential.
+- Kiểm tra `unzip -tqq`/khả năng đọc trước khi copy sang `media/outbound`; chỉ gửi path member-visible, không gửi path host.
+- Nếu vẫn gặp `LocalMediaAccessError`, chạy skill `openclaw-member-media-allowlist` để kiểm tra member/container path và policy trước khi sửa Telegram root.
 - `exec` và `message` chỉ được dùng để hoàn thành yêu cầu DOCX; giữ nguyên các deny policy còn lại cho sender không được cấp quyền.
 - Với file lỗi hoặc receipt gửi không rõ ràng, không tuyên bố đã giao; kiểm tra lại rồi retry tối đa một lần khi an toàn.

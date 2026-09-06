@@ -35,6 +35,7 @@ Prove all of the following before applying this recovery:
 - The transport returned HTTP `200` and `text/event-stream`, so ordinary error fallback did not run.
 - Telegram polling, routing, Gateway, CPU, and RAM are healthy.
 - Redacted 9Router usage data shows the downstream provider/model and account distribution.
+- For model availability failures, check for HTTP `404` with error code `model_not_found`; this is a fallback-triggering condition, not a reason to expose the raw upstream error to OpenClaw.
 
 The proxy intentionally matches only these normalized assistant responses: the known `Our servers are currently overloaded` sentence, a close server-overloaded variant, or `Service temporarily unavailable`. Do not broaden the match to arbitrary words such as `error`, because a legitimate assistant answer can contain them.
 
@@ -74,7 +75,7 @@ openclaw config validate
 systemctl --user restart openclaw-gateway.service
 ```
 
-The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed.
+The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed. The reliable proxy fallback chain is `GPT-5.6-sol -> GPT-5.6-terra -> GPT-5.6-luna`, and it retries an upstream `404 model_not_found` using that chain.
 
 For a single-agent repair, omit `--all-agents` and pass `--agent <agent-id>`.
 

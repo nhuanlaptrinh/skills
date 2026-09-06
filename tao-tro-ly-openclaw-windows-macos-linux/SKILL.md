@@ -1,6 +1,6 @@
 ---
 name: tao-tro-ly-openclaw-windows-macos-linux
-description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, đồng bộ policy owner-training và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, xác minh owner theo chính VPS đích, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
+description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, đồng bộ policy owner-training và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, xác minh owner theo chính VPS đích, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Mọi lần kết nối Zalo Personal phải chạy openclaw-zalouser-onboarding-standard để bật Supervisor, channel watchdog và resource/OOM guard trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
 ---
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
@@ -13,6 +13,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 
 - Không được báo hoàn tất nếu chưa cài `openclaw@2026.8.2`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
 - Linux/VPS/container member bắt buộc chạy OpenClaw bằng `root`, `HOME=/root`, OpenClaw root `/root/.openclaw` và workspace `/root/.openclaw/workspace`.
+- Với member legacy đã có HOME/OpenClaw root khác và đã được xác minh bằng `docker inspect` cùng project note, giữ đúng đường dẫn persistent hiện hữu; không tự di chuyển về `/root` trong quy trình Zalo onboarding.
 - `/root/.openclaw` trong container phải là thư mục thật nằm trên volume persistent riêng của member; không dùng symlink sang home khác.
 - macOS dùng tài khoản root quản trị với OpenClaw root `/var/root/.openclaw`. Windows dùng PowerShell **Run as Administrator** và OpenClaw root trong profile Administrator: `$env:USERPROFILE\.openclaw`.
 - Tất cả folder có `SKILL.md` từ root nguồn `.agents/skills`, `.codex/skills` và nhóm `.codex/skills/.system` phải được đặt trực tiếp tại `<OPENCLAW_ROOT>/workspace/skills/<ten-skill>`; không bọc thêm folder tổng hoặc folder ngày.
@@ -23,6 +24,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 - Script đồng bộ phải loại `.git`, `__pycache__`, `.pyc`, `node_modules`; nếu skill đích đã tồn tại, script backup trước khi thay.
 - Nếu trùng tên skill giữa các root nguồn, ưu tiên root nguồn xuất hiện trước; chỉ cài một folder trực tiếp cho mỗi tên skill.
 - Gateway chỉ được start/restart sau khi `openclaw --version`, đồng bộ skill, owner check, unify check, Full Exec file check, `openclaw config validate` và `openclaw skills check` đều đạt.
+- Mọi lần kết nối hoặc gắn Zalo Personal mới phải chạy `/root/.agents/skills/openclaw-zalouser-onboarding-standard/SKILL.md` trước bước QR/login và chỉ bàn giao sau khi Gateway Supervisor, Zalo watchdog, resource/OOM guard, backup và acceptance checks đạt.
 
 ## Reliable media delivery bắt buộc cho workspace mới
 
@@ -197,6 +199,7 @@ Trên VPS hiện tại, `/root/Apps/member_vps/docker-users/manage-user.sh` ch�
 - Second AI Brain: thực hiện trực tiếp tại mục **Second AI Brain Cho Member VPS Mới**.
 - Chuẩn bị/kiểm tra API Token Codex: thực hiện trực tiếp tại mục **Chuẩn bị Token Codex trước member VPS**.
 - Đăng nhập Zalo Personal: thực hiện trực tiếp tại mục **Đăng nhập Zalo Personal/Zalo User**.
+- Chuẩn onboarding Zalo dùng chung: `/root/.agents/skills/openclaw-zalouser-onboarding-standard`.
 
 ## Trường hợp đổi tên hoặc copy từ VPS thành viên cũ
 
@@ -920,6 +923,12 @@ docker exec -e HOME=/root user-<ten_user> openclaw pairing approve --channel tel
 
 ## Đăng nhập Zalo Personal/Zalo User và gửi QR qua Telegram
 
+Trước khi thực hiện mục này, bắt buộc đọc và chạy theo
+`/root/.agents/skills/openclaw-zalouser-onboarding-standard/SKILL.md`. Skill
+onboarding phải xác định đúng runtime, chuyển Gateway sang Supervisor nếu cần,
+backup production, đăng ký ba watchdog và kiểm tra resource/OOM trước khi QR
+login. Không coi việc QR đăng nhập thành công là đã hoàn tất bàn giao.
+
 Áp dụng khi người dùng muốn OpenClaw trong member VPS dùng tài khoản Zalo cá nhân, đặc biệt khi QR hết hạn nhanh hoặc việc mở QR qua web mất thời gian. Workflow QR, backup, policy, cleanup và kiểm tra đều nằm trong các mục bên dưới; với member VPS đã có Telegram thì ưu tiên gửi ảnh QR trực tiếp tới Telegram allowlist.
 
 ### Đầu vào và preflight
@@ -1475,9 +1484,13 @@ Không được báo “đã tạo xong trợ lý/agent” nếu checklist còn 
 
 ## Chuẩn độ ổn định Zalo cho member đang chạy
 
+Với member mới hoặc member được gắn Zalo lần đầu, dùng
+`openclaw-zalouser-onboarding-standard` thay cho checklist rời rạc. Checklist
+dưới đây là phần hardening bổ sung cho member đã chạy.
+
 Khi member dùng Zalo để xử lý PDF/Excel/ảnh/video hoặc từng có hiện tượng Zalo im trong khi Telegram vẫn chạy:
 
-1. Bật watchdog `member_anhlaptrinh_zalouser` theo mẫu shared center, kiểm tra cả `channels status --probe` và sự kiện listener cuối cùng trong log.
+1. Bật watchdog `member_anhlaptrinh_zalouser` và resource guard theo mẫu shared center, kiểm tra cả `channels status --probe`, sự kiện listener cuối cùng trong log và cgroup resource của member.
 2. Cài bộ công cụ tài liệu trực tiếp trong đúng container hoặc dùng script chỉ sau khi đã xác minh đường dẫn thực sự tồn tại.
 3. Ghi các quy tắc reliability trực tiếp vào workspace/AGENTS của member: phản hồi sớm nếu tác vụ quá 20 giây, cập nhật sau khoảng 120 giây, tách tác vụ nặng thành worker khi có thể, kiểm tra file trước khi gửi, không gửi file rỗng/hỏng, tạo bản nhẹ nếu file vượt 8 MB và chỉ báo đã gửi sau khi kiểm tra thành công.
 4. Đặt `tools.sessions.visibility: agent` khi session chính cần theo dõi worker cùng agent; không đặt `all` nếu không cần cross-agent.

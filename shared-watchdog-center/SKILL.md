@@ -68,12 +68,15 @@ Use these labels in config:
 - `openclaw_channel`: health/recovery check for an OpenClaw channel such as Zalo Personal.
 - `openclaw_gateway`: host-side guard for the member Supervisor Gateway block and Gateway process.
 - `openclaw_session`: scheduled OpenClaw session audit/compaction with an explicit channel-key filter.
+- `host_resource`: host and member cgroup RAM/swap/pressure/OOM monitoring with cooldown-based alerts.
 
 For OpenClaw session maintenance, set the token threshold comfortably below the effective context limit. For a member configured with `contextTokens=64000` and `reserveTokensFloor=40000`, use a preventive threshold around `45000`, not `60000`. Enable `agents.defaults.contextPruning` separately when large tool results are the main source of context growth, because line-count compaction may not shrink a short transcript containing one very large tool result.
 
 For OpenClaw channel watchdogs, do not rely only on a healthy gateway process. Combine `openclaw channels status --probe` with the latest channel listener events, use a restart cooldown, and notify through a different healthy channel only when an incident or recovery occurs.
 
 For `openclaw_gateway`, run the guard on the main VPS rather than inside the member Supervisor it protects. Use `scripts/check_member_gateway_supervisor.py`, compare both the active Supervisor config and persistent entrypoint, back up before repair, and set `ai_on_failure=false`. For members whose provider is configured with `${TOKEN_CODEX_API_KEY}`, the guard must require a Gateway command that sources both `.openclaw/gateway.env` and `.openclaw/token-codex.env`, and must verify `TOKEN_CODEX_API_KEY` is present in the live Gateway environment. Never apply a plain `command=/usr/bin/openclaw gateway run` template to such a member. This prevents infrastructure drift from calling an AI repair agent or consuming tokens.
+
+For `host_resource`, use `scripts/check_member_resource_guard.py` on the main VPS. Monitor `MemAvailable`, `SwapFree`, memory PSI, recent kernel OOM events, and the target member cgroup. Alert through a healthy member Telegram account with a long cooldown; do not kill unrelated containers or processes automatically. Keep the resource guard separate from the Zalo listener restart so memory pressure does not cause a restart storm.
 
 The `type` is used to create better OpenClaw prompts and classify errors.
 
@@ -304,6 +307,18 @@ CONTAINER=user-nguyendinhtan MEMBER_HOME=/root MEMBER_LABEL=nguyendinhtan PROJEC
 ```
 
 Script kiểm tra container, giữ `proxy.enabled=false` để Zalo chạy direct-first, nạp gateway env nội bộ rồi probe `openclaw channels status --probe`. Trạng thái khỏe phải được match theo thứ tự `configured`, `running`, `works` nhưng cho phép các trường trung gian như `linked`; không yêu cầu chuỗi `configured, running` liền nhau. Script phát hiện cả listener exit và `OutboundDeliveryError`, sau đó gửi `SIGTERM` cho gateway dưới Supervisor với cooldown 10 phút. Nếu restart không khôi phục được phiên, script ghi `MANUAL_REQUIRED`; không tự logout, không tự tạo QR và không gọi AI lặp lại.
+
+The Zalo health matcher must treat `running` as a comma-delimited status token. Never match the substring inside `health:not-running`, because the probe can report `works` for a channel whose listener is stopped.
+
+Resource/OOM guard example:
+
+```bash
+/usr/bin/python3 /root/Automation/watchdog/shared_self_healing/scripts/check_member_resource_guard.py \
+  --container user-daomac --member-home /home/daomac --member-label daomac --account daomac --dry-run
+/root/Automation/watchdog/shared_self_healing/run_project.sh member_daomac_resource_guard
+```
+
+The resource guard writes only sanitized status and cooldown state to the shared center. It does not change the member container, Gateway, browser profiles, credentials, sessions, or SQLite state.
 
 Với session có ít dòng nhưng context lớn do tool output, cấu hình một project `openclaw_session` dùng `MEMBER_HOME`, `SESSION_PATTERN` hẹp và `COMPACTION_MODE=summary`. Chỉ compact khi session idle đủ lâu; luôn backup session index trước lần áp dụng đầu tiên.
 

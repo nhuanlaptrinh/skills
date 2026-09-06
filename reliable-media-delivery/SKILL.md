@@ -78,6 +78,13 @@ For an agent that sends files through Zalo, also append this block:
 
 ## Required delivery protocol
 
+### Docker member path preflight
+
+- Resolve the member-visible path before sending; do not pass the host source path under `/root/Apps/member_vps/docker-users/data/<member>/...` into a member container.
+- Prefer `<state-dir>/media/outbound/` for generated documents and media, then verify the file from inside the member container.
+- A successful `--dry-run` only confirms the payload shape; it does not prove that the Gateway can read or upload the local file.
+- For `LocalMediaAccessError`, use `openclaw-member-media-allowlist` before changing a Telegram Local Bot API root.
+
 1. Confirm the local output exists, is readable, and is the intended file before sending.
 2. Send using the platform-native messaging tool with the explicit intended destination and thread/group when applicable.
 3. Treat a send attempt as **unverified** until the tool/platform returns a real `messageId` and destination metadata confirms the intended channel, recipient/group, and thread when used.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Compaction Recovery"
+  short_description: "Audit và sửa lỗi auto-compaction OpenClaw"
+  default_prompt: "Use $openclaw-compaction-recovery to audit and safely remediate recurring OpenClaw context overflow and auto-compaction timeouts."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Member Media Allowlist"
+  short_description: "Fix member media path and delivery allowlists"
+  default_prompt: "Use $openclaw-member-media-allowlist to diagnose and safely repair media attachment path errors on this OpenClaw member VPS."
