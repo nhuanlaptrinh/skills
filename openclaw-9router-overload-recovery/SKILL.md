@@ -1,11 +1,11 @@
 ---
 name: openclaw-9router-overload-recovery
-description: Diagnose, install, verify, repair, or roll back the reliable local proxy used when OpenClaw agents receive HTTP 200/SSE responses whose assistant text says the AI servers are overloaded. Use for repeated 9Router/Codex overload replies, missing retry on successful HTTP responses, Codex account concentration, or model fallback hardening for one agent or all agents on the main VPS.
+description: Diagnose, install, verify, repair, or roll back the reliable local proxy used when OpenClaw agents receive HTTP 200/SSE responses whose assistant text contains an upstream overload or generic processing-error message. Use for repeated 9Router/Codex error replies, missing retry on successful HTTP responses, Codex account concentration, or model fallback hardening for one agent or all agents on the main VPS.
 ---
 
 # OpenClaw 9Router Overload Recovery
 
-Recover transient AI overloads without forwarding the raw overload sentence to Telegram. The proxy buffers chat-completion responses, recognizes the narrow known overload message, retries once, then changes model; 9Router rotates Codex accounts and its combo also has alternate models.
+Recover transient AI failures without forwarding raw upstream error text to Telegram. The proxy buffers chat-completion responses, recognizes the narrow known overload messages and the exact `[Error] An error occurred while processing... request ID <UUID>` template, retries once, then changes model; 9Router rotates Codex accounts and its combo also has alternate models.
 
 ## Paths and services
 
@@ -24,7 +24,7 @@ Recover transient AI overloads without forwarding the raw overload sentence to T
 - Never print provider credentials, Telegram tokens, prompts, private messages, or full request bodies.
 - Back up `openclaw.json`, the 9Router SQLite database with the SQLite backup API, and affected systemd units.
 - Do not call Telegram `getUpdates` while Gateway is running and do not send a real test message without authorization.
-- Keep the proxy on loopback. Do not expose port `20129` publicly.
+- Keep the proxy on loopback. Do not expose port `20129` publicly; if remote member clients need protection, route the existing TLS ingress through the loopback proxy.
 
 ## Diagnose
 
@@ -37,7 +37,7 @@ Prove all of the following before applying this recovery:
 - Redacted 9Router usage data shows the downstream provider/model and account distribution.
 - For model availability failures, check for HTTP `404` with error code `model_not_found`; this is a fallback-triggering condition, not a reason to expose the raw upstream error to OpenClaw.
 
-The proxy intentionally matches only these normalized assistant responses: the known `Our servers are currently overloaded` sentence, a close server-overloaded variant, or `Service temporarily unavailable`. Do not broaden the match to arbitrary words such as `error`, because a legitimate assistant answer can contain them.
+The proxy intentionally matches only these normalized assistant responses: the known overload variants, `Service temporarily unavailable`, or the complete generic processing-error template with a valid request UUID. Do not broaden the match to arbitrary words such as `error`, because a legitimate assistant answer can contain them.
 
 ## Dry run
 
@@ -75,7 +75,7 @@ openclaw config validate
 systemctl --user restart openclaw-gateway.service
 ```
 
-The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed. The reliable proxy fallback chain is `GPT-5.6-sol -> GPT-5.6-terra -> GPT-5.6-luna`, and it retries an upstream `404 model_not_found` using that chain.
+The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed. The reliable proxy retries the requested model once, then uses configured fallback models, with `MAX_ATTEMPTS=3` limiting each request to three attempts total. It handles overload content, the exact generic processing-error template, retryable HTTP statuses, and upstream `404 model_not_found` without forwarding raw error text.
 
 For a single-agent repair, omit `--all-agents` and pass `--agent <agent-id>`.
 
@@ -93,16 +93,16 @@ openclaw channels status --channel telegram --probe --json
 journalctl --user -u openclaw-9router-reliable-proxy.service --since "15 minutes ago" -o cat --no-pager
 ```
 
-Confirm one post-change request uses provider `9rr`, proxy logs `upstream_complete` or `upstream_retry`, Telegram sends successfully, and the exact overload sentence is absent from new transcript events. The proxy buffers each response before forwarding, so record the added buffering latency when reporting.
+Confirm one post-change request uses provider `9rr`, proxy logs `upstream_complete` or `upstream_retry`, and the exact overload and generic processing-error sentences are absent from new transcript events. Do not send a real Telegram test without authorization. The proxy buffers each response before forwarding, so record the added buffering latency when reporting.
 
 For all-agent changes, also confirm every explicit `agents.entries.*.model` source reference is either `9rr/` or intentionally external, and default text/image models use `9rr/` where they previously used `9r/`.
 
 ## Input and output
 
 - Input: OpenAI-compatible `POST /v1/chat/completions`; all other paths are passed through.
-- Output: the first successful non-overload upstream response.
-- Retry order: requested model once, requested model retry once, then configured fallback models.
-- Exhaustion: return a sanitized HTTP `503` JSON error; never forward raw overload assistant text.
+- Output: the first successful non-overload, non-processing-error upstream response.
+- Retry order: requested model once, requested model retry once, then configured fallback models, capped at three total attempts by default.
+- Exhaustion: return a sanitized HTTP `503` JSON error; never forward raw overload or generic processing-error assistant text or request IDs.
 - Logs: structured metadata only: timestamp, event, attempt, model, status, duration, retry reason. Never log prompt or credentials.
 
 ## Rollback

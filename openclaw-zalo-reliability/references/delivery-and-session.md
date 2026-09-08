@@ -64,3 +64,39 @@ The Zalo plugin may expose AAC voice messages as `zdn.vn` URLs rather than media
 attachments. Use `/root/.agents/skills/cai-dat-audio-local-openclaw/SKILL.md`
 for the URL-to-Shared-Local-STT flow. Do not apply this requirement to
 Telegram-only members.
+
+## Zalo attachment upload callback timeout
+
+When the file is valid, text messages work, the live Zalo probe is healthy, and
+`message` remains in `blocked_tool_call` or `stalled session`, inspect the
+attachment path before touching QR login. In the affected member bundle,
+`zca-js/dist/apis/uploadAttachment.js` waits without a deadline for a WebSocket
+`file_done` callback for `video` and `others`; the callback map expiry does not
+settle the waiting Promise.
+
+Use this recovery order:
+
+1. Stage generated files under the member state media directory (for example
+   `<state-dir>/media/outbound/`), validate the file and record a checksum and
+   stable request key.
+2. Send through the running Gateway native route. Use a Gateway buffer when a
+   local path is rejected. Do not import an internal hashed channel runtime in a
+   second Node process, start another Zalo listener, or run QR login for this
+   symptom.
+3. Require a bounded upload wait (30–60 seconds; target 60 seconds), callback
+   cleanup on timeout, typed rejection, callback error handling, and a brief
+   buffer for an early `file_done` event. This belongs in the maintained
+   plugin/core patch or upgrade, not in an ad hoc resend script.
+4. If the wait times out, treat platform delivery as unknown. Inspect receipt,
+   message history, and the delivery queue before any retry. Back up the queue
+   SQLite database and matching `-wal`/`-shm`; do not replay
+   `send_attempt_started`. Terminalize an orphaned item through the internal
+   queue helper, then require zero pending entries.
+5. Only one owner-approved smoke send may follow a maintenance reload. Verify a
+   real destination-matching platform `messageId`, `plugins doctor`, Zalo probe,
+   and logs with no new stall/abort/outbound errors.
+
+Offline acceptance tests must cover callback success, no callback timeout with
+callback removal, and a late callback ignored after timeout. Then run
+`node --check`, `openclaw plugins doctor`, and
+`openclaw channels status --probe --json` before the controlled restart.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Memory FTS-only"
+  short_description: "Chuyển Memory Search sang FTS-only an toàn"
+  default_prompt: "Dùng $openclaw-memory-fts-only để chẩn đoán và chuyển Memory Search của một member OpenClaw sang FTS-only."

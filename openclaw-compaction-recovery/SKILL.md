@@ -11,7 +11,7 @@ Use this skill when an OpenClaw agent reports `Auto-compaction could not recover
 
 - The helper needs Linux, Python 3.9+ standard library, and access to the selected OpenClaw CLI or Docker container. No model usage occurs during config audit/validation; session recovery is a separate authorized operation.
 - Treat the runtime configuration and gateway log as the source of truth. Do not infer a Telegram credential failure from a compaction error.
-- Support the host runtime at `/root/AI_Runtime/openclaw/.openclaw` and Docker member data at `/root/Apps/member_vps/docker-users/data/<member>/.openclaw`.
+- Support the active host runtime at `/root/.openclaw` (verify with the running service) and Docker member data at `/root/Apps/member_vps/docker-users/data/<member>/.../.openclaw`. Use `--openclaw-root` plus an explicitly verified container/runtime-root mapping for nested or legacy member mounts; never infer a mount from a member name.
 - Audit only the requested targets. `--all-members` is read-only; an authorized fleet rollout applies targets sequentially, each with its own reviewed hash and backup.
 - The helper changes installation-wide `agents.defaults.compaction`, not a per-agent override. Check every inheriting agent and fallback; a small/unknown model blocks the automatic baseline. It supports strict JSON on Linux; other layouts require native/manual handling.
 - Do not change model/provider, API keys, Telegram tokens, owner/approval policy, bindings, workspace path, `.env`, media, or project files.
@@ -49,22 +49,20 @@ The report must include only redacted/safe fields: target, OpenClaw version mark
 
 ### 2. Decide eligibility
 
-Use [references/runtime-policy.md](references/runtime-policy.md). The automatic baseline requires a configured context cap and known model/fallback windows whose smallest effective budget is at least `80000`, existing safeguard mode, and no custom compaction override. The reference incident used a `96k` cap with a `128k` catalog window. Audit only when these conditions are unknown; do not silently invent a cap for the host main runtime.
+Use [references/runtime-policy.md](references/runtime-policy.md). The automatic baseline requires known primary/fallback windows whose smallest effective budget is at least `80000`. A configured `contextTokens` cap is checked when present, but the helper may use verified catalog windows when it is absent; it never writes or invents a context cap. Missing mode is normalized to `safeguard`; explicit `default`, disabled compaction, custom provider/model, or per-agent overrides require review. The reference incident used a `96k` cap with a `128k` catalog window.
 
 For the standard `9rt/gpt-5.6-terra` member profile, the safe baseline is:
 
-- `reserveTokens: 24000`
-- `reserveTokensFloor: 24000` or higher
 - `keepRecentTokens: 8000`
-- `maxHistoryShare: 0.5`
 - `recentTurnsPreserve: 2`
 - `compaction.timeoutSeconds: 600`
 - `qualityGuard.enabled: true`, `qualityGuard.maxRetries: 1`
-- Preserve mode, mid-turn guard, memory flush, transcript rotation, and existing byte guards; the helper does not invent missing optional settings
+- `compaction.midTurnPrecheck.enabled: true`
+- Preserve memory flush, transcript rotation, and existing byte guards; the helper does not invent missing optional settings. OpenClaw 2026.8.2 owns the effective reserve internally; legacy `reserveTokens`, `reserveTokensFloor`, and `maxHistoryShare` are never added or removed automatically and make the target review-only.
 
-The helper never reduces existing larger reserves/timeouts, increases a smaller history budget, or increases a smaller quality retry count. An excessive reserve is blocked for individual review. `eligible=true` in an offline audit is a capacity/policy check, not proof of version compatibility or gateway health.
+The helper never increases a smaller history budget or quality retry count, and never overwrites existing stronger timeouts. `eligible=true` in an offline audit is a capacity/policy check, not proof of version compatibility or gateway health.
 
-The reserve is deliberate headroom, not an increase to the model context window. Do not raise `contextTokens` merely to hide an overflow until the upstream model limit is verified.
+The built-in reserve is runtime-managed headroom, not an increase to the model context window. Do not raise `contextTokens` merely to hide an overflow until the upstream model limit is verified.
 
 ### 3. Apply with backup
 

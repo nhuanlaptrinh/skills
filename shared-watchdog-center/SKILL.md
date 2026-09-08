@@ -72,11 +72,24 @@ Use these labels in config:
 
 For OpenClaw session maintenance, set the token threshold comfortably below the effective context limit. For a member configured with `contextTokens=64000` and `reserveTokensFloor=40000`, use a preventive threshold around `45000`, not `60000`. Enable `agents.defaults.contextPruning` separately when large tool results are the main source of context growth, because line-count compaction may not shrink a short transcript containing one very large tool result.
 
+For `lehuynhphong`, the session registry entry uses
+`scripts/audit_member_sessions_v2.py`: semantic compaction timeout is opt-in at
+`660000ms`, one idle session per run, a per-Gateway non-blocking lock, and
+hash-only state with a six-hour retry backoff. It deduplicates aliases by
+session ID, skips active/queued/compacting rows, and reports failed rows with
+unknown token totals as `MANUAL_REVIEW`; those rows are never compacted merely
+because their status is `failed`. Before an actual compact it makes a SQLite
+backup with the SQLite backup API. Keep other members on the legacy helper
+unless they explicitly opt into this behavior.
+
+The matching `check_member_zalouser.sh` entry uses the same optional lock and
+defers a Gateway termination while session maintenance owns the Gateway.
+
 For OpenClaw channel watchdogs, do not rely only on a healthy gateway process. Combine `openclaw channels status --probe` with the latest channel listener events, use a restart cooldown, and notify through a different healthy channel only when an incident or recovery occurs.
 
 For `openclaw_gateway`, run the guard on the main VPS rather than inside the member Supervisor it protects. Use `scripts/check_member_gateway_supervisor.py`, compare both the active Supervisor config and persistent entrypoint, back up before repair, and set `ai_on_failure=false`. For members whose provider is configured with `${TOKEN_CODEX_API_KEY}`, the guard must require a Gateway command that sources both `.openclaw/gateway.env` and `.openclaw/token-codex.env`, and must verify `TOKEN_CODEX_API_KEY` is present in the live Gateway environment. Never apply a plain `command=/usr/bin/openclaw gateway run` template to such a member. This prevents infrastructure drift from calling an AI repair agent or consuming tokens.
 
-For `host_resource`, use `scripts/check_member_resource_guard.py` on the main VPS. Monitor `MemAvailable`, `SwapFree`, memory PSI, recent kernel OOM events, and the target member cgroup. Alert through a healthy member Telegram account with a long cooldown; do not kill unrelated containers or processes automatically. Keep the resource guard separate from the Zalo listener restart so memory pressure does not cause a restart storm.
+For `host_resource`, use `scripts/check_member_resource_guard.py` on the main VPS. Monitor `MemAvailable`, `SwapFree`, memory PSI, recent kernel OOM events, and the target member cgroup. Alert through a healthy member Telegram account with a long cooldown; do not kill unrelated containers or processes automatically. Keep the resource guard separate from the Zalo listener restart so memory pressure does not cause a restart storm. Use `--dry-run --no-notify` for passive validation; dry-run does not write guard state.
 
 The `type` is used to create better OpenClaw prompts and classify errors.
 

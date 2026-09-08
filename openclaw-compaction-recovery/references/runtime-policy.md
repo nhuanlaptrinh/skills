@@ -18,19 +18,19 @@ Large tool results, repeated `sessions_history`, recursive project reads, raw lo
 
 | Condition | Action |
 | --- | --- |
-| Configured context cap and every primary/fallback window give minimum budget `>= 80k`, existing safeguard | Eligible for candidate validation; apply only after authorization |
-| Unknown model context window | Audit only; do not guess reserve or raise context cap |
+| Every resolved primary/fallback catalog window gives minimum budget `>= 80k`; any configured cap is also `>= 80k` and compaction is safeguard or unset | Eligible for candidate validation; apply only after authorization |
+| Unknown model context window or unresolved model alias | Audit only; do not guess reserve or raise context cap |
 | Any inheriting agent/fallback effective context `< 80k` | Audit only; derive an individual smaller-model policy |
-| Custom compaction provider configured | Audit only unless provider is explicitly understood |
+| Explicit default/disabled compaction, custom compaction provider/model, or per-agent override | Audit only unless the exception is individually reviewed |
 | Malformed config or duplicate Gateway | Stop and repair the narrower issue first |
 | Provider latency repeatedly exceeds timeout | Raise compaction timeout only after checking upstream health and usage |
 | Active session still above budget after config change | Semantic compact the specific session; do not reset all sessions |
 
 ## Baseline reasoning
 
-For a `96k` agent cap, the 24k reserve moves the precheck threshold from about `80k` to `72k`. The helper sets both reserve and floor to at least `24000`, preserves larger existing values, and refuses a reserve consuming more than one third of the smallest known context budget. These are conservative helper-policy bounds, not universal provider guarantees. Runtime limits and estimates still need verification.
+OpenClaw 2026.8.2 manages the effective compaction reserve internally and caps it against the active model context window. The helper does not write the removed `reserveTokens`, `reserveTokensFloor`, or `maxHistoryShare` keys. It changes only schema-supported scheduling and safeguard controls, while runtime limits and estimates still need verification.
 
-Reducing `keepRecentTokens`, `maxHistoryShare`, and `recentTurnsPreserve` makes the resulting summary smaller. Keeping the quality guard enabled protects summary integrity, while `maxRetries=1` prevents unbounded latency. `timeoutSeconds=600` accommodates a slow but responsive provider; it does not cure an unavailable provider.
+Reducing `keepRecentTokens` and `recentTurnsPreserve` makes the resulting summary smaller. Keeping the quality guard enabled protects summary integrity, while `maxRetries=1` prevents unbounded latency. `timeoutSeconds=600` accommodates a slow but responsive provider; it does not cure an unavailable provider. `midTurnPrecheck.enabled` catches tool-loop pressure before another model request.
 
 Do not change `contextTokens`, model, provider, or token files as a first response. A larger context cap can increase the amount of history sent to a slow provider and make compaction more expensive.
 

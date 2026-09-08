@@ -22,13 +22,12 @@ def fixture_config():
                 "contextTokens": 96000,
                 "model": {"primary": "fixture/large"},
                 "compaction": {
-                    "mode": "safeguard", "reserveTokens": 16000,
-                    "reserveTokensFloor": 12000, "keepRecentTokens": 12000,
-                    "maxHistoryShare": 0.65, "recentTurnsPreserve": 4,
+                    "mode": "safeguard", "keepRecentTokens": 12000,
+                    "recentTurnsPreserve": 4,
                     "timeoutSeconds": 180, "memoryFlush": {"enabled": True},
                 },
             },
-            "list": [{"id": "main"}],
+            "entries": {"main": {}},
         },
         "models": {"providers": {"fixture": {"apiKey": "TEST-ONLY-NEVER-VALID", "models": [{"id": "large", "contextWindow": 128000}]}}},
         "channels": {"telegram": {"enabled": True, "tokenFile": "/fixture/private-token"}},
@@ -60,17 +59,18 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(original, fixture_config())
         for key in ["models", "channels", "tools", "session"]:
             self.assertEqual(original[key], candidate[key])
-        self.assertEqual(original["agents"]["list"], candidate["agents"]["list"])
-        self.assertEqual(candidate["agents"]["defaults"]["compaction"]["reserveTokensFloor"], 24000)
+        self.assertEqual(original["agents"]["entries"], candidate["agents"]["entries"])
+        self.assertEqual(candidate["agents"]["defaults"]["compaction"]["keepRecentTokens"], 8000)
+        self.assertTrue(candidate["agents"]["defaults"]["compaction"]["midTurnPrecheck"]["enabled"])
         self.assertFalse(guard.plan(candidate)[1]["changes"])
 
     def test_never_weakens_a_stronger_existing_profile(self):
         config = fixture_config()
         config["agents"]["defaults"]["compaction"].update({
-            "reserveTokens": 28000, "reserveTokensFloor": 28000,
             "timeoutSeconds": 900, "keepRecentTokens": 4000,
-            "maxHistoryShare": 0.3, "recentTurnsPreserve": 1,
+            "recentTurnsPreserve": 1,
             "qualityGuard": {"enabled": True, "maxRetries": 0},
+            "midTurnPrecheck": {"enabled": True},
         })
         self.assertFalse(guard.plan(config)[1]["changes"])
 
@@ -80,13 +80,13 @@ class RecoveryTests(unittest.TestCase):
                 config = fixture_config()
                 config["models"]["providers"]["fixture"]["models"].append({"id": "small", "contextWindow": 16000})
                 if override == "agent":
-                    config["agents"]["list"].append({"id": "other", "model": "fixture/small"})
+                    config["agents"]["entries"]["other"] = {"model": "fixture/small"}
                 else:
                     config["agents"]["defaults"]["model"]["fallbacks"] = ["fixture/small"]
                 self.assertFalse(guard.plan(config)[1]["eligible"])
 
     def test_unknown_context_and_custom_compaction_require_review(self):
-        for change in ["unknown", "provider", "disabled", "excessive-reserve"]:
+        for change in ["unknown", "provider", "disabled", "legacy-key"]:
             with self.subTest(change=change):
                 config = fixture_config()
                 defaults = config["agents"]["defaults"]
@@ -97,8 +97,17 @@ class RecoveryTests(unittest.TestCase):
                 elif change == "disabled":
                     defaults["compaction"]["enabled"] = False
                 else:
-                    defaults["compaction"]["reserveTokens"] = 60000
+                    defaults["compaction"]["reserveTokensFloor"] = 60000
                 self.assertFalse(guard.plan(config)[1]["eligible"])
+
+    def test_entries_shape_and_legacy_keys_are_review_only(self):
+        config = fixture_config()
+        config["agents"]["entries"] = {"main": {}, "worker": {"model": "fixture/large"}}
+        candidate, report = guard.plan(config)
+        self.assertTrue(report["eligible"])
+        self.assertEqual(report["agents"], ["main", "worker"])
+        config["agents"]["defaults"]["compaction"]["reserveTokensFloor"] = 24000
+        self.assertFalse(guard.plan(config)[1]["eligible"])
 
     def test_apply_backup_permissions_and_rollback_exact_bytes(self):
         metadata = self.path.stat()

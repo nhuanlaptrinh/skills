@@ -42,3 +42,14 @@ Keep backups until the member confirms stability. Record backup paths,
 schedules, validation results, and whether any real message was sent in the
 member project note and `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`. Never
 record secrets or private sender/group IDs.
+
+## Attachment acknowledgement guard acceptance (2026-09-06)
+
+For the `zca-js` 2.1.2 attachment callback repair, retain the helper's backup
+manifest and require all of the following before declaring success:
+
+- Offline guard tests pass for normal, early, timeout, late, and callback-error events.
+- `node --check` passes for the copied/active guard, upload API, and listener.
+- `openclaw plugins doctor` and `openclaw channels status --probe --json` pass.
+- No new `blocked_tool_call`, `stalled session`, or outbound errors appear after reload.
+- Delivery queue has zero pending entries; an unknown attachment result is not replayed.

@@ -139,3 +139,30 @@ If the send returns an error, no `messageId`, wrong destination, or an ambiguous
 - [ ] Completion receipt and payload fingerprint were persisted before releasing the request lock.
 - [ ] Late callbacks for a completed request resolve to `NO_REPLY`.
 - [ ] User-facing completion statement matches verified status.
+
+## Zalo upload acknowledgement protection
+
+When text delivery is healthy but an attachment stalls, classify the failure as
+an upload acknowledgement problem first. On OpenClaw member bundles using
+`zca-js`, `video` and `others` wait for a WebSocket `file_done` callback. The
+wait must be bounded; a callback-map expiry alone does not resolve the Promise.
+
+- Prefer the running Gateway native send route. If local media policy rejects a
+  path, stage the bytes through the Gateway buffer attachment flow; do not
+  weaken the allowlist or launch a second Zalo login context.
+- Use a 60-second attachment timeout in the maintained plugin/core patch. On
+  timeout, remove the callback and return an explicit unknown upload error.
+  Catch checksum/read errors from the callback as failures too.
+- Account for the early-event race: buffer a `file_done` event briefly or
+  register the waiter before the upload response can emit it.
+- Never auto-replay an attachment after a timeout or after a
+  `send_attempt_started` entry. Inspect receipts, queue state, and message
+  history first; resend at most once only when no matching delivery exists.
+- Back up queue SQLite files plus WAL/SHM before terminalizing an orphaned
+  entry. Require zero pending entries after recovery.
+- Validate the file, require a real destination-matching platform message ID,
+  and finish the successful tool turn with `NO_REPLY`.
+
+Acceptance tests for a maintained patch must cover success, timeout with
+callback cleanup, late callback ignored, `node --check`, plugin doctor, channel
+probe, and one owner-approved small-file smoke send.

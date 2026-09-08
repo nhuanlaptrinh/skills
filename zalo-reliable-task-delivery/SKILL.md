@@ -42,10 +42,10 @@ description: "Phản hồi sớm, giới hạn câu trả lời, tách việc n�
 
 ## Vận hành
 
-- Dry-run session: `bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-anhlaptrinhthu`
-- Chạy thật: `SESSION_PATTERN='agent:main:zalouser:' TOKEN_THRESHOLD_64K=18000 TOKEN_THRESHOLD_128K=40000 SESSION_IDLE_SECONDS=600 MAX_COMPACTIONS_PER_RUN=5 bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-anhlaptrinhthu --apply`
+- Dry-run session: `bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-<member>`
+- Chạy thật: `SESSION_PATTERN='agent:main:zalouser:' TOKEN_THRESHOLD_64K=18000 TOKEN_THRESHOLD_128K=40000 SESSION_IDLE_SECONDS=600 MAX_COMPACTIONS_PER_RUN=5 bash /root/Automation/openclaw_member_assistant/scripts/audit_member_sessions.sh user-<member> --apply`
 - Dry-run patch gửi tin: `bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh`
-- Apply patch gửi tin: `bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh --apply`
+- Apply patch gửi tin: `MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/<member> bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh --apply`
 
 ## An toàn
 
@@ -53,3 +53,18 @@ description: "Phản hồi sớm, giới hạn câu trả lời, tách việc n�
 - Backup config, plugin bundle, session index và cron trước khi sửa production.
 - Không ghi token, cookie, mật khẩu hoặc nội dung credential vào skill/log.
 - Không xóa transcript; compact hoặc reset có backup.
+
+## Gửi file Zalo: chống treo upload
+
+- Trước khi gửi DOCX/PDF/ZIP/video, kiểm tra file tồn tại, đọc được và đúng nội dung.
+- Dùng đường gửi native của Gateway; nếu đường dẫn workspace bị policy từ chối,
+  dùng Gateway buffer, không nới allowlist tùy tiện và không chạy thêm một Zalo
+  login context.
+- Nếu tool bị timeout hoặc hiện `blocked_tool_call`, không khẳng định đã gửi và
+  không gửi lặp ngay. Kiểm tra receipt, delivery queue và lịch sử trước.
+- Không replay mục `send_attempt_started` khi chưa biết nền tảng đã nhận hay chưa.
+  Backup SQLite/WAL/SHM trước khi chuyển mục mồ côi sang terminal failure.
+- Plugin phải có timeout chờ callback upload (mục tiêu 60 giây), dọn callback khi
+  timeout, bắt lỗi checksum/read và xử lý callback `file_done` đến sớm.
+- Chỉ trả lời “đã gửi” khi có platform `messageId` đúng người/group; gửi thành
+  công xong kết thúc bằng `NO_REPLY`.

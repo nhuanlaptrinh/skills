@@ -72,6 +72,86 @@ and outbound, session, then authentication.
 
 ## Durable Prevention
 
+### Mandatory group-target guard (Zalo Personal)
+
+For every outbound reply, file, reminder, or proactive message whose current
+session key is `agent:<agent>:zalouser:group:<group-id>`, preserve the group
+type in the target: use `group:<numeric-group-id>` (or `g:<numeric-group-id>`).
+Never pass a bare numeric ID. The Zalo adapter parses a bare number as a User
+thread (`isGroup=false`); it can return an API-level `sent` receipt while the
+message is routed away from the group and the transcript is rebound to a
+`...:direct:<id>` session. Treat such a receipt as unverified group delivery.
+
+Before declaring delivery, require all of these: non-empty platform
+`messageId`, `deliveryStatus: sent`, and `receipt.threadId` or
+`conversationId` matching the current numeric group ID. If the target was
+bare numeric or the receipt lacks the group proof, do not replay blindly;
+inspect the delivery record, then send once with the explicit `group:` target
+when safe. Keep `NO_REPLY` only after that explicit native send is verified.
+
+### Maintained group route helper
+
+When the active `@openclaw/zalouser` bundle emits `to: zalouser:<id>` even
+though the inbound event is a group, use the exact-anchor helper below. It is
+dry-run by default, edits only the group adapter branch, and never restarts a
+Gateway or sends a message:
+
+```bash
+/root/.agents/skills/openclaw-zalo-reliability/scripts/patch_zalo_group_route.sh \
+  --member-data-dir /root/Apps/member_vps/docker-users/data/<member> --dry-run
+```
+
+Apply only during a controlled maintenance window:
+
+```bash
+/root/.agents/skills/openclaw-zalo-reliability/scripts/patch_zalo_group_route.sh \
+  --member-data-dir /root/Apps/member_vps/docker-users/data/<member> --apply
+```
+
+The helper refuses ambiguous bundles and changed anchors, stores a timestamped
+backup plus SHA-256 under `/root/_Backups/<member>-zalo-group-route-fix/`, and
+preserves direct-user routing. Run `node --check` on the changed channel bundle,
+then `openclaw plugins doctor` and a probed channel status before reloading the
+existing Supervisor-owned Gateway.
+
+#### Scoped core normalizer guard
+
+If the member core bundle lacks the scoped normalizer guard, use the container
+helper (dry-run by default). It backs up the exact core bundle before applying,
+requires matching Zalo group context and IDs, and never touches credentials:
+
+```bash
+/root/.agents/skills/openclaw-zalo-reliability/scripts/patch_zalo_core_group_guard.sh \
+  --container user-<member> --dry-run
+/root/.agents/skills/openclaw-zalo-reliability/scripts/patch_zalo_core_group_guard.sh \
+  --container user-<member> --apply
+```
+
+Run `node --check` through the helper, then `openclaw plugins doctor` and a
+probed channel status after the controlled Gateway reload. The core bundle is
+in the member image layer and must be re-applied after a container recreate or
+image upgrade.
+
+#### Maintained 2026.8.2 route fix
+
+The active `@openclaw/zalouser` 2026.8.2 bundle previously preserved
+`chatType: group` but emitted `to: zalouser:<id>`, which the next adapter stage
+parsed as a direct-user route. The maintained member patch changes only that
+route branch to emit `to: zalouser:group:<id>` for groups and leaves direct
+users unchanged. Before applying it, back up the active `channel-*.js` bundle;
+afterward run `node --check`, `openclaw plugins doctor`, and a probed channel
+status. Do not patch every `zalouser:<id>` occurrence globally because direct
+user and pairing paths require their existing form.
+
+The core message-action normalizer also has a scoped guard: it may normalize a
+bare numeric target only when trusted `toolContext` proves
+`currentChannelProvider=zalouser`, `currentChatType=group`, and the current
+channel/messaging target has the same numeric ID. Direct messages, reactions,
+other providers, and different IDs remain untouched.
+The core bundle is in the member image layer rather than the mounted member
+data; reapply this scoped guard after a container recreate or image upgrade,
+and verify the bundle hashes during maintenance.
+
 After a recurring incident, use the existing Shared Watchdog Center rather than
 creating another watchdog implementation:
 
@@ -139,7 +219,7 @@ Use this sequence when logs contain `claim→adoption stalled`,
    `reserveTokensFloor` and `maxHistoryShare` are not valid keys on this
    release; do not leave unsupported keys in production config.
 5. If the active bundle is unpatched, run
-   `patch_zalouser_send_reliability.sh --apply`, validate with `node --check`
+   `MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/<member> bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh --apply`, validate with `node --check`
    and `openclaw plugins doctor`, then restart only the existing
    Supervisor-owned `openclaw-gateway`.
 6. Add two Shared Watchdog entries for the member: an `openclaw_channel` probe
@@ -168,8 +248,8 @@ test; do not send a bot-generated test message.
 
 ## Member maintenance update (2026-09-05)
 
-For member bundles on OpenClaw 2026.8.2, use
-`/root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh`
+For member bundles on OpenClaw 2026.8.2, use the explicit member data directory:
+`MEMBER_DATA_DIR=/root/Apps/member_vps/docker-users/data/<member> bash /root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh`
 to add bounded three-attempt Zalo text-send retries and a 600 ms delay between
 split chunks. The helper accepts both the older bundle with
 `DEFAULT_TEXT_CHUNK_MODE` and the current bundle that begins directly at
@@ -201,3 +281,129 @@ Gateway/event-loop and host I/O or swap pressure because those stalls can make
 both Zalo and Telegram appear disconnected. Keep a member `host_resource` guard
 enabled for early warning, and align or pin the Zalo plugin with the core
 release during the next controlled maintenance window.
+
+## Zalo attachment callback guard (2026-09-06)
+
+Use this branch when a Zalo text message works but a DOCX, PDF, ZIP, video, or
+other attachment leaves the session in `blocked_tool_call`, `stalled session`,
+or `This turn was interrupted because it stopped making progress`.
+
+The known failure in `@openclaw/zalouser` 2026.8.2 with `zca-js` 2.1.2 is an
+unbounded Promise in `zca-js/dist/apis/uploadAttachment.js`. For `video` and
+`others`, the upload POST registers a callback and waits for a WebSocket
+`file_done` event. A missing or early event leaves the Promise pending; the
+callback map's five-minute expiry only removes the key and does not settle the
+Promise. This is an upload acknowledgement failure, not evidence of a bad Zalo
+login or a corrupt document.
+
+### Required delivery path
+
+- Use the running Gateway's native send route, with a Gateway-buffer attachment
+  when a local-path allowlist rejects the workspace path. Do not import an
+  internal hashed channel runtime from a standalone Node process: it can create
+  a second zca context without the Gateway listener and can trigger a duplicate
+  connection.
+- Treat a send as verified only after the Gateway/Zalo receipt contains a real
+  platform message ID and the intended destination. A timeout or unknown result
+  is not permission to replay the same `send_attempt_started` queue item.
+- Before any retry, inspect the delivery queue and receipt/history. Terminalize
+  an orphaned `send_attempt_started` entry only after backing up the queue DB,
+  WAL/SHM, and orphan media. Retry once only when no matching successful
+  delivery is possible.
+- Keep the completion turn `NO_REPLY` after a verified native send so buffered
+  assistant text cannot create a second or misleading message.
+
+### Permanent implementation requirement
+
+The plugin/core upgrade or maintained patch must make the attachment wait
+bounded (60 seconds is the current operating target), remove the callback from
+the map on timeout, reject with a typed upload error, and catch errors from the
+async callback (including checksum/read failures). It must also handle a
+`file_done` event that arrives before callback registration, either by buffering
+that event briefly or by registering the waiter before the upload response can
+be delivered. Do not blindly retry a timed-out attachment because the platform
+may already have accepted it.
+
+Do not hot-patch a live member package solely to resend one file. During a
+controlled maintenance window, back up the active plugin bundle and package,
+apply the maintained upstream fix, run syntax/plugin checks, restart only the
+existing Gateway owner, and verify the channel before one authorized smoke
+send.
+
+### Offline acceptance tests
+
+Use a fake upload response and fake WebSocket listener to prove all three cases:
+
+1. `file_done` arrives normally: the Promise resolves with the file result.
+2. No `file_done` arrives: it rejects at the configured timeout and removes the
+   callback; the session cannot remain pending forever.
+3. `file_done` arrives after timeout: it is ignored and cannot resolve a later
+   request.
+
+Then run `node --check` on the changed bundle, `openclaw plugins doctor`,
+`openclaw channels status --probe --json`, and a post-reload log scan. Require
+zero new `blocked_tool_call`, `stalled session`, or outbound errors and zero
+pending delivery-queue entries. A live attachment test must be a single small
+file with an owner-approved destination and one receipt check.
+
+### Maintained attachment guard helper (2026-09-06)
+
+For the `zca-js` 2.1.2 upload acknowledgement stall, use the guarded helper
+before any production apply. It requires an explicit member data directory and
+is dry-run by default:
+
+```bash
+/root/.agents/skills/openclaw-zalo-reliability/scripts/patch_zca_upload_ack_guard.sh \
+  --member-data-dir /root/Apps/member_vps/docker-users/data/<member> --dry-run
+```
+
+The helper refuses ambiguous member paths, multiple active bundles, versions
+other than 2.1.2, or an already-marked bundle. Apply mode backs up the active
+bundle (`package.json`, `dist/apis/uploadAttachment.js`, `dist/apis/listen.js`,
+`dist/context.js`) and SHA-256 manifest under
+`/root/_Backups/<member-basename>-zalo-upload-ack-guard/<UTC-timestamp>/zca-js-2.1.2`, copies the
+bounded completion guard, and changes only the upload/listener acknowledgement
+branches. It does not restart a Gateway or send a message:
+
+```bash
+/root/.agents/skills/openclaw-zalo-reliability/scripts/patch_zca_upload_ack_guard.sh \
+  --member-data-dir /root/Apps/member_vps/docker-users/data/<member> --apply
+```
+
+The guard waits at most 60 seconds, removes its callback, rejects typed timeout
+or checksum/read errors, buffers an early `file_done` for 15 seconds (maximum
+128 entries), and suppresses late/duplicate events with bounded tombstones. Run
+the offline acceptance suite and syntax checks on a copied fixture first:
+
+```bash
+node /root/.agents/skills/openclaw-zalo-reliability/scripts/test_upload_completion_guard.mjs
+node --check <fixture>/dist/upload-completion-guard.js
+node --check <fixture>/dist/apis/uploadAttachment.js
+node --check <fixture>/dist/apis/listen.js
+```
+
+After a real apply, run `node --check`, `openclaw plugins doctor`, a probed
+Zalo channel status, and the queue/log checks in `verification-and-rollback.md`.
+Rollback is file-level from the timestamped backup's `dist/apis/*`,
+`dist/context.js`, and `package.json`; stop before rollback if the live bundle
+has changed since the recorded SHA-256 manifest. Restart only the existing
+Supervisor-owned Gateway after validation. Do not run the helper on an active
+bundle to resend one file and do not use it to replay a `send_attempt_started`
+queue entry.
+
+## Inbound-without-outbound guard (2026-09-06)
+
+A member can report Zalo `configured/running/works` while a group session's
+writer/event loop is stalled. The channel probe alone cannot detect this. The
+watchdog must therefore correlate recent redacted inbound and outbound markers:
+for each `agent:main:zalouser:group:<id>` event, require a final/receipt marker
+within 180 seconds. If an inbound marker remains unmatched for 180 seconds,
+record `group_inbound_without_outbound`, acquire the existing gateway lock, and
+restart only the Supervisor-owned Gateway after the normal cooldown (minimum
+600 seconds). Never inspect or log message text or IDs; persist only counts,
+timestamps, group hash, and the reason. After restart require the normal
+60-second multi-probe recovery window. A single unmatched event during startup,
+manual `NO_REPLY`, or an attachment upload in progress must not trigger a
+restart. This guard complements `openclaw_channel` and session maintenance; it
+must run through `run_project.sh`, preserve unrelated registry entries, and be
+tested with healthy, delayed, `NO_REPLY`, and stalled fixtures before enabling.
