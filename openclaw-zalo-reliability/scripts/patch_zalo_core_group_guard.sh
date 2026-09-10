@@ -11,18 +11,16 @@ while (($#)); do
  esac
 done
 [[ -n "$container" ]] || { echo "--container is required" >&2; exit 2; }
-f=/usr/lib/node_modules/openclaw/dist/message-action-normalization-B08PXYVX.js
 docker inspect -f '{{.State.Running}}' "$container" | grep -qx true || { echo "container is not running" >&2; exit 1; }
+f=$(docker exec "$container" python3 -c 'import pathlib; root=pathlib.Path("/usr/lib/node_modules/openclaw/dist"); files=[p for p in root.glob("message-action-normalization-*") if p.suffix in (".js", ".mjs") and "function normalizeMessageActionInput(params)" in p.read_text()]; assert len(files)==1, "ambiguous or missing normalization bundle"; print(files[0])')
 docker exec "$container" test -f "$f"
 if docker exec "$container" grep -q 'Scoped Zalo group target guard' "$f"; then echo "already patched: $container:$f"; exit 0; fi
 echo "target=$container:$f mode=$mode"
-if [[ "$mode" == dry-run ]]; then echo "would-backup=/root/_Backups/<member>-zalo-core-group-guard/<timestamp>"; exit 0; fi
 member=$(docker inspect -f '{{.Name}}' "$container" | sed 's#^/##; s/^user-//')
-stamp=$(date -u +%Y%m%dT%H%M%SZ); b=/root/_Backups/${member}-zalo-core-group-guard/$stamp; mkdir -p "$b"
-docker cp "$container:$f" "$b/message-action-normalization-B08PXYVX.js.orig"
-python3 - "$container" "$f" <<'PY'
+stamp=$(date -u +%Y%m%dT%H%M%SZ); b=/root/_Backups/${member}-zalo-core-group-guard/$stamp
+python3 - "$container" "$f" "$mode" "$b" <<'PY'
 import subprocess,sys
-c,f=sys.argv[1:]; s=subprocess.check_output(['docker','exec',c,'cat',f],text=True)
+c,f,mode,b=sys.argv[1:]; s=subprocess.check_output(['docker','exec',c,'cat',f],text=True)
 a='''/** Normalizes message-action args before target validation and dispatch. */
 function normalizeMessageActionInput(params) {'''
 i='''/** Scoped Zalo group target guard: never reinterpret another channel or ID. */
@@ -52,7 +50,16 @@ i2='''\tif (!explicitChannel) {
 \tapplyTargetToParams({'''
 if s.count(a2)!=1: raise SystemExit('call anchor changed')
 s=s.replace(a2,i2,1)
-subprocess.run(['docker','exec','-i',c,'sh','-lc',f'cat > {f}.tmp && mv {f}.tmp {f}'],input=s,text=True,check=True)
+if mode=='dry-run':
+ print('anchors verified; would apply scoped group guard; no changes')
+ raise SystemExit(0)
+import pathlib
+backup=pathlib.Path(b);backup.mkdir(parents=True,mode=0o700)
+subprocess.run(['docker','cp',c+':'+f,str(backup/(pathlib.Path(f).name+'.orig'))],check=True)
+code='import pathlib,subprocess,sys,os; p=pathlib.Path(sys.argv[1]); tmp=p.with_name(p.stem+".upgrade-staged"+p.suffix); tmp.write_text(sys.stdin.read()); tmp.chmod(p.stat().st_mode); subprocess.run(["node","--check",str(tmp)],check=True); os.replace(tmp,p)'
+subprocess.run(['docker','exec','-i',c,'python3','-c',code,f],input=s,text=True,check=True)
 PY
-docker exec "$container" node --check "$f"
-echo "applied backup=$b"
+if [[ "$mode" == apply ]]; then
+ docker exec "$container" node --check "$f"
+ echo "applied backup=$b"
+fi

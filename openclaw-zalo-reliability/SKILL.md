@@ -407,3 +407,8 @@ manual `NO_REPLY`, or an attachment upload in progress must not trigger a
 restart. This guard complements `openclaw_channel` and session maintenance; it
 must run through `run_project.sh`, preserve unrelated registry entries, and be
 tested with healthy, delayed, `NO_REPLY`, and stalled fixtures before enabling.
+
+## 03.09 upgrade compatibility (2026-09-08)
+
+- The scoped core group helper now resolves exactly one `message-action-normalization-*` `.js` or `.mjs` bundle by its exported implementation anchor, supporting the `2026.9.3` `.mjs` package layout. Dry-run checks both insertion anchors and makes no changes; apply creates a root-only backup, validates a staged file with `node --check`, then replaces only that file.
+- Before upgrading a member with existing Zalo patches, archive its managed `npm` tree and current core package. After official upgrade, preserve/reapply only the equivalent scoped group guard and existing upload acknowledgement protection against the new compatible implementation. Never replace the new core with an old hashed bundle.

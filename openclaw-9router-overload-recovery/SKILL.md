@@ -5,7 +5,7 @@ description: Diagnose, install, verify, repair, or roll back the reliable local 
 
 # OpenClaw 9Router Overload Recovery
 
-Recover transient AI failures without forwarding raw upstream error text to Telegram. The proxy buffers chat-completion responses, recognizes the narrow known overload messages and the exact `[Error] An error occurred while processing... request ID <UUID>` template, retries once, then changes model; 9Router rotates Codex accounts and its combo also has alternate models.
+Recover transient AI failures without forwarding raw upstream error text to Telegram. The proxy recognizes the narrow known overload messages and the exact `[Error] An error occurred while processing... request ID <UUID>` template, retries once, then changes model; normal successful SSE output is forwarded progressively so OpenClaw receives model progress while 9Router works.
 
 ## Paths and services
 
@@ -38,6 +38,8 @@ Prove all of the following before applying this recovery:
 - For model availability failures, check for HTTP `404` with error code `model_not_found`; this is a fallback-triggering condition, not a reason to expose the raw upstream error to OpenClaw.
 
 The proxy intentionally matches only these normalized assistant responses: the known overload variants, `Service temporarily unavailable`, or the complete generic processing-error template with a valid request UUID. Do not broaden the match to arbitrary words such as `error`, because a legitimate assistant answer can contain them.
+
+Successful `text/event-stream` responses are streamed progressively. Short responses and chunks that look like the known error templates remain buffered until `[DONE]` so retry filtering still works. Client disconnects abort the active upstream fetch and prevent further retries. Non-streaming responses and upstream error statuses remain buffered for classification.
 
 ## Dry run
 
@@ -75,7 +77,7 @@ openclaw config validate
 systemctl --user restart openclaw-gateway.service
 ```
 
-The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed. The reliable proxy retries the requested model once, then uses configured fallback models, with `MAX_ATTEMPTS=3` limiting each request to three attempts total. It handles overload content, the exact generic processing-error template, retryable HTTP statuses, and upstream `404 model_not_found` without forwarding raw error text.
+The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed. The reliable proxy retries the requested model once, then uses configured fallback models, with `MAX_ATTEMPTS=3` limiting each request to three attempts total. It handles overload content, the exact generic processing-error template, retryable HTTP statuses, and upstream `404 model_not_found` without forwarding raw error text; normal successful SSE output is streamed progressively.
 
 For a single-agent repair, omit `--all-agents` and pass `--agent <agent-id>`.
 
@@ -93,7 +95,7 @@ openclaw channels status --channel telegram --probe --json
 journalctl --user -u openclaw-9router-reliable-proxy.service --since "15 minutes ago" -o cat --no-pager
 ```
 
-Confirm one post-change request uses provider `9rr`, proxy logs `upstream_complete` or `upstream_retry`, and the exact overload and generic processing-error sentences are absent from new transcript events. Do not send a real Telegram test without authorization. The proxy buffers each response before forwarding, so record the added buffering latency when reporting.
+Confirm one post-change request uses provider `9rr`, proxy logs `upstream_stream_complete`, `upstream_complete`, or `upstream_retry`, and the exact overload and generic processing-error sentences are absent from new transcript events. Confirm the client receives a normal SSE chunk before upstream `[DONE]`. Do not send a real Telegram test without authorization.
 
 For all-agent changes, also confirm every explicit `agents.entries.*.model` source reference is either `9rr/` or intentionally external, and default text/image models use `9rr/` where they previously used `9r/`.
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Telegram Context Guard"
+  short_description: "Audit and prevent Telegram group context stalls"
+  default_prompt: "Use $openclaw-telegram-context-guard to audit, recover, and harden the named OpenClaw agent or member VPS."

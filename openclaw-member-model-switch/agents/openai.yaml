@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Member Model Switch"
+  short_description: "Set default and vision models on member OpenClaw agents"
+  default_prompt: "Use $openclaw-member-model-switch to update a member VPS OpenClaw model configuration safely."

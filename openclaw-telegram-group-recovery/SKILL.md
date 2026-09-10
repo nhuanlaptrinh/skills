@@ -39,6 +39,13 @@ Use these existing helpers only for the matching diagnosis. Their paths are host
 
 This skill has no bundled script; the commands below operate on the resolved member/container and are intended to be copied with placeholders replaced.
 
+## Agent execution policy
+
+- Khi làm việc với Excel hoặc dữ liệu dạng bảng, bắt buộc dùng một script Python ngắn với `pandas` (có thể dùng `duckdb` khi phù hợp) để đọc, lọc và tính toán trực tiếp trên đĩa. Không đọc toàn bộ workbook hoặc dataset vào chat.
+- Không gọi subagent hoặc đọc lịch sử hội thoại cho tác vụ đơn giản đã có đủ input; chỉ dùng khi cần chia nhỏ tác vụ nặng hoặc cần ngữ cảnh thật sự thiếu.
+- Giới hạn dữ liệu in ra: chỉ lấy các chỉ tiêu, cột, sheet, khoảng dòng và kết quả cần thiết cho yêu cầu hiện tại.
+- Nếu xử lý lâu, gửi một thông báo tiến độ ngắn trước rồi tiếp tục; không để người dùng chờ trong im lặng. Thông báo tiến độ không được chứa dữ liệu riêng tư hoặc nội dung tương lai bị xếp hàng sau file.
+
 ## Triage (read-only first)
 
 Run narrow checks and redact output before reporting:

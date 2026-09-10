@@ -271,3 +271,32 @@ Report only:
 - Any residual warning or rollback limitation.
 
 Append a sanitized entry to `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md` after material production changes.
+
+## Fleet upgrade pinned to 03.09 (2026.9.3)
+
+The reviewed host driver is `/root/Automation/openclaw/member_sequential_upgrade/upgrade.py`. It processes exactly one member, takes an exclusive fleet lock, stops on any failed baseline/update/acceptance check, and never sends a Telegram/Zalo test message. Read this skill and the member operating notes before execution.
+
+- Input: member name, exact runtime HOME resolved from the running Gateway environment and Docker mounts. Do not infer HOME from member name: several members use `/root`, and `anhlaptrinhthu` uses `/home/anhlaptrinh`.
+- Dry-run: `python3 /root/Automation/openclaw/member_sequential_upgrade/upgrade.py <member> --home <runtime-home>`
+- Apply: append `--apply` to the same command. Package target is explicitly `2026.9.3`; do not substitute `latest`, which may already point to another release.
+- Output: private timestamped logs, stopped-Gateway config/SQLite/service backup and sanitized `SUCCESS.json` beneath `/root/_Backups/openclaw-members-2026.9.3/<member>/`. No Sheet writes or social delivery API calls.
+- Rerun: inspect the previous run first. A failed update intentionally stops the fleet for operator repair; verify/start or roll back the affected Gateway before another member. Never run the next member merely because installation returned zero.
+- Driver requires a working Supervisor RPC interface and a healthy baseline. Missing RPC, previously stopped containers, disabled/unconfigured deployments, pre-existing unhealthy channels and special Zalo bundle patches need separate review. Do not activate backup/legacy containers or borrow another member's credentials.
+- Check configured enabled Telegram accounts individually, preserve working non-Telegram channels, verify exactly one Gateway and the target version, then inspect post-start logs and stable polling before moving on. Channel probes establish transport health; actual reply success requires fresh inbound/outbound evidence.
+- Snapshot databases together with WAL/SHM while stopped; retain updater recovery archives. Review disk headroom between members. Restore only incident changes for rollback; do not restore historical session state without evidence of migration corruption.
+- Authorization to upgrade includes necessary package operations and target Gateway restarts. It does not authorize unsolicited test messages. Record final results in the VPS change log.
+
+### 03.09 runtime and acceptance
+
+- `2026.9.3` requires Node.js `>=24.16.0 <25 || >=26.1.0`. Driver stages official Node.js `24.20.0` (Linux x64), verified against the official distribution SHA-256 manifest, at `/root/_Backups/openclaw-members-2026.9.3/artifacts/node`.
+- While only the target Gateway is stopped, back up `/usr/bin/node`, the complete current OpenClaw package (including local patches), config, state SQLite/WAL/SHM, agent databases and service files. Replace the Node executable atomically, then run the official pinned updater. Existing unrelated processes are not restarted.
+- Acceptance includes a second channel probe after 35 seconds and unchanged Supervisor Gateway PID. Check each account, post-start error metadata and passive inbound/outbound evidence; never claim a real reply test from a transport probe alone.
+- On Node/package failure, stop the fleet, restore the recorded Node/package and only incident config changes as needed, then verify the affected Gateway before proceeding. Preserve newer session writes unless migration corruption is proven.
+
+- Driver holds the target member’s existing Shared Watchdog project locks during apply, without editing cron; a busy lock stops before Gateway shutdown. Healthy Zalo adapters that omit `connected` are accepted only with `running=true`, `probe.ok=true` and no error.
+- Final acceptance also runs a separate `agent:main:upgrade-check-<uuid>` internal model turn with no `--deliver` and a no-tools/no-messaging instruction. A failed model response stops the fleet for review. The driver resolves all explicitly Telegram-bound agents and tests each one, including owner and secondary bot agents, without external delivery.
+
+- For an inspected member whose active Supervisor lacks RPC sections, add `--repair-manager` to dry-run/apply. The driver requires a healthy channel baseline, backs up both live service config and its entrypoint, stages and validates only missing RPC sections, then restarts that one container to activate RPC before upgrading. Do not use this option for members whose notes prohibit container restarts, for existing RPC/socket faults needing a separate diagnosis, or for a missing Gateway program.
+- Post-start acceptance scans only new log bytes for Telegram poller conflicts, missing package imports, session tombstones, heap failures and Telegram send failures. Successful per-member upgrades append sanitized change-log entries automatically.
+
+- Backup also archives member-managed `npm`, `extensions` and `plugins` directories before the official updater, retaining patched Zalo dependencies and plugin package state for file-level rollback. Review scoped core/group/upload patches against the target version before upgrading patched members; never copy old core bundles over a new release.
