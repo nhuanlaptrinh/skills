@@ -37,6 +37,8 @@ alert in dry-run mode, but it updates only the sanitized cooldown state.
 
 Run through cron every five minutes using the shared launcher. The registry
 entry must set `type` to `host_resource` and `ai_on_failure` to `false`.
+When Telegram delivery is intentionally disabled, add `--no-notify` to the
+registry `run_command`; the guard continues collecting log/state metrics.
 
 ## Detection
 
@@ -53,6 +55,11 @@ printed. Rerun the dry-run after a host memory incident, inspect the resource
 log and state file, then run the shared launcher normally. Zalo recovery remains
 the responsibility of `openclaw-zalo-reliability`; this guard only reports
 resource pressure.
+
+On this host, the three member resource guards may run with `--no-notify` so
+critical host/OOM conditions are retained in logs without sending Telegram
+alerts. Re-enable notifications only by removing that flag from the relevant
+registry entries after owner approval.
 
 ## Safety
 

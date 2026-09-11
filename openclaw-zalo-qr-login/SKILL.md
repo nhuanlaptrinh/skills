@@ -244,3 +244,10 @@ Khi hoàn tất:
 ```text
 Xong rồi. OpenClaw báo Login successful, Zalo Personal đã configured, gateway đã restart và đang chạy. Em đã tắt tiến trình sync QR tạm để khỏi chạy nền mãi.
 ```
+
+## Compatibility and multiple approved owners (2026-09-11)
+
+- Runtime discovery uses `openclaw plugins info zalouser --json` and validates the enabled loaded plugin source; supports relocated extension layouts.
+- Repeat `--target <verified-owner-id>` to send the same QR privately to several owners on the same Telegram account. Every target must pass the existing owner/elevated/approval checks before login starts. Use the identical target arguments with `--dry-run` before `--apply`.
+- Each successful send emits only a target suffix and message receipt ID. The official login remains active while owners scan; existing timeout and cleanup rules apply.
+- This helper is an operator CLI workflow. It does not bypass agent-origin or setup-flow restrictions.

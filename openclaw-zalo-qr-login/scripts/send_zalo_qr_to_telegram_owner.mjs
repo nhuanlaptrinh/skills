@@ -20,7 +20,8 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--target") {
-      options.target = argv[++index];
+      options.target ??= argv[index + 1];
+      (options.targets ??= []).push(argv[++index]);
     } else if (arg === "--account") {
       options.accountId = argv[++index];
     } else if (arg === "--timeout-seconds") {
@@ -34,7 +35,7 @@ function parseArgs(argv) {
     }
   }
 
-  if (!/^\d+$/.test(options.target ?? "")) {
+  if (!(options.targets?.length) || options.targets.some(target => !/^\d+$/.test(target))) {
     fail("--target must be a numeric Telegram user ID");
   }
   if (!/^[A-Za-z0-9_-]+$/.test(options.accountId)) {
@@ -139,30 +140,12 @@ function gatewayCall(method, params, timeoutMs = 30_000) {
 }
 
 function findZalouserPlugin(stateDir) {
-  const projectsDir = path.join(stateDir, "npm", "projects");
-  if (!fs.existsSync(projectsDir)) {
-    fail("OpenClaw npm projects directory was not found");
+  const info = JSON.parse(runOpenClaw(["plugins", "info", "zalouser", "--json"]));
+  const plugin = info?.plugin;
+  if (plugin?.id !== "zalouser" || plugin?.enabled !== true || plugin?.status !== "loaded" || !plugin?.source || !fs.existsSync(plugin.source)) {
+    fail("Enabled Zalo Personal plugin runtime was not found");
   }
-  const candidates = [];
-  for (const projectName of fs.readdirSync(projectsDir)) {
-    const candidate = path.join(
-      projectsDir,
-      projectName,
-      "node_modules",
-      "@openclaw",
-      "zalouser",
-      "dist",
-      "channel-plugin-api.js",
-    );
-    if (fs.existsSync(candidate)) {
-      candidates.push({ candidate, mtimeMs: fs.statSync(candidate).mtimeMs });
-    }
-  }
-  candidates.sort((left, right) => right.mtimeMs - left.mtimeMs);
-  if (candidates.length === 0) {
-    fail("Zalo Personal plugin runtime was not found");
-  }
-  return candidates[0].candidate;
+  return plugin.source;
 }
 
 function secureTree(rootPath) {
@@ -387,8 +370,17 @@ async function main() {
   const configPath = process.env.OPENCLAW_CONFIG_PATH || path.join(stateDir, "openclaw.json");
   const config = readJson(configPath);
 
-  validateOwnerPermissions(config, options.target);
+  for (const target of options.targets) validateOwnerPermissions(config, target);
   const telegramAccountId = resolveTelegramAccount(config, options.target);
+  if (options.targets.some(target => resolveTelegramAccount(config, target) !== telegramAccountId)) fail("Targets must belong to the same Telegram account");
+  const deliver = (_account, _target, message, mediaPath) => {
+    const receipts = [...new Set(options.targets)].map(target => {
+      const receipt = sendTelegram(telegramAccountId, target, message, mediaPath);
+      console.log(JSON.stringify({stage: mediaPath ? "qr-delivered" : "status-delivered", targetSuffix: target.slice(-4), messageId: receipt.messageId}));
+      return receipt;
+    });
+    return receipts[0];
+  };
   if (config.channels?.zalouser?.enabled !== true) {
     fail("Zalo Personal channel is not enabled");
   }
@@ -446,7 +438,7 @@ async function main() {
       await runOfficialZaloLogin(options.accountId, options.timeoutSeconds, (qrSourcePath) => {
         fs.copyFileSync(qrSourcePath, qrPath);
         fs.chmodSync(qrPath, 0o600);
-        qrReceipt = sendTelegram(
+        qrReceipt = deliver(
           telegramAccountId,
           options.target,
           "Mã QR đăng nhập lại Zalo Personal cho OpenClaw. Hãy quét ngay bằng Zalo và xác nhận trên điện thoại; mã chỉ có hiệu lực trong thời gian ngắn.",
@@ -455,7 +447,7 @@ async function main() {
       });
     } catch (error) {
       if (qrReceipt) {
-        sendTelegram(
+        deliver(
           telegramAccountId,
           options.target,
           "QR Zalo đã hết thời gian chờ hoặc chưa được xác nhận. Hãy yêu cầu tạo QR mới để thử lại.",
@@ -465,7 +457,7 @@ async function main() {
     }
 
     loginConnected = true;
-    completionReceipt = sendTelegram(
+    completionReceipt = deliver(
       telegramAccountId,
       options.target,
       "Đăng nhập Zalo Personal đã thành công. Kênh Zalo của OpenClaw đã được bật lại.",

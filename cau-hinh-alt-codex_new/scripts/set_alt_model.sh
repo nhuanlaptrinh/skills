@@ -17,7 +17,7 @@ usage() {
   cat <<'EOF'
 Usage: set_alt_model.sh --model MODEL [options]
 
-Models: GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna
+Models: GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, GPT-6-astra
 
 Options:
   --all-agents              Update managed model overrides in agents.list
@@ -40,6 +40,7 @@ normalize_model() {
     gpt-5.6-sol) printf '%s' 'GPT-5.6-sol' ;;
     gpt-5.6-terra) printf '%s' 'GPT-5.6-terra' ;;
     gpt-5.6-luna) printf '%s' 'GPT-5.6-luna' ;;
+    gpt-6-astra) printf '%s' 'GPT-6-astra' ;;
     *) return 1 ;;
   esac
 }
@@ -68,7 +69,7 @@ if [[ -z "$MODEL" ]]; then
 fi
 
 if ! MODEL=$(normalize_model "$MODEL"); then
-  echo "Unsupported model. Choose GPT-5.6-sol, GPT-5.6-terra, or GPT-5.6-luna." >&2
+  echo "Unsupported model. Choose GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, or GPT-6-astra." >&2
   exit 2
 fi
 
@@ -106,7 +107,8 @@ detect_openclaw_provider() {
         .id == "codex" or
         .id == "GPT-5.6-sol" or
         .id == "GPT-5.6-terra" or
-        .id == "GPT-5.6-luna"))
+        .id == "GPT-5.6-luna" or
+        .id == "GPT-6-astra"))
     | .key
   ' "$OPENCLAW_CONFIG")
   count=$(printf '%s\n' "$candidates" | sed '/^$/d' | wc -l)
@@ -172,10 +174,11 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
       . == ($provider + "/codex") or
       . == ($provider + "/GPT-5.6-sol") or
       . == ($provider + "/GPT-5.6-terra") or
-      . == ($provider + "/GPT-5.6-luna");
+      . == ($provider + "/GPT-5.6-luna") or
+      . == ($provider + "/GPT-6-astra");
     .models.providers[$provider].models = (
       (.models.providers[$provider].models // []) as $existing
-      | ["GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna"] as $managedIds
+      | ["GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna", "GPT-6-astra"] as $managedIds
       | ($existing | map(select((.id as $id | $managedIds | index($id)) == null))) +
         ($managedIds | map({
           id: ., name: .,

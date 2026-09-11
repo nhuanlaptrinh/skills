@@ -66,6 +66,8 @@ def update_config(data: dict, provider_id: str, default_id: str, vision_id: str)
     agents = data.setdefault("agents", {})
     defaults = agents.setdefault("defaults", {})
     default_model = defaults.setdefault("model", {})
+    if not isinstance(default_model, dict):
+        raise ValueError("agents.defaults.model is not an object")
     if default_model.get("primary") != provider_ref:
         default_model["primary"] = provider_ref
         changes.append("agents.defaults.model.primary")
@@ -92,7 +94,17 @@ def update_config(data: dict, provider_id: str, default_id: str, vision_id: str)
     for agent_id, entry in entries.items():
         if not isinstance(entry, dict):
             continue
-        model = entry.setdefault("model", {})
+        model = entry.get("model")
+        if isinstance(model, str):
+            if model != provider_ref:
+                entry["model"] = provider_ref
+                changes.append(f"agents.entries.{agent_id}.model")
+            continue
+        if model is None:
+            model = {}
+            entry["model"] = model
+        if not isinstance(model, dict):
+            raise ValueError(f"agents.entries.{agent_id}.model is not an object or string")
         if model.get("primary") != provider_ref:
             model["primary"] = provider_ref
             changes.append(f"agents.entries.{agent_id}.model.primary")
@@ -115,8 +127,13 @@ def write_json_atomic(path: Path, data: dict) -> None:
             os.unlink(tmp_name)
 
 
-def backup_files(paths: list[Path], member_dir: Path, backup_root: Path | None) -> Path:
-    member_name = member_dir.name
+def backup_files(
+    paths: list[Path],
+    member_dir: Path,
+    backup_root: Path | None,
+    backup_member: str | None,
+) -> Path:
+    member_name = backup_member or member_dir.name
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     destination = (backup_root or Path("/root/_Backups/openclaw-model-switch")) / member_name / stamp
     destination.mkdir(parents=True, exist_ok=False)
@@ -128,9 +145,30 @@ def backup_files(paths: list[Path], member_dir: Path, backup_root: Path | None) 
     return destination
 
 
+def discover_openclaw_root(member_dir: Path) -> Path:
+    candidates = [member_dir / ".openclaw", member_dir / "root" / ".openclaw"]
+    candidates.extend(sorted(member_dir.glob("*/.openclaw")))
+    unique = list(dict.fromkeys(candidates))
+    valid = [p for p in unique if (p / "openclaw.json").is_file()]
+    if len(valid) == 1:
+        return valid[0]
+    if not valid:
+        raise SystemExit(f"OpenClaw config not found below: {member_dir}")
+    raise SystemExit("Multiple OpenClaw configs found; pass the member directory containing the intended one")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--member-dir", type=Path, required=True, help="Persistent member directory")
+    parser.add_argument(
+        "--openclaw-root",
+        type=Path,
+        help="Exact OpenClaw root containing openclaw.json when a member has multiple configs",
+    )
+    parser.add_argument(
+        "--backup-member",
+        help="Backup directory label; defaults to the member directory name",
+    )
     parser.add_argument("--provider", default="9r")
     parser.add_argument("--default-model", default="ds-v4-flash")
     parser.add_argument("--vision-model", default="ds-v4-flash-vision-exp")
@@ -139,9 +177,17 @@ def main() -> int:
     args = parser.parse_args()
 
     member_dir = args.member_dir.resolve()
-    config_path = member_dir / ".openclaw" / "openclaw.json"
-    if not config_path.is_file():
-        raise SystemExit(f"Config not found: {config_path}")
+    if args.openclaw_root:
+        openclaw_root = args.openclaw_root.resolve()
+        try:
+            openclaw_root.relative_to(member_dir)
+        except ValueError as exc:
+            raise SystemExit("--openclaw-root must be inside --member-dir") from exc
+        if not (openclaw_root / "openclaw.json").is_file():
+            raise SystemExit(f"OpenClaw config not found at: {openclaw_root}")
+    else:
+        openclaw_root = discover_openclaw_root(member_dir)
+    config_path = openclaw_root / "openclaw.json"
     with config_path.open(encoding="utf-8") as handle:
         original = json.load(handle)
     candidate = copy.deepcopy(original)
@@ -149,7 +195,7 @@ def main() -> int:
 
     cache_paths: list[Path] = []
     for agent_id in candidate.get("agents", {}).get("entries", {}):
-        cache_path = member_dir / ".openclaw" / "agents" / agent_id / "agent" / "models.json"
+        cache_path = openclaw_root / "agents" / agent_id / "agent" / "models.json"
         if not cache_path.is_file():
             continue
         with cache_path.open(encoding="utf-8") as handle:
@@ -175,7 +221,12 @@ def main() -> int:
         return 0
 
     backup_paths = [config_path, *cache_paths]
-    backup_dir = backup_files(backup_paths, member_dir, args.backup_root)
+    backup_dir = backup_files(
+        backup_paths,
+        member_dir,
+        args.backup_root,
+        args.backup_member,
+    )
     write_json_atomic(config_path, candidate)
     # Re-read each cache and apply the same provider-only catalog update.
     for cache_path in cache_paths:

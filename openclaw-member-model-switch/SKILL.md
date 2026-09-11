@@ -28,6 +28,8 @@ These are exact model IDs exposed by the 9Router `/v1/models` endpoint. Keep the
    /root/Apps/member_vps/docker-users/data/<member>
    ```
 
+   The script discovers both common layouts: `<member>/.openclaw` and `<member>/root/.openclaw`. If more than one config exists below a member directory, pass the exact intended root with `--openclaw-root <member>/.../.openclaw`; never guess between production and auxiliary configs.
+
    Confirm `.openclaw/openclaw.json` exists and inspect the configured agent IDs. Do not edit `.env`, Telegram credentials, browser profiles, sessions, or workspaces.
 
 2. Run the updater in dry-run mode first:
@@ -37,13 +39,22 @@ These are exact model IDs exposed by the 9Router `/v1/models` endpoint. Keep the
      --member-dir /root/Apps/member_vps/docker-users/data/<member>
    ```
 
-   The dry run reports only model-related paths and never writes files. Use `--default-model` and `--vision-model` to select different exact IDs when needed.
+   The dry run reports only model-related paths and never writes files. By default it uses provider `9r`; pass the provider already configured by that member when it differs, for example `--provider 9rt` or `--provider token-codex`. Use `--default-model` and `--vision-model` to select different exact IDs when needed.
+   For a member with multiple OpenClaw roots, include the exact root in both dry-run and apply commands:
+
+   ```bash
+   python3 /root/.agents/skills/openclaw-member-model-switch/scripts/update_member_models.py \
+     --member-dir /root/Apps/member_vps/docker-users/data/<member> \
+     --openclaw-root /root/Apps/member_vps/docker-users/data/<member>/root/.openclaw \
+     --provider <existing-provider-id>
+   ```
 
 3. Apply only after reviewing the dry-run output:
 
    ```bash
    python3 /root/.agents/skills/openclaw-member-model-switch/scripts/update_member_models.py \
      --member-dir /root/Apps/member_vps/docker-users/data/<member> \
+     --provider <existing-provider-id> \
      --apply
    ```
 
@@ -55,18 +66,18 @@ These are exact model IDs exposed by the 9Router `/v1/models` endpoint. Keep the
 
    ```bash
    docker exec user-<member> sh -lc \
-     'HOME=/home/<member> openclaw config validate'
+     'HOME=<member-home> openclaw config validate'
    docker exec user-<member> sh -lc \
-     'HOME=/home/<member> openclaw agents list --bindings'
+     'HOME=<member-home> openclaw agents list --bindings'
    ```
 
-5. Reload only the target Gateway. Do not recreate the container:
+5. Reload only the target Gateway. Use the member's actual HOME (`/home/<member>` for standard members; `/root` for legacy root-home members). Do not recreate the container:
 
    ```bash
    docker kill --signal HUP user-<member>
    sleep 5
    docker exec user-<member> sh -lc \
-     'HOME=/home/<member> openclaw channels status --probe'
+     'HOME=<member-home> openclaw channels status --probe'
    ```
 
    A brief `ECONNREFUSED` immediately after HUP can occur while Supervisor respawns the Gateway; probe again after the process is present. Confirm configured Telegram/Zalo channels return `running` and `connected` before finishing.
@@ -75,7 +86,7 @@ These are exact model IDs exposed by the 9Router `/v1/models` endpoint. Keep the
 
    ```bash
    docker exec user-<member> sh -lc \
-     'HOME=/home/<member> openclaw agent --agent <agent_id> \
+     'HOME=<member-home> openclaw agent --agent <agent_id> \
        --session-key agent:<agent_id>:model-switch-check \
        --message "Reply exactly MODEL_SWITCH_OK. Do not call tools." \
        --thinking off --timeout 120 --json'

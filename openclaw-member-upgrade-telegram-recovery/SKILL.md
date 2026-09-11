@@ -300,3 +300,9 @@ The reviewed host driver is `/root/Automation/openclaw/member_sequential_upgrade
 - Post-start acceptance scans only new log bytes for Telegram poller conflicts, missing package imports, session tombstones, heap failures and Telegram send failures. Successful per-member upgrades append sanitized change-log entries automatically.
 
 - Backup also archives member-managed `npm`, `extensions` and `plugins` directories before the official updater, retaining patched Zalo dependencies and plugin package state for file-level rollback. Review scoped core/group/upload patches against the target version before upgrading patched members; never copy old core bundles over a new release.
+
+## Fleet upgrade pinned to 04.09 (2026.9.4)
+
+- Driver: `/root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_9_4.py`. It is the 03.09 reviewed driver retargeted explicitly to `2026.9.4`, retaining one-member lock, root-only backups, Node 24.20.0 staging, Supervisor/Gateway singleton checks, Telegram/Zalo probes, and no-delivery model smoke.
+- Dry-run: `python3 /root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_9_4.py <member> --home <runtime-home>`; apply adds `--apply`; use `--repair-manager` only for members whose Supervisor RPC is absent and whose project note permits a controlled container restart.
+- Backups and sanitized SUCCESS reports are under `/root/_Backups/openclaw-members-2026.9.4/<member>/`. Never send unsolicited Telegram/Zalo messages; transport probes do not claim real reply success.
