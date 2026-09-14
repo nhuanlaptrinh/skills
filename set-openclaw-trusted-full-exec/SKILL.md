@@ -5,6 +5,10 @@ description: Bật, kiểm tra hoặc sửa Full Exec không hỏi duyệt cho t
 
 # Set OpenClaw Trusted Full Exec
 
+Baseline runtime hiện hành: OpenClaw `2026.9.4`. Đây là workflow Full Exec
+toàn runtime; không dùng thay cho lớp owner exact của
+`cap-quyen-telegram-admin-openclaw`.
+
 ## Trạng thái đích
 
 Cho mọi agent trong runtime:
@@ -82,7 +86,7 @@ Dùng `--no-restart` chỉ khi có maintenance/restart riêng. Khi dùng tùy ch
 6. Probe Telegram chỉ yêu cầu account đang `enabled` và `configured` phải `running, connected`; account disabled hoặc chưa cấu hình token được báo là inactive và không làm fail connectivity.
 7. Giữ nguyên token, model, binding, workspace, plugin approval, sender tool policy, allowlist lệnh cũ và cấu hình ngoài phạm vi.
 
-Script đọc agent từ `agents.entries` keyed (OpenClaw 2026.8.x) trước, rồi mới
+Script đọc agent từ `agents.entries` keyed (OpenClaw 2026.9.x) trước, rồi mới
 fallback về `agents.list`; nó không materialize `agents.list` trên config mới.
 
 Backup mặc định:

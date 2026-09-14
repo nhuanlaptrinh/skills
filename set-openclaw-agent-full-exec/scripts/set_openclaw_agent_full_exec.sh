@@ -211,7 +211,7 @@ if [ -f "$NATIVE_DB" ]; then
 elif [ -f "$APPROVALS_FILE" ]; then
   APPROVALS_BACKEND="legacy"
 else
-  # A fresh 2026.8 root initializes the native row on first approval write.
+  # A fresh 2026.9 root initializes the native row on first approval write.
   APPROVALS_BACKEND="sqlite"
 fi
 

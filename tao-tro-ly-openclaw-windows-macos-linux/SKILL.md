@@ -1,6 +1,6 @@
 ---
 name: tao-tro-ly-openclaw-windows-macos-linux
-description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, đồng bộ policy owner-training và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, xác minh owner theo chính VPS đích, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Mọi lần kết nối Zalo Personal phải chạy openclaw-zalouser-onboarding-standard để bật Supervisor, channel watchdog và resource/OOM guard trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
+description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý OpenClaw trên Windows, macOS và Linux, gồm máy cá nhân, VPS chính và VPS thành viên Docker; dùng cả khi phục hồi sau đổi tên/copy member, sửa Telegram group, owner, Gateway, provider hoặc workspace. Mọi trợ lý/agent và workspace mới phải được cài reliable-media-delivery, đồng bộ policy owner-training và hoàn tất checklist bắt buộc. Với VPS thành viên, bắt buộc đồng bộ toàn bộ skill, xác minh owner theo chính VPS đích bằng cap-quyen-telegram-admin-openclaw, chuẩn hóa một bot về agent main và một workspace bằng unify-openclaw-bot-workspace, rồi bật Full Exec không hỏi duyệt cho main bằng set-openclaw-agent-full-exec trước khi bàn giao. Mọi lần kết nối Zalo Personal phải chạy openclaw-zalouser-onboarding-standard để bật Supervisor, channel watchdog và resource/OOM guard trước khi bàn giao. Bao gồm Token Codex, Telegram, Zalo, dashboard, proxy fallback, Second AI Brain, audio, web search, xử lý ảnh và Facebook Fanpage/CSKH.
 ---
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
@@ -11,7 +11,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 
 ## Chính sách root bắt buộc
 
-- Không được báo hoàn tất nếu chưa cài `openclaw@2026.8.2`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
+- Không được báo hoàn tất nếu chưa cài `openclaw@2026.9.4`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
 - Linux/VPS/container member bắt buộc chạy OpenClaw bằng `root`, `HOME=/root`, OpenClaw root `/root/.openclaw` và workspace `/root/.openclaw/workspace`.
 - Với member legacy đã có HOME/OpenClaw root khác và đã được xác minh bằng `docker inspect` cùng project note, giữ đúng đường dẫn persistent hiện hữu; không tự di chuyển về `/root` trong quy trình Zalo onboarding.
 - `/root/.openclaw` trong container phải là thư mục thật nằm trên volume persistent riêng của member; không dùng symlink sang home khác.
@@ -20,7 +20,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 - Không dùng `--skip-skills`. Sau onboarding, chạy `scripts/sync_all_skills_to_root.py`, sau đó chạy lại script với `--check` và `openclaw skills check`.
 - Mọi agent/workspace mới bắt buộc có `<workspace>/skills/reliable-media-delivery/SKILL.md` và block `reliable-media-delivery:start/end` đúng một lần trong `<workspace>/AGENTS.md`; thiếu một trong hai thì chưa được báo hoàn tất.
 - Mọi lần dùng skill này để tạo, cài, khôi phục hoặc chuẩn hóa một OpenClaw runtime đều phải chạy `scripts/ensure_default_telegram_owner.py` với owner đã xác minh trên VPS đích; không dùng owner wildcard và không sao chép ID từ VPS khác.
-- Với VPS thành viên, sau khi Telegram account và owner tồn tại, bắt buộc chạy `unify-openclaw-bot-workspace` để kiểm tra hoặc gộp kiến trúc về `main`, rồi chạy `set-openclaw-agent-full-exec` cho `main` sau cùng. Mọi lần chạy lại owner/unify đều phải chạy lại Full Exec check.
+- Với VPS thành viên, sau khi Telegram account tồn tại, bắt buộc áp dụng/check `cap-quyen-telegram-admin-openclaw` cho từng owner đã xác minh, chạy `unify-openclaw-bot-workspace` để kiểm tra hoặc gộp kiến trúc về `main`, rồi chạy `set-openclaw-agent-full-exec` cho `main` sau cùng. Với cấu hình legacy nhiều route, unify trước rồi áp dụng lại owner; mọi lần chạy lại owner/unify đều phải chạy lại Full Exec check.
 - Script đồng bộ phải loại `.git`, `__pycache__`, `.pyc`, `node_modules`; nếu skill đích đã tồn tại, script backup trước khi thay.
 - Nếu trùng tên skill giữa các root nguồn, ưu tiên root nguồn xuất hiện trước; chỉ cài một folder trực tiếp cho mỗi tên skill.
 - Gateway chỉ được start/restart sau khi `openclaw --version`, đồng bộ skill, owner check, unify check, Full Exec file check, `openclaw config validate` và `openclaw skills check` đều đạt.
@@ -42,9 +42,9 @@ Việc áp dụng này chỉ lưu skill dưới `workspace/skills` và policy tr
 
 ## Tính độc lập và cách chuyển VPS
 
-- Đây là skill điều phối. Nhánh Windows/macOS/local vẫn tự chứa; riêng workflow VPS thành viên bắt buộc gọi đúng hai global skill `unify-openclaw-bot-workspace` và `set-openclaw-agent-full-exec` sau khi đồng bộ skill.
+- Đây là skill điều phối. Nhánh Windows/macOS/local vẫn tự chứa; riêng workflow VPS thành viên bắt buộc dùng ba global skill `cap-quyen-telegram-admin-openclaw`, `unify-openclaw-bot-workspace` và `set-openclaw-agent-full-exec` sau khi đồng bộ skill.
 - Khi chuyển sang máy khác, copy nguyên folder skill, gồm `SKILL.md`, `agents/`, `references/`, `scripts/` và `resources/`, vào root nguồn skill trước khi chạy đồng bộ.
-- Hai skill bắt buộc phải tồn tại tại root nguồn và workspace member trước khi finalize; nếu thiếu, dừng và khôi phục/sync đúng skill, không chép lại logic migration hoặc Full Exec bằng lệnh ad-hoc.
+- Ba skill bắt buộc phải tồn tại tại root nguồn và workspace member trước khi finalize; nếu thiếu, dừng và khôi phục/sync đúng skill, không chép lại logic owner, migration hoặc Full Exec bằng lệnh ad-hoc.
 - Các project hoặc automation khác được nêu trong skill vẫn phải tồn tại nếu muốn dùng đúng lệnh tự động; nếu VPS đích chưa có, thực hiện workflow thủ công tương ứng trong skill.
 - Không xóa các skill độc lập cũ trên VPS nguồn vì chúng có thể đang được workflow khác sử dụng; skill này chỉ loại bỏ sự phụ thuộc vào chúng.
 
@@ -62,7 +62,8 @@ Việc áp dụng này chỉ lưu skill dưới `workspace/skills` và policy tr
 
 ### Mặc định chung
 
-- Luôn cài cố định `openclaw@2026.8.2`; không dùng `latest` và không tự đổi version. Sau khi cài phải xác nhận `openclaw --version` trả đúng `2026.8.2`.
+- Luôn cài cố định `openclaw@2026.9.4`; không dùng `latest` và không tự đổi version. Sau khi cài phải xác nhận `openclaw --version` trả đúng `2026.9.4`.
+- Node.js phải thỏa `>=24.16.0 <25` (hoặc `>=26.1.0`); với Debian/Ubuntu ưu tiên NodeSource `24.x` thay vì gói Node cũ của distro.
 - Cài Node.js LTS, npm, Python 3 và pip trước khi cài OpenClaw.
 - Bắt buộc chạy bằng quyền root/Administrator và chuẩn bị đầy đủ root nguồn skill trước khi onboarding.
 - Dashboard local mặc định: `http://127.0.0.1:18789/`.
@@ -80,7 +81,8 @@ winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --acce
 winget install --id Python.Python.3.12 --exact --accept-package-agreements --accept-source-agreements
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip
-npm install -g openclaw@2026.8.2
+node --version
+npm install -g openclaw@2026.9.4
 $SkillDir = (Get-Location).Path
 $OpenClawRoot = Join-Path $env:USERPROFILE ".openclaw"
 $Workspace = Join-Path $OpenClawRoot "workspace"
@@ -105,8 +107,9 @@ Chuẩn bị Node.js/Python bằng tài khoản quản trị, copy toàn bộ ro
 brew install node python
 python3 -m ensurepip --upgrade || true
 python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip
+node --version
 SKILL_DIR="$(pwd -P)"
-sudo -H npm install -g openclaw@2026.8.2
+sudo -H npm install -g openclaw@2026.9.4
 sudo -H env HOME=/var/root openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /var/root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw --check
@@ -129,8 +132,11 @@ test "$(id -u)" -eq 0
 export HOME=/root
 SKILL_DIR="$(pwd -P)"
 apt-get update
-apt-get install -y curl ca-certificates nodejs npm python3 python3-pip python3-venv
-npm install -g openclaw@2026.8.2
+apt-get install -y curl ca-certificates python3 python3-pip python3-venv
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+apt-get install -y nodejs
+node --version
+npm install -g openclaw@2026.9.4
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw --check
@@ -228,11 +234,11 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 1. Chạy `/root/Apps/member_vps/docker-users/manage-user.sh create <name> <password> <ssh_port>`; không giả định script tự sinh mật khẩu hoặc tự chọn port.
 2. Bắt buộc bổ sung volume persistent `/root/Apps/member_vps/docker-users/data/<name>/root:/root`, cài OpenClaw trong container bằng `HOME=/root` và tạo `/root/.openclaw/workspace`.
 3. Bắt buộc đồng bộ toàn bộ skill nguồn vào `/root/.openclaw/workspace/skills`, gồm hai skill finalize, rồi chạy kiểm tra đủ skill và validate config.
-4. Cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào; chạy owner setup, unify về `main`, rồi bật Full Exec cho `main` theo đúng thứ tự trước khi bàn giao.
+4. Cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào; chạy owner setup, áp dụng/check `cap-quyen-telegram-admin-openclaw`, unify về `main` (legacy nhiều route phải unify trước rồi áp dụng lại owner), rồi bật Full Exec cho `main` theo đúng thứ tự trước khi bàn giao.
 5. Chỉ start Gateway sau các file check; sau khi Gateway lên, chạy lại Full Exec runtime check và channel probe.
 6. Nếu người dùng thực sự chỉ cần một container Linux không có OpenClaw, task đó không thuộc skill tạo trợ lý này; chuyển sang workflow quản lý container/VPS riêng và không báo đã tạo trợ lý.
-- OpenClaw phải luôn cài cố định `openclaw@2026.8.2`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
-- Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.8.2 engines --json`; version này yêu cầu Node `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`.
+- OpenClaw phải luôn cài cố định `openclaw@2026.9.4`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
+- Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.9.4 engines --json`; version này yêu cầu Node `>=24.16.0 <25 || >=26.1.0`.
 - Mọi member mới phải có `python3`, `python3-full`, `python3-venv`, `python3-pip`.
 - Mọi member mới phải có Poppler (`pdfinfo`, `pdftotext`), `file`, `unzip`, `zip`.
 - Mọi member mới phải có document venv tại `/root/.openclaw/tools/document-venv` với OpenPyXL, PyPDF, pdfplumber, PyMuPDF, Pillow, XlsxWriter và pandas.
@@ -243,7 +249,7 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Gateway URL trong container là `http://127.0.0.1:18789/`.
 - Gateway Token phải được sinh ngẫu nhiên riêng cho từng member, trừ khi người dùng truyền `OPENCLAW_GATEWAY_TOKEN`; không dùng token cố định dùng chung.
 - Chỉ báo dashboard public sau khi Docker đã map rõ `<web_port>:80` và Nginx trong container reverse proxy port `80` tới `127.0.0.1:18789` với WebSocket headers; `manage-user.sh` hiện không tự làm hai việc này.
-- Dashboard public HTTP token-only chỉ được bật khi người vận hành đặt `OPENCLAW_ALLOW_INSECURE_DASHBOARD=true`; khi đó đặt `gateway.controlUi.allowedOrigins` đúng URL public và `gateway.controlUi.dangerouslyDisableDeviceAuth = true` (không dùng key `allowInsecureAuth`, vì key này không có trong schema 2026.8).
+- Dashboard public HTTP token-only chỉ được bật khi người vận hành đặt `OPENCLAW_ALLOW_INSECURE_DASHBOARD=true`; khi đó đặt `gateway.controlUi.allowedOrigins` đúng URL public và `gateway.controlUi.dangerouslyDisableDeviceAuth = true` (không dùng key `allowInsecureAuth`, vì key này không có trong schema 2026.9).
 - Lưu Gateway Token tại `/root/.openclaw_dashboard_token` với quyền `600`; khi đăng nhập nhập Token Gateway và để trống ô mật khẩu.
 - Phải báo link public tương ứng web port sau khi tạo và xác minh URL trả HTTP `200`. Nếu không tự lấy được public IPv4, dùng `OPENCLAW_PUBLIC_IP`.
 - Cấu hình HTTP token-only giảm bảo mật; khi có domain HTTPS phải ưu tiên HTTPS và tắt `dangerouslyDisableDeviceAuth`.
@@ -321,7 +327,7 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
   `token-codex/GPT-5.6-sol` vào key này: catalog Token Codex trong workflow
   này chỉ khai báo text/image input. Chỉ thêm `mediaModels.image` sau khi đã
   cấu hình một provider tạo ảnh thực sự, kiểm tra `openclaw infer image providers --json`
-  và xác minh một lượt tạo ảnh không chứa dữ liệu riêng tư. OpenClaw 2026.8
+  và xác minh một lượt tạo ảnh không chứa dữ liệu riêng tư. OpenClaw 2026.9
   không hỗ trợ key legacy `agents.defaults.imageGenerationModel`.
 - **Kiểm tra bắt buộc khả năng đọc ảnh:** sau `openclaw config validate`, tạo một ảnh kiểm thử không chứa dữ liệu riêng tư rồi chạy `openclaw infer image describe` bằng `token-codex/GPT-5.6-sol`. Kết quả phải nhận diện được chữ kiểm thử `OPENCLAW_VISION_OK_2026` hoặc nội dung hình đã biết; chỉ HTTP `200` không đủ để kết luận đọc ảnh hoạt động.
 
@@ -547,7 +553,7 @@ docker exec -e HOME=/root user-<ten_user> sh -lc '
   command -v node
   command -v npm
   command -v python3
-  npm install -g openclaw@2026.8.2
+  npm install -g openclaw@2026.9.4
   openclaw --version
 '
 
@@ -603,6 +609,28 @@ python3 "$SKILL_DIR/scripts/ensure_default_telegram_owner.py" \
   --account-id '<ten_user>' \
   --owner-id '<verified_telegram_owner_id>' \
   --check
+test -f /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py
+python3 /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py \
+  --telegram-id '<verified_telegram_owner_id>' \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --agent-id main
+python3 /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py \
+  --telegram-id '<verified_telegram_owner_id>' \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --agent-id main \
+  --backup-dir /root/_Backups/openclaw-telegram-owner \
+  --apply
+python3 /root/.agents/skills/cap-quyen-telegram-admin-openclaw/scripts/grant_telegram_admin.py \
+  --telegram-id '<verified_telegram_owner_id>' \
+  --openclaw-root "$MEMBER_ROOT/.openclaw" \
+  --runtime-openclaw-root /root/.openclaw \
+  --account-id '<ten_user>' \
+  --agent-id main \
+  --check
 test -f /root/.agents/skills/unify-openclaw-bot-workspace/scripts/unify_bot_workspace.py
 test -f /root/.agents/skills/set-openclaw-agent-full-exec/scripts/set_openclaw_agent_full_exec.sh
 test -f "$MEMBER_ROOT/.openclaw/workspace/skills/unify-openclaw-bot-workspace/SKILL.md"
@@ -651,9 +679,11 @@ Không ghi token thật vào skill, README, nhật ký, câu trả lời, Git ho
 
 ## Cấu hình chủ sở hữu và quyền duyệt Telegram bắt buộc
 
-Đầu vào: `--openclaw-root` trỏ tới runtime OpenClaw; `--account-id` là Telegram account đã tồn tại; `--agent-id` và `--owner-id` có thể lặp. Đầu ra: cập nhật `openclaw.json` và approval backend đang hoạt động (SQLite `state/openclaw.sqlite#exec_approvals_config` trên OpenClaw 2026.8 hoặc `exec-approvals.json` ở bản legacy), đồng thời tạo backup trong `<OPENCLAW_ROOT>/backups/telegram-owner/` khi apply có thay đổi.
+Đầu vào: `--openclaw-root` trỏ tới runtime OpenClaw; `--account-id` là Telegram account đã tồn tại; `--agent-id` và `--owner-id` có thể lặp. Đầu ra: cập nhật `openclaw.json` và approval backend đang hoạt động (SQLite `state/openclaw.sqlite#exec_approvals_config` trên OpenClaw 2026.9 hoặc `exec-approvals.json` ở bản legacy), đồng thời tạo backup trong `<OPENCLAW_ROOT>/backups/telegram-owner/` khi apply có thay đổi.
 
-Dùng script idempotent đi kèm thay vì ghi đè mảng thủ công. Script đọc owner Telegram đã có trong `commands.ownerAllowFrom`, merge thêm các `--owner-id` đã xác minh, cấu hình cả `openclaw.json` và host approvals qua adapter native/legacy, backup trước khi apply và không đọc/in bot token. Trên OpenClaw 2026.8, script không tự tạo lại file legacy `exec-approvals.json`.
+Dùng script idempotent đi kèm thay vì ghi đè mảng thủ công. Script đọc owner Telegram đã có trong `commands.ownerAllowFrom`, merge thêm các `--owner-id` đã xác minh, cấu hình cả `openclaw.json` và host approvals qua adapter native/legacy, backup trước khi apply và không đọc/in bot token. Trên OpenClaw 2026.9, script không tự tạo lại file legacy `exec-approvals.json`.
+
+Lớp quyền owner đầy đủ phải được áp dụng trước bước finalize: dùng `cap-quyen-telegram-admin-openclaw` (hoặc helper owner tương đương) để merge đúng các Telegram ID đã xác minh vào `allowFrom`, `commands.ownerAllowFrom`, `toolsBySender`, elevated allowlist và approvers/plugin targets. Đây là lớp full-owner có kiểm soát; chỉ chạy `set-openclaw-agent-full-exec` sau cùng khi người vận hành đã cấp rõ Full Exec không hỏi duyệt.
 
 Với member Docker, chạy trên root volume persistent sau khi Telegram account đã tồn tại trong config:
 
@@ -963,15 +993,15 @@ chmod 600 "$BACKUP_DIR/openclaw_before.tar.gz"
 
 ### Cài plugin Zalo đúng version
 
-Với OpenClaw pin `2026.8.2`:
+Với OpenClaw pin `2026.9.4`:
 
 ```bash
 docker exec -e HOME=/root user-<ten_user> \
-  openclaw plugins install --pin '@openclaw/zalouser@2026.8.2'
+  openclaw plugins install --pin '@openclaw/zalouser@2026.9.4'
 docker exec -e HOME=/root user-<ten_user> openclaw config validate
 ```
 
-Trước khi cài plugin, chạy `npm view @openclaw/zalouser@2026.8.2 peerDependencies --json` và xác nhận core `2026.8.2` đáp ứng peer dependency `openclaw >=2026.8.2`.
+Trước khi cài plugin, chạy `npm view @openclaw/zalouser@2026.9.4 peerDependencies --json` và xác nhận core `2026.9.4` đáp ứng peer dependency `openclaw >=2026.9.4`.
 
 ### Gửi QR mới trực tiếp vào Telegram allowlist
 

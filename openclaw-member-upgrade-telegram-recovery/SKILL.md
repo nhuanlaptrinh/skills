@@ -21,9 +21,13 @@ export DATA_DIR="/root/Apps/member_vps/docker-users/data/${MEMBER}"
 export BACKUP_ROOT="/root/_Backups/openclaw-member-upgrade-telegram-recovery/${MEMBER}"
 ```
 
+Current approved target for this VPS is OpenClaw `2026.9.4` (04.09), with
+Node.js `>=24.16.0 <25` (or `>=26.1.0`). Do not resolve an unpinned
+`latest` tag during a production run.
+
 Expected outputs:
 
-- OpenClaw at the latest requested stable version inside the target container.
+- OpenClaw exactly at the approved target `2026.9.4` inside the target container.
 - Legacy sessions and workspace state migrated to the current format when required.
 - Exactly one Gateway owned by Supervisor and configured to autorestart.
 - The target Telegram account `running`, `connected`, and able to complete a real reply.
@@ -70,7 +74,7 @@ docker exec -e HOME="$MEMBER_HOME" "$CONTAINER" \
   openclaw update --dry-run --no-restart --json
 ```
 
-If the registry cannot be queried, do not assume the installed version is latest. Retry when network/DNS is available or report the unverified version explicitly.
+If the registry cannot be queried, do not assume `2026.9.4` is installed. Retry when network/DNS is available or report the unverified version explicitly.
 
 ## 2. Back up production state
 
@@ -105,19 +109,19 @@ Use the official updater first:
 
 ```bash
 docker exec -e HOME="$MEMBER_HOME" "$CONTAINER" \
-  openclaw update --tag latest --no-restart --yes --json
+  openclaw update --tag 2026.9.4 --no-restart --yes --json
 ```
 
 If the updater reports an unknown package manager but leaves the existing package intact, inspect the global package root before choosing the package manager. If OpenClaw is already partially replaced, has dependency mismatches, or cannot load required `dist` modules, reinstall the same target atomically through the detected package manager. For npm-based global installs:
 
 ```bash
 docker exec "$CONTAINER" npm root -g
-docker exec "$CONTAINER" npm install -g openclaw@latest
+docker exec "$CONTAINER" npm install -g openclaw@2026.9.4
 docker exec "$CONTAINER" npm ls -g openclaw --depth=0
 docker exec -e HOME="$MEMBER_HOME" "$CONTAINER" openclaw --version
 ```
 
-Use `npm install -g openclaw@latest --force` only when a normal reinstall fails and package corruption is proven. Preserve the previous version string for rollback.
+Use `npm install -g openclaw@2026.9.4 --force` only when a normal reinstall fails and package corruption is proven. Preserve the previous version string for rollback.
 
 ## 4. Run post-upgrade migrations
 
@@ -247,7 +251,7 @@ docker exec -e HOME="$MEMBER_HOME" "$CONTAINER" \
 
 Confirm:
 
-- Installed version matches the requested/latest registry version.
+- Installed version matches the approved target `2026.9.4`.
 - Exactly one Gateway is `RUNNING`, listens on the intended loopback port, and survives a controlled restart.
 - Telegram account is configured, running, connected, polling, and has no current error.
 - No new malformed allowlist warning, `409 Conflict`, tombstone, package import error, or dispatch failure appears after the repair timestamp.
@@ -273,6 +277,9 @@ Report only:
 Append a sanitized entry to `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md` after material production changes.
 
 ## Fleet upgrade pinned to 03.09 (2026.9.3)
+
+Phần này là tài liệu lịch sử để rollback/audit; không dùng cho lượt nâng cấp
+mới. Lượt mới phải dùng driver và target `2026.9.4` ở mục 04.09 bên dưới.
 
 The reviewed host driver is `/root/Automation/openclaw/member_sequential_upgrade/upgrade.py`. It processes exactly one member, takes an exclusive fleet lock, stops on any failed baseline/update/acceptance check, and never sends a Telegram/Zalo test message. Read this skill and the member operating notes before execution.
 

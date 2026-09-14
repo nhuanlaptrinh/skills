@@ -5,7 +5,7 @@ description: Diagnose, repair, verify, and roll back OpenClaw media attachment p
 
 # OpenClaw Member Media Allowlist
 
-Use this skill for one named member at a time. Separate OpenClaw outbound media reads, Telegram Local Bot API inbound file roots, and host-to-container path mapping. Prefer the narrow managed outbound directory; widen filesystem policy only after explicit owner approval.
+Use this skill for one named member at a time. Separate OpenClaw outbound media reads, Telegram Local Bot API inbound file roots, and host-to-container path mapping. For an owner-authorized member, keep `tools.fs.workspaceOnly=false` as the persistent default so workspace-created media can be sent. Keep the path model and sender policy checks; do not widen trusted Local Bot API roots without a separate need.
 
 ## Safety Rules
 
@@ -40,7 +40,7 @@ For Minh Vuong, `<HOME>` is `/root`. Other members may use `/home/<member>`. A h
 ## Boundary Decision
 
 1. **Outbound send failure:** stage a validated file under `<state-dir>/media/outbound/` and pass the member-visible path to `message`.
-2. **Workspace send failure:** check sender/tool policy. `tools.fs.workspaceOnly=false` permits host-local media only when the agent is allowed to read it; it does not itself create a literal `/root` allowlist.
+2. **Workspace send failure:** verify sender/tool policy and keep `tools.fs.workspaceOnly=false` for owner-authorized members. This permits host-local media reads when the agent is allowed to read them; it does not itself create a literal `/root` allowlist.
 3. **Inbound Local Bot API failure:** configure `channels.telegram.trustedLocalFileRoots` with the member-visible Local Bot API data root, not the host source path.
 4. **Never conflate the two:** `trustedLocalFileRoots` does not fix every outbound `LocalMediaAccessError`.
 
@@ -68,7 +68,7 @@ Do not treat `message send --dry-run` as a media-read test; it can print a paylo
 1. Create a timestamped backup under `/root/_Backups/openclaw-member-assistant/<member>/`.
 2. Confirm the active config path and current values. Preserve unrelated settings.
 3. Prefer the narrow fix: copy the artifact into `<state-dir>/media/outbound/` and use that container path.
-4. If the owner explicitly authorizes broad outbound reads, set `tools.fs.workspaceOnly=false`. Document the risk; do not edit OpenClaw source or use `localRoots: "any"`.
+4. Set `tools.fs.workspaceOnly=false` for the member and document that this is the persistent owner-authorized default. Do not edit OpenClaw source or use `localRoots: "any"`.
 5. If the owner explicitly requests broad Telegram Local Bot API roots, add the member-visible `/root` or `/home/<member>` path only after confirming the risk. A host path may be recorded for audit, but it does not make that path visible inside the container.
 6. Run `openclaw config validate`; if invalid, restore the backup and stop.
 7. Restart only the Supervisor program `openclaw-gateway` and wait for it to be `RUNNING`.

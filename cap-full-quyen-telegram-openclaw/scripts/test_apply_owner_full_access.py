@@ -56,7 +56,7 @@ def compliant_fixture(telegram_id="123456789"):
         },
         "commands": {"ownerAllowFrom": [f"telegram:{telegram_id}"]},
         "tools": {
-            "fs": {"workspaceOnly": True},
+            "fs": {"workspaceOnly": False},
             "elevated": {"allowFrom": {"telegram": [telegram_id]}},
         },
         "approvals": {
@@ -319,7 +319,7 @@ class WorkflowTests(unittest.TestCase):
                             "match": {"channel": "telegram", "accountId": "demo"},
                         }
                     ]
-                    current["tools"]["fs"]["workspaceOnly"] = True
+                    current["tools"]["fs"]["workspaceOnly"] = False
                     if add_owner:
                         target["tools"]["toolsBySender"][
                             f"channel:telegram:{telegram_id}"

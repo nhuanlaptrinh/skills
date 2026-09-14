@@ -295,7 +295,7 @@ def merge_config(config, account_id, agent_ids, owner_ids):
             append_unique(owner_allow_from, f"telegram:{owner_id}"),
             f"add {owner_id} to command owners",
         )
-    # OpenClaw 2026.8 renders raw owner IDs by default; these legacy keys are
+    # OpenClaw 2026.9 renders raw owner IDs by default; these legacy keys are
     # doctor-only and rejected by the active config schema.
     for retired_key in ("ownerDisplay", "ownerDisplaySecret"):
         if retired_key in commands:
@@ -424,7 +424,7 @@ def main():
     if config_path.is_symlink():
         raise ValueError("Refusing to modify a symlinked OpenClaw config")
     approvals_snapshot = load_approvals(openclaw_root)
-    # Native 2026.8 uses a SQLite locator; legacy releases retain the JSON path.
+    # Native 2026.9 uses a SQLite locator; legacy releases retain the JSON path.
     approvals_path = approvals_snapshot.locator
     if approvals_snapshot.path.is_symlink():
         raise ValueError("Refusing to modify symlinked host exec approvals")

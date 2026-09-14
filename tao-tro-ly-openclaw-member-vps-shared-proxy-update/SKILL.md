@@ -7,6 +7,17 @@ description: "Bổ sung quy tắc proxy, Second AI Brain và bàn giao Codex cho
 
 Giữ nguyên toàn bộ nội dung skill live hiện hành và bổ sung các quy tắc bắt buộc dưới đây.
 
+## 0. Baseline OpenClaw và quyền owner
+
+- Member mới dùng OpenClaw pin `2026.9.4` (04.09), không dùng npm `latest`;
+  Node.js phải thỏa `>=24.16.0 <25` hoặc `>=26.1.0`.
+- Sau khi Telegram account tồn tại, áp dụng `cap-quyen-telegram-admin-openclaw`
+  cho từng Telegram ID đã xác minh để tạo lớp full-owner có kiểm soát trên agent
+  canonical `main` (allowlist, `toolsBySender`, elevated và approvers/plugin).
+- Chỉ chạy `set-openclaw-agent-full-exec` ở bước cuối nếu yêu cầu đã cấp rõ
+  Full Exec không hỏi duyệt; luôn chạy lại owner/unify/full-exec checks sau khi
+  cấu hình Telegram hoặc đổi agent.
+
 ## 1. Shared Fallback Proxy
 
 Mỗi khi sử dụng `tao-tro-ly-openclaw-windows-macos-linux` để tạo, cấu hình hoặc vận hành trợ lý OpenClaw trong member VPS, phải đọc và áp dụng:

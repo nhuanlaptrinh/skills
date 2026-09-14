@@ -2,12 +2,36 @@
 """Bounded, single-invocation workbook coordinator.
 Reads only requested workbook metadata/columns and emits one compact JSON record."""
 from __future__ import annotations
-import argparse, hashlib, json, os, re, sys, time
+import argparse, hashlib, json, os, re, sys, time, zipfile
+from email.message import Message
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
+from urllib.parse import unquote, urljoin, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MAX_OUT=2000; MAX_INPUTS=2; MAX_SHEETS=32; MAX_SCAN=50000; MAX_DETAIL=500
 FORBIDDEN_PARTS={'.env','credential','secret','token','cookie','.openclaw/scripts','/scripts/'}
+REMOTE_MAX_BYTES = 20 * 1024 * 1024
+REMOTE_TIMEOUT_SECONDS = 20
+REMOTE_MAX_REDIRECTS = 3
+# Zalo file links start at dlfl.vn, then may redirect through Zalo's flchat.vn
+# delivery host and its exact dlmd.me CDN host. Keep patterns exact; do not
+# allow a suffix or arbitrary URL supplied in a group message.
+REMOTE_HOST_RE = re.compile(
+    r"^(?:file-stal-[0-9]+\.(?:dlfl|flchat)\.vn|file-stal-[0-9]+-aka-jpt\.dlmd\.me)$",
+    re.I,
+)
+REMOTE_URL_RE = re.compile(r"https://file-stal-[0-9]+\.(?:dlfl|flchat)\.vn/[^\s<>\"']+", re.I)
+REMOTE_MIMES = {
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel.sheet.macroenabled.12",
+    "text/csv",
+    "application/csv",
+    "application/octet-stream",
+}
+REMOTE_EXTENSIONS = {".xlsx", ".xlsm", ".csv"}
 
 def compact(v):
     if hasattr(v,'item'):
@@ -33,7 +57,150 @@ def emit(obj, code=0):
 
 def fail(err, **kw): return emit({'error':err,**kw},1)
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def remote_url_from_input(raw):
+    if not isinstance(raw, str):
+        return None
+    match = REMOTE_URL_RE.search(raw.strip())
+    if not match:
+        return None
+    return match.group(0).rstrip(").,;\"'")
+
+
+def validate_remote_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme.lower() != "https" or parsed.username or parsed.password or parsed.port:
+        raise ValueError("remote_url_not_allowed")
+    if not REMOTE_HOST_RE.fullmatch((parsed.hostname or "").lower()):
+        raise ValueError("remote_host_not_allowed")
+    if not parsed.path.startswith("/gr/"):
+        raise ValueError("remote_path_not_allowed")
+
+
+def safe_remote_filename(raw, headers, content_type):
+    hint = ""
+    if isinstance(raw, str):
+        prefix = raw[: raw.find("https://") if "https://" in raw else 0]
+        hint = Path(prefix.strip().splitlines()[-1].strip()).name if prefix.strip() else ""
+    name = ""
+    disposition = headers.get("Content-Disposition", "")
+    if disposition:
+        message = Message()
+        message["content-disposition"] = disposition
+        name = message.get_param("filename", header="content-disposition") or ""
+        if not name:
+            encoded = message.get_param("filename*", header="content-disposition") or ""
+            name = encoded.split("''", 1)[-1]
+        name = unquote(str(name))
+    candidate = Path(name or hint).name
+    if not candidate or candidate in {".", ".."}:
+        candidate = "zalo_download"
+    candidate = re.sub(r"[\x00-\x1f\x7f]+", "_", candidate)
+    candidate = re.sub(r"[^A-Za-z0-9._ -]", "_", candidate).strip(" .")[:180]
+    ext = Path(candidate).suffix.lower()
+    if ext not in REMOTE_EXTENSIONS:
+        hint_ext = Path(hint).suffix.lower()
+        mime_ext = {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+            "application/vnd.ms-excel.sheet.macroenabled.12": ".xlsm",
+            "text/csv": ".csv",
+            "application/csv": ".csv",
+        }.get(content_type.lower(), "")
+        ext = hint_ext if hint_ext in REMOTE_EXTENSIONS else mime_ext
+        if not ext:
+            raise ValueError("remote_extension_not_allowed")
+        candidate = f"{candidate}{ext}"
+    return candidate
+
+
+def download_remote_input(workspace, raw):
+    url = remote_url_from_input(raw)
+    if not url:
+        raise ValueError("remote_url_invalid")
+    validate_remote_url(url)
+    cache_key = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
+    cache_dir = workspace / "incoming" / "zalo"
+    cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(cache_dir, 0o700)
+    opener = build_opener(_NoRedirect())
+    current = url
+    response = None
+    try:
+        for _ in range(REMOTE_MAX_REDIRECTS + 1):
+            validate_remote_url(current)
+            request = Request(current, headers={"User-Agent": "OpenClaw-file-task/1"})
+            try:
+                response = opener.open(request, timeout=REMOTE_TIMEOUT_SECONDS)
+            except HTTPError as error:
+                if error.code not in {301, 302, 303, 307, 308}:
+                    raise ValueError(f"remote_http_{error.code}") from error
+                location = error.headers.get("Location")
+                error.close()
+                if not location:
+                    raise ValueError("remote_redirect_missing_location")
+                current = urljoin(current, location)
+                continue
+            status = getattr(response, "status", response.getcode())
+            if status != 200:
+                raise ValueError(f"remote_http_{status}")
+            break
+        else:
+            raise ValueError("remote_redirect_limit")
+        content_type = (response.headers.get_content_type() or "").lower()
+        if content_type not in REMOTE_MIMES:
+            raise ValueError("remote_mime_not_allowed")
+        content_length = response.headers.get("Content-Length")
+        if content_length:
+            try:
+                declared_bytes = int(content_length)
+            except ValueError as error:
+                raise ValueError("remote_content_length_invalid") from error
+            if declared_bytes < 0 or declared_bytes > REMOTE_MAX_BYTES:
+                raise ValueError("remote_file_too_large")
+        filename = safe_remote_filename(raw, response.headers, content_type)
+        target_dir = cache_dir / cache_key
+        target_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(target_dir, 0o700)
+        target = target_dir / filename
+        if target.is_file() and target.stat().st_size <= REMOTE_MAX_BYTES:
+            if target.suffix.lower() not in {".xlsx", ".xlsm"} or zipfile.is_zipfile(target):
+                return target
+            target.unlink()
+        partial = target_dir / ".download.part"
+        try:
+            total = 0
+            with partial.open("wb") as output:
+                os.chmod(partial, 0o600)
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > REMOTE_MAX_BYTES:
+                        raise ValueError("remote_file_too_large")
+                    output.write(chunk)
+            if total == 0:
+                raise ValueError("remote_file_empty")
+            if target.suffix.lower() in {".xlsx", ".xlsm"} and not zipfile.is_zipfile(partial):
+                raise ValueError("remote_excel_invalid_zip")
+            os.replace(partial, target)
+        except Exception:
+            partial.unlink(missing_ok=True)
+            raise
+        return target
+    finally:
+        if response is not None:
+            response.close()
+
+
 def root_path(workspace, raw):
+    remote = remote_url_from_input(raw)
+    if remote:
+        return download_remote_input(workspace, raw)
     if not isinstance(raw,str) or not raw.strip(): raise ValueError('input_path_required')
     p=Path(raw).expanduser()
     if not p.is_absolute(): p=workspace/p
@@ -125,12 +292,18 @@ def task_id(req,paths):
 
 def main(req, workspace):
     import pandas as pd
-    action=req.get('action','inspect'); rawins=req.get('inputs',[])
+    action=req.get('action','inspect')
+    if action=='status':
+        raw_tid=req.get('task_id') or req.get('taskId')
+        if not isinstance(raw_tid,str) or not raw_tid.strip(): raise ValueError('task_id_required')
+        tid=re.sub(r'[^A-Za-z0-9_.-]','-',raw_tid)[:80]
+        outdir=(workspace/'output'/'file-tasks'/tid)
+        p=outdir/'summary.json'
+        return {'ok':p.exists(),'task_id':tid,'status':'complete' if p.exists() else 'not_found','artifact':str(p.relative_to(workspace)) if p.exists() else None}
+    rawins=req.get('inputs',[])
     if not isinstance(rawins,list) or not 1<=len(rawins)<=MAX_INPUTS: raise ValueError('inputs_must_contain_1_or_2_files')
     paths=[root_path(workspace,x) for x in rawins]
     tid=task_id(req,paths); outdir=(workspace/'output'/'file-tasks'/tid); outdir.mkdir(parents=True,exist_ok=True)
-    if action=='status':
-        p=outdir/'summary.json'; return {'ok':p.exists(),'task_id':tid,'status':'complete' if p.exists() else 'not_found','artifact':str(p.relative_to(workspace)) if p.exists() else None}
     if action=='discover':
         rows=[]
         for p in paths:

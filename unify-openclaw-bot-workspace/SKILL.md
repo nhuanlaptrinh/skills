@@ -5,11 +5,14 @@ description: Normalize or merge OpenClaw Telegram routing so each bot account us
 
 # Unify OpenClaw Bot Workspace
 
+Baseline runtime hiện hành: OpenClaw `2026.9.4`; lớp owner exact được áp dụng
+bởi `cap-quyen-telegram-admin-openclaw` trước Full Exec cuối.
+
 Enforce `one Telegram account -> one agent -> one workspace`. Keep sessions separate by conversation for privacy while sharing approved workspace files, training data, persona, and memory.
 
 Owners are permissions on that canonical agent, not separate agents. For the existing bot, route owners, normal DMs, and groups to `main` at `/root/.openclaw/workspace`. Create another agent/workspace only for another bot/account.
 
-The bundled script understands the OpenClaw 2026.8.x keyed `agents.entries` schema
+The bundled script understands the OpenClaw 2026.9.x keyed `agents.entries` schema
 and the older `agents.list` schema. It preserves the active schema and never creates
 `agents.list` when `agents.entries` is present.
 

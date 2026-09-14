@@ -84,24 +84,29 @@ function fileTaskTool(ctx) {
   return {
     name: "file_task",
     label: "Bounded file task",
-    description: "Process at most two supplied workbook files with bounded metadata, inspection, or scoped calculation. Return a short summary and artifact path.",
+    description: "Process at most two supplied workbook files with bounded metadata, inspection, or scoped calculation. Inputs may be member-local paths or HTTPS Zalo file-stal-*.(dlfl|flchat).vn URLs; remote files follow only Zalo's exact delivery redirects and pass strict MIME, size, and Excel validation. Return a short summary and artifact path.",
     parameters: FILE_TASK_SCHEMA,
     async execute(_toolCallId, params, signal) {
       const request = { ...params, inputs: Array.isArray(params?.inputs) ? params.inputs.slice(0, 2) : [] };
+      if (!request.task_id && typeof params?.taskId === "string") request.task_id = params.taskId;
+      delete request.taskId;
       const controller = new AbortController();
       const onAbort = () => controller.abort();
       signal?.addEventListener("abort", onAbort, { once: true });
       try {
-        const result = await execFileAsync(python, [script, "--request-json", JSON.stringify(request)], {
+        const result = await execFileAsync(python, [script, "--workspace", workspace, "--request-json", JSON.stringify(request)], {
           cwd: workspace, shell: false, timeout: 45000, maxBuffer: 12000, signal: controller.signal,
         });
         const text = boundedText(result.stdout || result.stderr);
         let parsed;
         try { parsed = JSON.parse(text); } catch { parsed = null; }
-        return { content: [{ type: "text", text }], details: { bounded: true }, terminate: parsed?.ok === false };
+        // Coordinator failures are returned to the model as bounded data so
+        // the group always receives an honest response instead of a silent
+        // terminated turn. The tool gate still blocks unsafe retries.
+        return { content: [{ type: "text", text }], details: { bounded: true }, terminate: false };
       } catch (error) {
         const detail = error?.killed ? "file_task_timeout" : "file_task_failed";
-        return { content: [{ type: "text", text: JSON.stringify({ ok: false, error: detail }) }], details: { bounded: true }, terminate: true };
+        return { content: [{ type: "text", text: JSON.stringify({ ok: false, error: detail }) }], details: { bounded: true }, terminate: false };
       } finally { signal?.removeEventListener("abort", onAbort); }
     },
   };
@@ -144,7 +149,7 @@ export default definePluginEntry({
           }
           const runKey = `${ctx.sessionKey}:${ctx.runId ?? event.runId ?? "unknown"}`;
           const count = callsByRun.get(runKey) ?? 0;
-          if (count >= 2) {
+          if (count >= 4) {
             return { block: true, blockReason: "Group runtime gate: coordinator call limit reached; return a bounded result or start a new session." };
           }
           callsByRun.set(runKey, count + 1);
@@ -153,7 +158,7 @@ export default definePluginEntry({
         if (tool === "file_task" && ctx.runId) {
           const runKey = `${ctx.sessionKey}:${ctx.runId}`;
           const count = callsByRun.get(runKey) ?? 0;
-          if (count >= 2) return { block: true, blockReason: "Group runtime gate: file task call limit reached; return the bounded result." };
+          if (count >= 4) return { block: true, blockReason: "Group runtime gate: file task call limit reached; return the bounded result." };
           callsByRun.set(runKey, count + 1);
         }
       },

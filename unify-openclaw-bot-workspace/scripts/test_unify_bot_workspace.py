@@ -255,7 +255,7 @@ def main():
         assert digest(config_path) == before_config
         assert digest(approvals_path) == before_approvals
 
-    # OpenClaw 2026.8.x stores agents as a keyed object under agents.entries.
+    # OpenClaw 2026.9.x stores agents as a keyed object under agents.entries.
     with tempfile.TemporaryDirectory(prefix="unify-openclaw-entries-test-") as temporary:
         root = pathlib.Path(temporary) / ".openclaw"
         workspace = root / "workspace"

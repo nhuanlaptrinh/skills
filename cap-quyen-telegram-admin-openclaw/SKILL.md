@@ -5,6 +5,10 @@ description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS o
 
 # Cấp Quyền Telegram Admin OpenClaw
 
+Baseline runtime đã kiểm thử: OpenClaw `2026.9.4`. Skill này tạo lớp
+full-owner có kiểm soát trên agent canonical; bước Full Exec không hỏi duyệt
+là một bước riêng của `set-openclaw-agent-full-exec`.
+
 ## Nguyên Tắc
 
 - Cấp owner trên agent đang phục vụ toàn bộ Telegram account, thường là `main`.
@@ -21,7 +25,7 @@ description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS o
 - Exec dùng `host=gateway`, `mode=auto`, `strictInlineEval=true`; host approvals dùng `allowlist/on-miss/deny`.
 - Không mở wildcard owner, không in credential và không gửi tin thật khi kiểm thử tự động.
 - Không thêm field ngoài schema như `channels.telegram.commands.enforceOwnerForCommands`; dùng `commands.ownerAllowFrom` làm nguồn owner.
-- Script hỗ trợ cả agent keyed của OpenClaw 2026.8.x (`agents.entries.<id>`) và
+- Script hỗ trợ cả agent keyed của OpenClaw 2026.9.x (`agents.entries.<id>`) và
   cấu hình legacy (`agents.list[]`), đồng thời không tạo collection legacy trên
   runtime dùng `agents.entries`.
 

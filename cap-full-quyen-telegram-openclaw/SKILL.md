@@ -5,9 +5,13 @@ description: Chuẩn hóa một Telegram bot OpenClaw về agent main/workspace 
 
 # Cấp Full Quyền Telegram OpenClaw
 
+Baseline production target: OpenClaw `2026.9.4` with Node.js
+`>=24.16.0 <25` (hoặc `>=26.1.0`).
+
 Điều phối ba skill gốc theo thứ tự an toàn. Không sao chép logic sửa JSON vào skill này.
 
-Các helper đi kèm đã hỗ trợ cấu hình OpenClaw 2026.8.x với agent keyed dưới
+Các helper đi kèm đã hỗ trợ cấu hình OpenClaw 2026.9.x (đã kiểm tra với
+`2026.9.4`) với agent keyed dưới
 `agents.entries`; cấu hình legacy `agents.list` vẫn được giữ tương thích. Không
 để workflow tự tạo lại `agents.list` trên runtime mới.
 

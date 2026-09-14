@@ -30,7 +30,7 @@ Owner dùng full profile của canonical agent. Wildcard sender policy phải de
 
 - Không wildcard owner hoặc elevated allowlist.
 - Không để peer-specific binding tách owner DM sang agent khác.
-- `tools.fs.workspaceOnly=true` giới hạn file tools vào workspace, nhưng không hạn chế shell; non-owner phải mất `group:runtime`.
+- `tools.fs.workspaceOnly=false` cho phép file tools đọc media ngoài workspace khi sender đã được cấp quyền, nhưng không hạn chế shell; non-owner phải mất `group:runtime`.
 - Shared workspace giảm file isolation. Không đưa transcript DM thô hoặc bí mật hạ tầng vào memory dùng chung.
 
 ## Kiểm Thử

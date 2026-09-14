@@ -207,7 +207,7 @@ def merge_config(
         append_unique(owner_allow_from, f"telegram:{telegram_id}"),
         "add target to commands.ownerAllowFrom",
     )
-    # OpenClaw 2026.8 renders raw owner IDs by default; these legacy keys are
+    # OpenClaw 2026.9 renders raw owner IDs by default; these legacy keys are
     # doctor-only and rejected by the active config schema.
     for retired_key in ("ownerDisplay", "ownerDisplaySecret"):
         if retired_key in commands:
@@ -301,8 +301,8 @@ def merge_config(
 
     global_tools = ensure_object(config, "tools")
     fs_tools = ensure_object(global_tools, "fs")
-    if fs_tools.get("workspaceOnly") is not True:
-        fs_tools["workspaceOnly"] = True
+    if fs_tools.get("workspaceOnly") is not False:
+        fs_tools["workspaceOnly"] = False
         changes.append("limit filesystem tools to the workspace")
     elevated = ensure_object(global_tools, "elevated")
     if elevated.get("enabled") is not True:
@@ -474,7 +474,7 @@ def print_summary(
 ):
     print(f"mode={mode}")
     print(f"config={config_path}")
-    # ``approvals_path`` is a display locator; native 2026.8 uses SQLite.
+    # ``approvals_path`` is a display locator; native 2026.9 uses SQLite.
     print(f"host_approvals={approvals_path}")
     print(f"telegram_id={telegram_id}")
     print(f"account_id={account_id}")

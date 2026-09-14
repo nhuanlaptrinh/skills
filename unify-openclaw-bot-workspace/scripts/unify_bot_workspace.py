@@ -507,7 +507,7 @@ def transform_config(
 
     tools = ensure_object(updated, "tools")
     fs_tools = ensure_object(tools, "fs")
-    fs_tools["workspaceOnly"] = True
+    fs_tools["workspaceOnly"] = False
     elevated = ensure_object(tools, "elevated")
     elevated["enabled"] = True
     elevated_allow = ensure_object(elevated, "allowFrom")
@@ -786,7 +786,7 @@ def check_config(
                 violations.append("owner sender policy missing or restrictive")
                 break
 
-    if config.get("tools", {}).get("fs", {}).get("workspaceOnly") is not True:
+    if config.get("tools", {}).get("fs", {}).get("workspaceOnly") is not False:
         violations.append("filesystem tools are not workspace-only")
 
     exec_defaults = exec_value.get("defaults", {}) if isinstance(exec_value, dict) else {}

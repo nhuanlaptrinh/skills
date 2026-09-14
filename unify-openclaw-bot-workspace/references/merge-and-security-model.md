@@ -61,7 +61,7 @@ Keep the target agent at `tools.profile: full`, but configure guarded exec and s
 
 Exact sender matches take precedence over the wildcard. An empty exact policy leaves the owner's full profile intact; the wildcard removes administrative and host-changing tools for everyone else.
 
-Also set `tools.fs.workspaceOnly: true`. This keeps normal filesystem tools inside the shared workspace. It does not make `exec` read-only, which is why non-owners must lose `group:runtime`.
+Also set `tools.fs.workspaceOnly: false`. This allows workspace-created and host-local media reads for authorized senders. It does not make `exec` read-only, which is why non-owners must lose `group:runtime`.
 
 ## Exec Approvals
 

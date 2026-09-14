@@ -104,7 +104,9 @@ group/chat/display name, public IP và ba secret file root-only.
 
 Output là log không chứa secret, container `user-<name>`, root/home volume
 riêng, OpenClaw workspace riêng, Telegram account riêng, Gateway dưới
-Supervisor, thông tin SSH/web và các healthcheck của pipeline core.
+Supervisor, thông tin SSH/web và các healthcheck của pipeline core. Pipeline
+áp dụng `cap-quyen-telegram-admin-openclaw` cho từng owner đã xác minh, sau đó
+unify về `main` và bật Full Exec ở bước cuối.
 
 Profile hiện tại:
 
@@ -112,7 +114,8 @@ Profile hiện tại:
 /root/Apps/member_vps_factory/profiles/openclaw-standard.json
 ```
 
-Profile giữ CPU `2`, RAM `4g`, swap `6g`, PID `1024`, OpenClaw `2026.8.2`,
+Profile giữ CPU `2`, RAM `4g`, swap `6g`, PID `1024`, OpenClaw `2026.9.4` với
+Node.js `>=24.16.0 <25` (hoặc `>=26.1.0`),
 endpoint mặc định `https://codex.anhlaptrinh.vn/v1`, model `GPT-5.6-sol` và
 image hiện hành. Profile được chuẩn hóa từ runtime sạch của
 `/root/Apps/member_vps/docker-users/data/minhvuong`; không sao chép volume,

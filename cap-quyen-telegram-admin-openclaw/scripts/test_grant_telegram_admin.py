@@ -116,7 +116,7 @@ def main():
         assert approvals["agents"]["main"]["security"] == "allowlist"
         assert approvals["agents"]["main"]["allowlist"] == []
 
-    # OpenClaw 2026.8.x uses keyed agents.entries rather than agents.list.
+    # OpenClaw 2026.9.x uses keyed agents.entries rather than agents.list.
     with tempfile.TemporaryDirectory(prefix="grant-telegram-admin-entries-test-") as temporary:
         root = pathlib.Path(temporary) / ".openclaw"
         workspace = root / "workspace"

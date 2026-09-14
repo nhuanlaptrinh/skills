@@ -40,6 +40,7 @@ Never print the real admin key, customer PSID, or conversation contents.
 - The member OpenClaw Gateway at `127.0.0.1:18789` is a WebSocket Gateway and does not expose the REST `POST /v1/chat/completions` route in the current member configuration.
 - `app/chatbot.py` therefore calls the local OpenClaw CLI with `--json`, `--message-file`, `--agent main`, and a hashed per-request session key. It does not copy a gateway token into the project.
 - Messenger AI calls use a new OpenClaw session key per request. SQLite history remains the bounded conversation context; do not restore a permanent session key per customer because the knowledge bundle is included on every turn and can overflow the model context.
+- Inbound Messenger image attachments are read from `message.attachments[].payload.url`, downloaded only from Meta media hosts, capped by `IMAGE_MAX_BYTES`, and passed to `openclaw infer image describe` with `OPENCLAW_IMAGE_MODEL`. The temporary image is deleted after processing; only a generic image marker is persisted in conversation history.
 - DeepSeek is an optional fallback provider. If OpenClaw fails and `DEEPSEEK_API_KEY` is empty, the app sends the configured technical fallback message.
 - The prompt and knowledge are for the nam khoa clinic Fanpage, not the ANVI course website.
 - Treat the current loaded training data as the source of truth for information it explicitly contains, including clinic address, hours, service details, and contact fields. Answer those fields directly without asking for external verification; never invent fields that are absent, and preserve medical-safety limits.
@@ -53,6 +54,13 @@ cd /root/Apps/member_vps/docker-users/data/bstuannk/Apps/facebook_fanpage_auto_r
 .venv/bin/python -m py_compile app/*.py
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python -c 'from app.knowledge import load_knowledge; print(len(load_knowledge()))'
+```
+
+Image-specific checks:
+
+```bash
+docker exec user-bstuannk sh -lc 'openclaw infer image describe --help'
+docker exec user-bstuannk sh -lc 'curl -fsS http://127.0.0.1:8811/health'
 ```
 
 ## AI Smoke Test Without Messenger Send
@@ -89,6 +97,7 @@ If an older customer session has already overflowed, preserve its session artifa
 ## Inputs And Outputs
 
 - Inputs: Meta Messenger webhook events, approved Markdown knowledge, recent conversation context, member OpenClaw agent configuration, and optional DeepSeek configuration.
+- Image inputs: Meta image attachment URLs. The worker downloads at most `IMAGE_MAX_ATTACHMENTS` image(s), describes them through the configured OpenClaw Vision model, and deletes temporary files after each attempt.
 - Outputs: Messenger replies through Meta Send API, SQLite conversation state, Markdown customer-history archives, and worker logs.
 - The app pauses a conversation after a human/Page echo; preserve this behavior.
 

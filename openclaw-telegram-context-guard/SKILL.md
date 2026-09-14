@@ -223,6 +223,16 @@ Validation: fixture XLSX verifies headers, filter and sum, complete bounded arti
 
 ## Structured file task runtime (lehuynhphong)
 
+2026-09-14 integration correction: the native wrapper MUST pass `--workspace`
+with the resolved member workspace to `file_task.py`. Test through the registered
+tool factory as well as the CLI. Zalo may label valid XLSX as
+`application/vnd.ms-excel`; accept that MIME only with the existing allowed
+extension and ZIP checks. Coordinator errors now return bounded results without
+terminating the model turn, so a final explanation can be produced. Earlier
+references below to `terminate=true` are superseded by this correction.
+The wrapper normalizes camelCase `taskId` to the coordinator's `task_id`; a
+`status` request is valid with the task ID alone and does not require inputs.
+
 For group workbook work, the hard gate exposes one native `file_task` tool. It
 runs `/home/<member>/.openclaw/workspace/scripts/file_task.py` with the member
 Excel virtualenv, `shell=false`, one 45-second deadline and at most two input
@@ -235,10 +245,20 @@ ambiguous gross/rate/booking data, and never invents freight values.
 
 The runtime `before_prompt_build` hook exposes only `file_task` and
 `progress_card` for Excel/file-intent group turns, so denied shell calls cannot
-start a retry loop. Native coordinator errors return `terminate=true`; the
+start a retry loop. Native coordinator errors return bounded data so the model
+can explain the failure; the
 built-in repetitive-tool detector is enabled as a secondary stop. Do not
 restore blanket `exec` access to groups; add a tested coordinator action when a
 new bounded file workflow is required.
+
+For Zalo group attachments, `inputs` may contain the filename-plus-URL text
+that Zalo emits instead of a local media path. The coordinator extracts only
+HTTPS `file-stal-<n>.dlfl.vn`/`file-stal-<n>.flchat.vn` links and follows the
+exact Zalo CDN redirect `file-stal-<n>-aka-jpt.dlmd.me`. It stages the response
+under `incoming/zalo/<url-fingerprint>/` with mode 0700/0600, a 20 MiB limit,
+allowlisted spreadsheet MIME/extension checks, and ZIP validation for XLSX/XLSM.
+URLs, signatures, and response bodies are not logged or written to artifacts;
+arbitrary HTTP hosts and shell downloaders remain blocked.
 
 ## Runtime hard gate update (lehuynhphong)
 

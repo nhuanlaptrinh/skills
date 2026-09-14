@@ -1,0 +1,12 @@
+{
+  "id": "context-hard-gate",
+  "name": "OpenClaw context hard gate",
+  "description": "Fail-closed tool policy for shared Telegram and Zalo group runs.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true
+  },
+  "contracts": {
+    "tools": ["file_task"]
+  }
+}

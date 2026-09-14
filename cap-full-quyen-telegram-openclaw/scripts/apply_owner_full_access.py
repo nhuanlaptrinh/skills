@@ -263,7 +263,7 @@ def infer_account_id(config: dict, member: str, requested: str | None) -> str:
 
 
 def agent_collection(config: dict) -> tuple[str, dict | list]:
-    """Return the active agent collection, preferring OpenClaw 2026.8 entries."""
+    """Return the active agent collection, preferring OpenClaw 2026.9 entries."""
     agents = config.get("agents")
     if not isinstance(agents, dict):
         return "list", []
@@ -505,7 +505,7 @@ def final_violations(ctx: Context, config: dict, approvals: dict) -> list[str]:
             for item in plugin_targets
         ):
             violations.append("owner_missing_plugin_target")
-    if config.get("tools", {}).get("fs", {}).get("workspaceOnly") is not True:
+    if config.get("tools", {}).get("fs", {}).get("workspaceOnly") is not False:
         violations.append("filesystem_not_workspace_only")
     agent_approval = approvals.get("agents", {}).get(ctx.agent_id, {})
     if not (

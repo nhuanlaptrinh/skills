@@ -1,6 +1,6 @@
-"""Small adapter for OpenClaw 2026.8 native exec-approval storage.
+"""Small adapter for OpenClaw 2026.9 native exec-approval storage.
 
-OpenClaw 2026.8 stores the approval document in
+OpenClaw 2026.9 stores the approval document in
 ``state/openclaw.sqlite#exec_approvals_config``.  Older releases used
 ``exec-approvals.json``.  The owner helpers need to understand both without
 printing the socket token or creating a legacy file on a native install.
@@ -130,7 +130,7 @@ def load_approvals(openclaw_root: pathlib.Path | str) -> ApprovalSnapshot:
             f"Native approvals database has no OpenClaw schema: {db_path}"
         )
 
-    # A fresh 2026.8 install has no row yet; the first native write creates it.
+    # A fresh 2026.9 install has no row yet; the first native write creates it.
     return ApprovalSnapshot(
         "sqlite", root, db_path, legacy_path, db_path, False, None, _default_document()
     )
