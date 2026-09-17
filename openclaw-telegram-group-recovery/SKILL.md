@@ -15,7 +15,7 @@ Use this runbook to trace one Telegram message from Telegram inbound, through Op
 - Never print, paste, or store bot tokens, API keys, cookies, passwords, private messages, full Telegram payloads, file contents, or private destination data.
 - Do not recreate a member container. Do not delete sessions, workspaces, training data, media, or the whole SQLite database.
 - Do not send a real Telegram message or call Cloud `getUpdates` while the Gateway is running. A real test needs explicit authorization; a normal user test is preferred.
-- A `requireMention: false` OpenClaw setting cannot override Telegram BotFather Privacy Mode.
+- A `requireMention: false` OpenClaw setting controls OpenClaw admission. Telegram bot administrators receive group messages even with Privacy Mode enabled; check membership before attributing missing inbound messages to Privacy Mode.
 
 ## Known layout and reusable helpers
 
@@ -90,6 +90,7 @@ For the tested group, verify all of the following:
 - The account is enabled and the binding selects the intended agent.
 - The exact group key exists under the account and has `enabled: true` and `requireMention: false` when unmentioned replies are required.
 - A group-specific `allowFrom: ["*"]` is intentional; otherwise the effective account/group `groupAllowFrom` must contain the sender ID.
+- `groups` keys identify destination groups (negative chat IDs). `groupAllowFrom` identifies people allowed to trigger replies (positive Telegram sender IDs), never group IDs. Check both channel and account overrides. If logs say `Invalid allowFrom entry` with a negative ID, preserve that group under `groups` and replace only the invalid sender entries using previously authorized sender IDs; do not open access to everyone.
 - The account is polling, has a successful probe, and has no recent `409 Conflict`.
 - The group ID in the inbound log matches the group being tested. If not, run the migration helper in dry-run mode:
 
@@ -100,7 +101,9 @@ python3 /root/.agents/skills/openclaw-telegram-group-migrate/scripts/fix_group_m
 
 Do not apply the helper merely because the bot is quiet. Add a new numeric group ID only when logs prove the migration and preserve the old entry.
 
-If there is no inbound event for an unmentioned message, check BotFather Privacy Mode. A read-only `getMe`/probe result with `can_read_all_group_messages=false` means `/setprivacy -> Disable` must be performed manually for that bot. Also use a read-only `getChatMember` check to confirm the bot is still a member/administrator. Never put the token or API response payload in a report.
+If there is no inbound event for an unmentioned message, check BotFather Privacy Mode and use read-only `getChatMember` to confirm the bot's status in the exact group. `getMe.can_read_all_group_messages=false` reports global Privacy Mode; it does not prove that an administrator bot cannot receive messages in this group. Telegram documents that bot administrators and privacy-disabled bots receive group messages (except other bots): https://core.telegram.org/bots/faq#what-messages-will-my-bot-get . Ask for BotFather changes only when the bot is not an administrator and privacy filtering is supported by fresh evidence. Never put the token or full API payload in a report.
+
+A log such as `skipping group media before download` with `reason: no-mention` proves OpenClaw received the update and skipped it at its own mention gate. Correlate timestamps with config reloads; do not use an old pre-fix event to explain a newer failure. Inspect effective `requireMention`, account/group overrides, session activation, and sender admission before changing Telegram settings.
 
 ## Outbound text and media recovery
 
@@ -197,6 +200,8 @@ Confirm, without exposing payloads:
 - Relay is active, bound only to the Docker bridge, and UFW is bridge-subnet-only.
 - No new `sendDocument failed`, `block reply failed`, provider 503, timeout, or dispatch error appears after the reload timestamp.
 - Model fallback status is effective for the affected agent.
+
+`gateway ready`, channel probe OK, and a successful outbound diagnostic are separate checks. None alone proves automatic group replies. Report automatic recovery only after a new human group message is admitted, the intended agent completes, and an outbound receipt matches the same group. Otherwise distinguish the applied fix, confirmed outbound delivery, and pending fresh inbound validation.
 
 Do not send a real Telegram test by default. Ask the authorized user to send one normal text message without mentioning the bot, then a small file/report request. If the user explicitly authorizes an automated test, use one unique harmless message and record the UTC receipt/message ID; do not run bot-to-bot tests because Telegram may reject them.
 

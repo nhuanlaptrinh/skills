@@ -5,7 +5,7 @@ description: Diagnose, install, verify, repair, or roll back the reliable local 
 
 # OpenClaw 9Router Overload Recovery
 
-Recover transient AI failures without forwarding raw upstream error text to Telegram. The proxy recognizes the narrow known overload messages and the exact `[Error] An error occurred while processing... request ID <UUID>` template, retries once, then changes model; normal successful SSE output is forwarded progressively so OpenClaw receives model progress while 9Router works.
+Recover transient AI failures without forwarding raw upstream error text to Telegram. The proxy recognizes capacity, overload, structured failure, model-not-found, and the exact processing-error template. Named combos are read from SQLite and tried in their exact component order for both Chat Completions and Responses.
 
 ## Paths and services
 
@@ -39,7 +39,7 @@ Prove all of the following before applying this recovery:
 
 The proxy intentionally matches only these normalized assistant responses: the known overload variants, `Service temporarily unavailable`, or the complete generic processing-error template with a valid request UUID. Do not broaden the match to arbitrary words such as `error`, because a legitimate assistant answer can contain them.
 
-Successful `text/event-stream` responses are streamed progressively. Short responses and chunks that look like the known error templates remain buffered until `[DONE]` so retry filtering still works. Client disconnects abort the active upstream fetch and prevent further retries. Non-streaming responses and upstream error statuses remain buffered for classification.
+Successful `text/event-stream` responses are streamed progressively after safe output; lifecycle events and possible error prefixes remain buffered. Once real output/tool calls are sent, a later failure cannot be replayed safely and is logged without duplicating the request. Client disconnects abort the active upstream fetch. Non-streaming responses and upstream statuses remain buffered for classification.
 
 ## Dry run
 
@@ -77,7 +77,7 @@ openclaw config validate
 systemctl --user restart openclaw-gateway.service
 ```
 
-The routing script sets Codex to round-robin with a sticky limit of one and changes combo `GPT-5.6-sol` to `sol -> terra -> luna`. The OpenClaw script creates provider alias `9rr` pointing to the loopback proxy. In all-agent mode, model references owned by `9r/` are changed to `9rr/` while preserving each agent's model family (`codex`, `sol`, `terra`, or `luna`); agents without an explicit model inherit the routed defaults. Providers outside `9r/` are not changed. The reliable proxy retries the requested model once, then uses configured fallback models, with `MAX_ATTEMPTS=3` limiting each request to three attempts total. It handles overload content, the exact generic processing-error template, retryable HTTP statuses, and upstream `404 model_not_found` without forwarding raw error text; normal successful SSE output is streamed progressively.
+The reliable proxy reads `/root/.9router/db/data.sqlite` read-only with a 30-second refresh. Named combos use their exact component IDs, with `COMBO_MAX_ATTEMPTS=20` as a safety ceiling; direct non-combo calls retain `MAX_ATTEMPTS=3` legacy behavior. Nginx `codex.anhlaptrinh.vn` API locations `/v1` and `/v1/` point to `20129`; dashboard `/` remains on `8870`.
 
 For a single-agent repair, omit `--all-agents` and pass `--agent <agent-id>`.
 
@@ -101,9 +101,9 @@ For all-agent changes, also confirm every explicit `agents.entries.*.model` sour
 
 ## Input and output
 
-- Input: OpenAI-compatible `POST /v1/chat/completions`; all other paths are passed through.
+- Input: OpenAI-compatible `POST /v1/chat/completions` and `POST /v1/responses`; other paths are passed through.
 - Output: the first successful non-overload, non-processing-error upstream response.
-- Retry order: requested model once, requested model retry once, then configured fallback models, capped at three total attempts by default.
+- Retry order: named combo component IDs exactly as stored in `combos`; direct non-combo calls use requested model, one retry, then configured fallbacks.
 - Exhaustion: return a sanitized HTTP `503` JSON error; never forward raw overload or generic processing-error assistant text or request IDs.
 - Logs: structured metadata only: timestamp, event, attempt, model, status, duration, retry reason. Never log prompt or credentials.
 
