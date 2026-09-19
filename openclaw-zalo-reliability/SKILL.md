@@ -72,6 +72,17 @@ and outbound, session, then authentication.
 
 ## Durable Prevention
 
+### Cache inbound Zalo image URLs before vision tools
+
+When a Zalo image arrives only as a short-lived `photo-stal-*.zdn.vn` or
+`file-stal-*.dlfl.vn`/`*.flchat.vn` URL, preserve the exact URL and cache it
+through OpenClaw's guarded media runtime before dispatching the agent turn.
+Pass the resulting local media path to the vision tool; do not ask the model to
+copy the signed URL into a second tool call. Use a bounded size (20 MiB), HTTPS,
+header/body idle deadlines, one fetch retry, and redact URLs from logs. On a
+cache failure retain the original inbound text and report the bounded failure;
+never claim the URL expired until the exact original URL has been tested.
+
 ### Mandatory group-target guard (Zalo Personal)
 
 For every outbound reply, file, reminder, or proactive message whose current

@@ -262,7 +262,7 @@ arbitrary HTTP hosts and shell downloaders remain blocked.
 
 ## Runtime hard gate update (lehuynhphong)
 
-The canonical plugin `runtime/context-hard-gate.mjs` is deployed to the member policy path and applies to both Telegram and Zalo group session keys. Work tools (`exec`, `file_task`) are fail-closed until a native `message` tool call completes with a real `messageId`; the receipt expires after 120 seconds. The plugin also blocks subagents/history/raw reads and restricts Excel work to the bounded pandas coordinator. Verify deployment with:
+The canonical plugin `runtime/context-hard-gate.mjs` is deployed to the member policy path and applies to both Telegram and Zalo group session keys. Where native sender/approval policy already provides verified full execution, do not add a second receipt gate: retain only the bounded `file_task` registration and let the native policy authorize `exec`. This exception is currently used for `lehuynhphong` after the custom coordinator gate caused legitimate Pandas work to be blocked. Verify the effective policy with:
 
 ```bash
 /root/Automation/openclaw/member_group_guard/policy_drift_guard.py
