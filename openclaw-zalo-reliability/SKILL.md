@@ -83,6 +83,32 @@ header/body idle deadlines, one fetch retry, and redact URLs from logs. On a
 cache failure retain the original inbound text and report the bounded failure;
 never claim the URL expired until the exact original URL has been tested.
 
+#### Maintained implementation for Docker members
+
+For a member using the bundled `@openclaw/zalouser` monitor, the maintained
+implementation is an inbound pre-dispatch wrapper around `saveRemoteMedia`.
+Locate the active bundle under
+`<member-data>/.openclaw/npm/projects/*/node_modules/@openclaw/zalouser/dist/`
+and patch only its `monitor-*.js`; do not edit the global OpenClaw install or a
+stale npm project. The wrapper must:
+
+- extract at most four exact HTTPS `photo-stal-*`/`file-stal-*` URLs;
+- call `saveRemoteMedia` with `subdir: "inbound/zalo"`, 20 MiB maximum,
+  20-second total timeout, 10-second header/read-idle deadlines, and one
+  bounded retry;
+- replace each successfully cached URL with the returned local path before
+  agent dispatch, while retaining the original body if caching fails;
+- log only size/content type or a bounded error string, never the signed URL.
+
+Before applying: back up `openclaw.json` and the active monitor bundle under
+`/root/_Backups/<member>-zalo-image-cache/<UTC timestamp>/`. Validate with
+`node --check <monitor-file>`, `openclaw config validate`, and
+`openclaw channels status` inside the member container. After reload/restart,
+require Zalo `linked, running, connected` and scan recent logs for plugin import
+or media-cache errors. Do not send a real group test unless the owner requests
+one. Record the backup, target bundle, validation, and rollback path in the
+Second AI Brain change log.
+
 ### Mandatory group-target guard (Zalo Personal)
 
 For every outbound reply, file, reminder, or proactive message whose current

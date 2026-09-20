@@ -72,6 +72,35 @@ python3 /root/.openclaw/workspace/skills/cai-dat-audio-local-openclaw/scripts/tr
 
 Script chi chap nhan `zdn.vn` va subdomain, gioi han 25 MB, dung thu muc tam, goi client shared cung skill va xoa audio sau khi xong. Dung stdout lam noi dung nguoi dung da noi; khong tra lai URL neu phien am thanh cong.
 
+### Sửa lỗi monitor không chuyển voice Zalo vào STT
+
+Nếu bot vẫn trả lời “chưa có công cụ chuyển AAC thành văn bản” dù Shared STT
+health tốt, lỗi nằm trước bước STT: monitor `@openclaw/zalouser` chưa đưa URL
+voice inbound vào `message.content`. Với Docker member, xử lý như sau:
+
+1. Xác định bundle đang được mount trong
+   `<member-data>/.openclaw/npm/projects/*/node_modules/@openclaw/zalouser/dist/`;
+   chỉ sửa `monitor-*.js` và `zalo-js-*.js` đang được Gateway nạp.
+2. Trong normalizer, trích các URL HTTPS từ `data` có host Zalo voice
+   (`zdn.vn`, `flchat.vn`, `dlfl.vn`) và đuôi `.aac`, `.m4a` hoặc `.mp3`, tối đa
+   hai URL; nối URL vào inbound content bằng marker nội bộ.
+3. Trong monitor trước agent dispatch, gọi
+   `workspace/skills/cai-dat-audio-local-openclaw/scripts/transcribe_zalo_voice.py`
+   bằng `execFile("python3", [script, url])`, không dùng shell interpolation.
+   Giới hạn một voice/lượt, timeout khoảng 190 giây, output tối đa 12.000 bytes;
+   thay URL bằng transcript tối đa 6.000 ký tự.
+4. Khi phiên âm lỗi, giữ nguyên body và ghi log bounded như
+   `voice transcription failed`; tuyệt đối không ghi signed URL, token hay nội
+   dung audio vào log.
+
+Trước patch phải backup config và hai bundle vào
+`/root/_Backups/<member>-zalo-voice-intake/<UTC timestamp>/`. Chạy `node --check`
+cho cả hai bundle, `openclaw config validate`, restart đúng Gateway Supervisor,
+đợi channel probe báo `Zalo linked/running/connected`, rồi quét log startup.
+Không coi việc Gateway connected là đã test voice; cần một voice test được owner
+cho phép để xác nhận log `zalouser-audio` và transcript. Rollback bằng cách khôi
+phục hai bundle từ backup, validate rồi restart Gateway.
+
 ## Bat Bot Tra Loi Bang Voice
 
 Voi config tren host, giu TTS global `off` va chi bat agent Telegram can dung:
