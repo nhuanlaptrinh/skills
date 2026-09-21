@@ -93,6 +93,44 @@ For a task that needs a child session:
 7. Treat delivery as complete only after a real platform `messageId` and matching destination receipt.
 8. Return `NO_REPLY` after a verified `message` send to prevent a duplicate normal assistant reply.
 
+## Media-specific guardrails
+
+Apply these rules whenever the completed task includes a video or other local
+media artifact:
+
+1. Keep delivery in the exact requester Telegram session. Do not send media
+   from heartbeat, cron, dashboard, or another internal-system turn; those
+   turns do not carry a verified human `requesterSenderId`.
+2. Preserve the current account, chat, and topic/thread route. Never infer a
+   sender from a destination chat ID and never use `heartbeat.target=last` as
+   a media route.
+3. For a natural resend such as `Gửi lại video`, `Gửi video vừa tạo`, or
+   `Em gửi lại video` without a filename, select the newest validated artifact
+   in the same Telegram session by filesystem modification time. Use registry
+   time and a deterministic path order only as tie-breakers. Prefer an
+   explicit path or one canonical final-assistant path when supplied. Do not
+   ask the user to disambiguate intermediate MP4/transcode copies unless no
+   valid artifact remains.
+4. Use the native media path with canonical `media`/`mediaUrl` fields. Treat a
+   scalar local-file `attachment` as an alias that must be normalized to
+   `media`; never send a local path as ordinary caption text.
+5. Stage/validate the file inside the configured managed media roots, reject
+   missing, stale, unsafe, or vanished artifacts, and do not fall back to a
+   broad filesystem scan when a session-bound artifact disappears.
+6. Treat delivery as successful only after Telegram returns a real
+   `messageId` and matching chat plus topic/thread metadata. Never claim that
+   a video was sent based only on a tool call, a caption, or a local file.
+
+Known regression signatures and their fixes:
+
+- `sender_identity_unavailable`: return to the originating requester turn;
+  do not retry from heartbeat or cron.
+- A text/caption arrives without the video: inspect the native payload for
+  `media`/`mediaUrl`; normalize legacy `attachment` before retrying once.
+- `Tìm thấy nhiều video vừa tạo cùng lúc`: apply the newest-artifact rule
+  above, then report only if every candidate is invalid or the user supplied
+  an explicit conflicting path.
+
 ## Watchdog behavior
 
 The watchdog monitors only tasks that finish after its installation cutoff. It never replays older tasks automatically.

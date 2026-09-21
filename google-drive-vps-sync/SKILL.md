@@ -172,7 +172,7 @@ nano /root/.agents/skills/google-drive-vps-sync/.env
 Điền vào dòng:
 
 ```env
-RCLONE_CONFIG_TOKEN='DAN_TOAN_BO_TOKEN_VAO_DAY'
+RCLONE_CONFIG_TOKEN='Nhap_API_Cua_Ban'
 ```
 
 Nếu đã copy `.env` sang thư mục sync, cập nhật thêm file này:

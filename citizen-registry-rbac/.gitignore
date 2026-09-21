@@ -1,0 +1,26 @@
+# Environment & Secrets
+runtime.env
+*.env
+*.env.local
+
+# Data Files (Never commit raw citizen registries or Excel databases)
+*.xlsx
+*.xls
+*.csv
+data/
+*.sqlite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# OS & Temp
+.DS_Store
+Thumbs.db
+*.tmp
+*.log

@@ -1,6 +1,7 @@
 model_provider = "router"
 model = "GPT-5.6-sol"
 model_reasoning_effort = "xhigh"
+service_tier = "priority"
 preferred_auth_method = "apikey"
 cli_auth_credentials_store = "file"
 
@@ -9,3 +10,19 @@ name = "router"
 base_url = "https://codex.anhlaptrinh.vn/v1"
 wire_api = "responses"
 requires_openai_auth = true
+
+[marketplaces.openai-bundled]
+source_type = "local"
+source = "/root/.codex/.tmp/bundled-marketplaces/openai-bundled"
+
+[plugins."sites@openai-bundled"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[projects."/root/Apps/scene-bank-5s"]
+trust_level = "trusted"
+
+[projects."/root"]
+trust_level = "trusted"
