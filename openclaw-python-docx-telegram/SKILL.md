@@ -10,6 +10,7 @@ description: Create and deliver Vietnamese DOCX reports from OpenClaw Telegram u
 - Khi người dùng yêu cầu xuất báo cáo Word/DOCX.
 - Khi đã có dữ liệu trong phiên chat hoặc file PDF/XLSX và cần tạo tệp đính kèm.
 - Khi cần gửi lại một DOCX đã tạo nhưng lần trước chỉ trả lời bằng văn bản.
+- Với tài liệu dài cần đọc/dịch theo phần, dùng thêm skill `openclaw-long-document-pipeline` để trích xuất, checkpoint, resume và kiểm tra đủ phần trước khi gọi quy trình gửi file.
 
 ## Thành phần
 
@@ -19,6 +20,8 @@ description: Create and deliver Vietnamese DOCX reports from OpenClaw Telegram u
 - Output: DOCX trung gian trong workspace; bản gửi Telegram nên stage tại `/root/.openclaw/media/outbound/`.
 
 ## Quy trình
+
+Nếu tài liệu dài hoặc có nguy cơ vượt thời gian/context, không ghép thủ công trong một lượt. Chạy pipeline `openclaw-long-document-pipeline` trước; chỉ dùng quy trình JSON dưới đây cho dữ liệu ngắn đã hoàn chỉnh hoặc cho bước định dạng riêng sau khi pipeline báo `status=complete`.
 
 1. Đọc dữ liệu nguồn trong phiên hiện tại; không đoán số liệu chưa có.
 2. Tạo một file JSON tạm trong workspace với nội dung báo cáo.

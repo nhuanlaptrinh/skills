@@ -264,7 +264,17 @@ save_approvals_state() {
   if [ "$APPROVALS_BACKEND" = sqlite ]; then
     # The native CLI owns schema initialization and socket-token preservation.
     local status
-    if OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" \
+    if [ -n "$CONTAINER" ]; then
+      # Member OpenClaw binaries live inside the member container.  The host
+      # only owns the mounted state path and must not be assumed to have a
+      # matching global `openclaw` installation.
+      if docker_openclaw approvals set --stdin --json < "$APPROVALS_CANDIDATE" \
+        >/dev/null 2>/dev/null; then
+        status=0
+      else
+        status=$?
+      fi
+    elif OPENCLAW_STATE_DIR="$OPENCLAW_ROOT" OPENCLAW_CONFIG_PATH="$CONFIG_FILE" \
       openclaw approvals set --stdin --json < "$APPROVALS_CANDIDATE" \
       >/dev/null 2>/dev/null; then
       status=0
@@ -481,12 +491,18 @@ runtime_approval_check() {
 # Gateway. Values stay inside the container and are never passed in argv.
 docker_openclaw() {
   [ -n "$CONTAINER" ] || die "docker_openclaw requires a container"
-  docker exec -e HOME="$RUNTIME_HOME" "$CONTAINER" sh -lc '
+  docker exec -i -e HOME="$RUNTIME_HOME" "$CONTAINER" sh -lc '
+    runtime_home="$1"
     set -a
-    [ ! -r /root/.openclaw/gateway.env ] || . /root/.openclaw/gateway.env
-    [ ! -r /root/.openclaw/token-codex.env ] || . /root/.openclaw/token-codex.env
+    if [ "$runtime_home" = "/root" ]; then
+      [ ! -r /root/.openclaw/gateway.env ] || . /root/.openclaw/gateway.env
+      [ ! -r /root/.openclaw/token-codex.env ] || . /root/.openclaw/token-codex.env
+    else
+      [ ! -r "$runtime_home/.openclaw/gateway.env" ] || . "$runtime_home/.openclaw/gateway.env"
+      [ ! -r "$runtime_home/.openclaw/token-codex.env" ] || . "$runtime_home/.openclaw/token-codex.env"
+    fi
     set +a
-    export HOME="$1"
+    export HOME="$runtime_home"
     shift
     exec openclaw "$@"
   ' sh "$RUNTIME_HOME" "$@"
