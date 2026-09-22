@@ -5,7 +5,7 @@ description: Normalize or merge OpenClaw Telegram routing so each bot account us
 
 # Unify OpenClaw Bot Workspace
 
-Baseline runtime hiện hành: OpenClaw `2026.9.4`; lớp owner exact được áp dụng
+Baseline runtime hiện hành: OpenClaw `2026.9.5`; lớp owner exact được áp dụng
 bởi `cap-quyen-telegram-admin-openclaw` trước Full Exec cuối.
 
 Enforce `one Telegram account -> one agent -> one workspace`. Keep sessions separate by conversation for privacy while sharing approved workspace files, training data, persona, and memory.

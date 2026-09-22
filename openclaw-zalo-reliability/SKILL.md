@@ -214,6 +214,31 @@ Cron must call
 `/root/Automation/watchdog/shared_self_healing/run_project.sh`; do not call the
 underlying scripts directly. Preserve unrelated registry and cron entries.
 
+#### Maintained bounded text-send retry for OpenClaw 2026.9.5+
+
+In OpenClaw `2026.9.5`, the active Zalo sender may be bundled as
+`<member-data>/.openclaw/npm/projects/*/node_modules/@openclaw/zalouser/dist/.setup/send-*.mjs`
+rather than `dist/send-*.js`. The maintained helper
+`/root/Automation/openclaw_member_assistant/scripts/patch_zalouser_send_reliability.sh`
+supports both layouts. It adds at most three attempts for text chunks with
+bounded backoff and a short inter-chunk delay; media sends remain single-attempt
+so an uncertain upload is never replayed blindly. Always run the helper dry-run,
+back up the exact active bundle, run `node --check`, then run plugin doctor and a
+probed channel status after the controlled Supervisor Gateway reload. If a new
+bundle changes the sender anchors, the helper must refuse the mutation rather
+than patching by broad string replacement.
+
+When the user sees the exact English text `I couldn’t confirm whether my
+previous reply reached this chat...`, trace it as the core lifecycle
+`PENDING_DELIVERY_NOTICE`. It means the model run completed but outbound Zalo
+delivery ended in `unknown_after_send`; it is not a memory or prompt
+generation error. Confirm the model result, sender attempts, and live channel
+probe separately. Bounded retries help transient failures, but three failed
+attempts require investigating the Zalo API response or recipient target; do
+not add unlimited retries or blindly replay a possibly delivered message.
+Compare the displayed account's own user ID with the recipient target before
+calling it a self-chat issue; do not infer self-chat from the contact name.
+
 ## Recovery procedure for an oversized or stalled group session
 
 Use this sequence when logs contain `claim→adoption stalled`,

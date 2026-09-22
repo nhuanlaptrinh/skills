@@ -5,7 +5,7 @@ description: Bật, kiểm tra hoặc sửa Full Exec không hỏi duyệt cho t
 
 # Set OpenClaw Trusted Full Exec
 
-Baseline runtime hiện hành: OpenClaw `2026.9.4`. Đây là workflow Full Exec
+Baseline runtime hiện hành: OpenClaw `2026.9.5`. Đây là workflow Full Exec
 toàn runtime; không dùng thay cho lớp owner exact của
 `cap-quyen-telegram-admin-openclaw`.
 

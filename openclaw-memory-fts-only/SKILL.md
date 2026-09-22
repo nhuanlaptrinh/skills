@@ -18,6 +18,25 @@ Không dùng skill này để sửa lỗi chat/9Router, để cấp API key, đ�
 - `embeddingProbe.ok: false` với lý do `No embedding provider available (FTS-only mode)` trong status là trạng thái dự kiến, không phải lỗi mới.
 - Tìm kiếm theo từ khóa/chính tả gần đúng có thể kém hơn tìm kiếm ngữ nghĩa. Không đổi model chat, provider chat, transcript, workspace memory hoặc credential.
 
+## Mẫu lỗi đã xác nhận: fallback “previous reply” trên Zalo
+
+Nếu log của member có nhiều dòng `memory embeddings retryable error` trong cùng
+lượt Zalo mà model vẫn trả HTTP 200, model có thể tự sinh câu “I couldn't
+confirm whether my previous reply reached this chat...” dù transport không hề
+báo gửi thất bại. Đây là lỗi nhiễu ngữ cảnh do embedding retry, không phải bằng
+chứng Zalo mất liên kết. Với incident này:
+
+1. Ghi lại mốc inbound/outbound và kiểm tra `OutboundDeliveryError` trước khi
+   kết luận delivery hỏng.
+2. Nếu embedding probe treo hoặc retry liên tục, ưu tiên FTS-only cho đúng
+   agent đang nhận Zalo; không đổi model chat hay QR login.
+3. Sau apply, `memory status --deep` phải trả nhanh, `provider=none`,
+   `fts.available=true`, `vector.enabled=false`, và không còn vòng lặp retry
+   trong log mới.
+4. Chỉ cho phép runtime sinh thông báo “previous reply” khi delivery state thực
+   sự là `unknown`/`send_attempt_started`; không dùng câu đó để suy đoán khi
+   chỉ Memory Search bị lỗi.
+
 ## Chuẩn bị bắt buộc
 
 Trước khi sửa production, đọc:

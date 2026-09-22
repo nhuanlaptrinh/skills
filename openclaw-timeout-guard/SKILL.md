@@ -155,3 +155,7 @@ docker exec user-<member> supervisorctl restart openclaw-gateway
 3. Khi reload Gateway trong member Docker, chỉ reload service `openclaw-gateway` của Supervisor, **không restart cả container Docker** (để tránh ngắt kết nối SSH, XRDP, Nginx của người dùng).
 4. Không gửi tin nhắn thử nghiệm thật vào Telegram/Zalo của khách hàng. Chỉ dùng isolated session key cho smoke-test.
 5. Sau khi cập nhật production, ghi nhận vào `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.
+
+## Đồng bộ provider và upstream
+
+Khi model đi qua reliable proxy/9Router, `agents.defaults.timeoutSeconds` chỉ là trần của toàn bộ lượt agent. Cần đặt thêm `models.providers.<id>.timeoutSeconds` để tăng thời gian chờ im lặng của từng lượt model. Với tuyến nndungct hiện tại, cấu hình đã nghiệm thu là provider `9rt=300s`, agent `600s`, reliable proxy `REQUEST_TIMEOUT_MS=300000`, còn Nginx giữ `3600s`. Timeout upstream phải lớn hơn hoặc bằng timeout provider; nếu không, upstream vẫn có thể cắt request trước OpenClaw.

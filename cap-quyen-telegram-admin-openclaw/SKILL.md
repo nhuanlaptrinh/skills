@@ -5,7 +5,7 @@ description: Grant or verify a Telegram user ID as a full guarded OpenClaw/VPS o
 
 # Cấp Quyền Telegram Admin OpenClaw
 
-Baseline runtime đã kiểm thử: OpenClaw `2026.9.4`. Skill này tạo lớp
+Baseline runtime đã kiểm thử: OpenClaw `2026.9.5`. Skill này tạo lớp
 full-owner có kiểm soát trên agent canonical; bước Full Exec không hỏi duyệt
 là một bước riêng của `set-openclaw-agent-full-exec`.
 

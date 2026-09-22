@@ -5,7 +5,7 @@ description: Bật, kiểm tra hoặc sửa Full Exec không hỏi duyệt cho m
 
 # Set OpenClaw Agent Full Exec
 
-Runtime baseline hiện hành: OpenClaw `2026.9.4`. Chỉ chạy bước này sau khi
+Runtime baseline hiện hành: OpenClaw `2026.9.5`. Chỉ chạy bước này sau khi
 `cap-quyen-telegram-admin-openclaw` đã xác minh owner exact và khi người vận
 hành đã cấp rõ quyền Full Exec không hỏi duyệt.
 
@@ -27,7 +27,7 @@ Ba giá trị Host/Mode/Strict nằm trong `openclaw.json`. Security/Ask và fal
 
 1. Đọc tài liệu Second AI Brain, project note, `AGENTS.md` gần project và checklist production.
 2. Xác định đúng member/OpenClaw root và agent ID. Không đoán agent khi có nhiều agent.
-   OpenClaw 2026.9.4 lưu approval trong `state/openclaw.sqlite` (bảng
+   OpenClaw 2026.9.5 lưu approval trong `state/openclaw.sqlite` (bảng
    `exec_approvals_config`); helper `scripts/native_approvals.py` được đồng bộ
    cùng skill để đọc/backup/restore backend này. Bản OpenClaw cũ dùng
    `exec-approvals.json` và vẫn được hỗ trợ.

@@ -127,3 +127,10 @@ openclaw config validate
 Restore SQLite only while 9Router is stopped. Preserve unrelated later configuration changes; if the incident is old, use a targeted reverse patch instead of copying the whole old config.
 
 After an important change, update `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`.
+
+## Timeout upstream — 2026-09-21
+
+- Reliable proxy mặc định và user unit dùng `REQUEST_TIMEOUT_MS=300000` (300 giây) để không cắt sớm tác vụ PDF/tài liệu nặng.
+- Nguồn cấu hình: `/root/Automation/9router/reliable_chat_proxy/server.mjs` và `/root/Automation/9router/reliable_chat_proxy/openclaw-9router-reliable-proxy.service`; user unit active nằm tại `/root/.config/systemd/user/openclaw-9router-reliable-proxy.service`.
+- Nginx `9router.anhlaptrinh.vn` giữ `proxy_read_timeout/proxy_send_timeout=3600s` và route qua `127.0.0.1:20129`.
+- Khi thay đổi timeout, backup user unit, source unit, `server.mjs`, 9Router SQLite và OpenClaw config; chạy `npm test`, `node --check`, `systemd-analyze --user verify`, restart riêng proxy rồi kiểm tra `/health`.
