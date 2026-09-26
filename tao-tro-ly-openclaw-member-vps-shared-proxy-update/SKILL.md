@@ -9,7 +9,7 @@ Giữ nguyên toàn bộ nội dung skill live hiện hành và bổ sung các q
 
 ## 0. Baseline OpenClaw và quyền owner
 
-- Member mới dùng OpenClaw pin `2026.9.5` (05.09), không dùng npm `latest`;
+- Member mới dùng OpenClaw pin `2026.9.4` (04.09), không dùng npm `latest`;
   Node.js phải thỏa `>=24.16.0 <25` hoặc `>=26.1.0`.
 - Sau khi Telegram account tồn tại, áp dụng `cap-quyen-telegram-admin-openclaw`
   cho từng Telegram ID đã xác minh để tạo lớp full-owner có kiểm soát trên agent

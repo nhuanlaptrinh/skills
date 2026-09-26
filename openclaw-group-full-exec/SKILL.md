@@ -9,11 +9,12 @@ Use this skill only for a specific Telegram group ID supplied by the user. The p
 
 ## Required workflow
 
-1. Identify the exact OpenClaw config and Telegram account. Do not infer a group ID from a name when multiple groups exist.
+1. Identify the exact OpenClaw config and Telegram account. Do not infer a group ID from a name when multiple groups exist. For a Member VPS, the usual config is `/root/Apps/member_vps/docker-users/data/<member>/root/.openclaw/openclaw.json` (or `<member>/.openclaw/openclaw.json` for legacy homes).
 2. Run the helper in dry-run mode first:
 
 ```bash
 bash scripts/set_group_full_exec.sh \
+  --config /path/to/.openclaw/openclaw.json \
   --group-id <telegram-group-id> \
   --account workspace_videofactory \
   --scope account \
@@ -24,6 +25,7 @@ bash scripts/set_group_full_exec.sh \
 
 ```bash
 bash scripts/set_group_full_exec.sh \
+  --config /path/to/.openclaw/openclaw.json \
   --group-id <telegram-group-id> \
   --account workspace_videofactory \
   --scope account \
@@ -31,6 +33,27 @@ bash scripts/set_group_full_exec.sh \
 ```
 
 4. Verify with `--check`. The helper creates a timestamped config backup, validates JSON through `openclaw config validate`, and reloads the Gateway after a successful apply unless `--no-restart` is supplied.
+
+## Member VPS recipe
+
+For a member named `nguyenvantieng` and group `-5215984188`:
+
+```bash
+CFG=/root/Apps/member_vps/docker-users/data/nguyenvantieng/root/.openclaw/openclaw.json
+bash scripts/set_group_full_exec.sh --config "$CFG" --group-id -5215984188 --account default --scope global --dry-run
+bash scripts/set_group_full_exec.sh --config "$CFG" --group-id -5215984188 --account default --scope global --apply
+bash scripts/set_group_full_exec.sh --config "$CFG" --group-id -5215984188 --account default --scope global --check
+```
+
+Group full-exec only grants the tools. To stop Telegram approval prompts for the whole member runtime, also run the auto-approval skill:
+
+```bash
+python3 /root/.agents/skills/set-phe-duyet-tu-dong-openclaw/scripts/set_auto_approval.py --member <member> --dry-run
+python3 /root/.agents/skills/set-phe-duyet-tu-dong-openclaw/scripts/set_auto_approval.py --member <member> --apply
+python3 /root/.agents/skills/set-phe-duyet-tu-dong-openclaw/scripts/set_auto_approval.py --member <member> --check
+```
+
+Use `--scope global` when the group is under `channels.telegram.groups`; use `--scope account` when it is under `channels.telegram.accounts.<account>.groups`. Always pass `--config` for a non-default VPS/member; otherwise the helper reads the current shell user's `~/.openclaw/openclaw.json`.
 
 ## Policy shape
 

@@ -3,6 +3,12 @@ name: openclaw-zalo-reliability
 description: Diagnose, recover, harden, and operate OpenClaw Zalo Personal on Docker member VPS systems. Use when Zalo receives no reply, inbound or outbound delivery fails, the listener exits, sessions become long-running or oversized, both Telegram and Zalo stop because the member Gateway is absent or unmanaged, Supervisor configuration drifts, recurring failures need Shared Watchdog prevention, files or heavy tasks are delivered unreliably, or Zalo QR login is required as a last resort.
 ---
 
+For installing this reliability layer on another Docker member, use the
+companion deployment skill at
+`/root/.agents/skills/openclaw-zalo-reliability-deploy/SKILL.md`. Its installer
+is dry-run by default and registers the delivery watchdog through the shared
+watchdog center without copying credentials.
+
 # OpenClaw Zalo Reliability
 
 Use this as the single entry point for Zalo Personal incidents and prevention on
@@ -408,6 +414,17 @@ zero new `blocked_tool_call`, `stalled session`, or outbound errors and zero
 pending delivery-queue entries. A live attachment test must be a single small
 file with an owner-approved destination and one receipt check.
 
+The maintained `zca-js` 2.1.2 patch has two bundle branches. The ESM branch is
+applied with `scripts/patch_zca_upload_ack_guard.sh`. OpenClaw loads the
+CommonJS branch through `package.exports.require` in some member layouts; apply
+and verify that branch with
+`scripts/patch_zca_upload_ack_guard_cjs.sh --member-data-dir <member-data-dir>
+--dry-run|--apply`. It patches only `dist/cjs/apis/uploadAttachment.cjs`,
+`dist/cjs/apis/listen.cjs`, and the dependency-free
+`dist/cjs/upload-completion-guard.cjs`, with a root-only backup before apply.
+Run `node --check` on all three CommonJS files and the same offline callback
+tests before reloading the Supervisor-owned Gateway.
+
 ### Maintained attachment guard helper (2026-09-06)
 
 For the `zca-js` 2.1.2 upload acknowledgement stall, use the guarded helper
@@ -474,3 +491,37 @@ tested with healthy, delayed, `NO_REPLY`, and stalled fixtures before enabling.
 
 - The scoped core group helper now resolves exactly one `message-action-normalization-*` `.js` or `.mjs` bundle by its exported implementation anchor, supporting the `2026.9.3` `.mjs` package layout. Dry-run checks both insertion anchors and makes no changes; apply creates a root-only backup, validates a staged file with `node --check`, then replaces only that file.
 - Before upgrading a member with existing Zalo patches, archive its managed `npm` tree and current core package. After official upgrade, preserve/reapply only the equivalent scoped group guard and existing upload acknowledgement protection against the new compatible implementation. Never replace the new core with an old hashed bundle.
+
+## Verified CLI versus Gateway attachment path (2026-09-23)
+
+On anhlaptrinhthu, OpenClaw/plugin 2026.9.5 with zca-js 2.1.2 and both
+acknowledgement guards present, standalone CLI message send --media timed out.
+The same DOCX sent through the running Gateway message tool using buffer,
+filename and mimeType returned deliveryStatus sent, a media message ID and
+the expected group receipt. Prefer this existing native tool path; do not
+create a second standalone Zalo sender/listener. Guard presence or a healthy
+channel probe is not an attachment delivery test. The receipt field via: direct
+alone does not indicate a user-thread misroute: explicit target and receipt
+threadId/conversationId determine the destination. No QR login was required.
+
+## Portable Gateway-buffer attachment route (2026-09-23)
+
+The reusable `zalo-buffer-file-send` skill and `scripts/send_buffer_attachment.py` are the preferred delivery path for every member VPS when the ordinary local-media route reports `Timed out waiting for upload acknowledgement`. The failure signature is a message action carrying a local `media` path while `buffer` is empty; the running `zca-js` upload then waits for `file_done` even though text and channel probes are healthy. This is a media hydration/acknowledgement path failure, not by itself proof that the Zalo login expired.
+
+Deploy the global skill and helper into the target member workspace after backing up the existing skill/AGENTS files. Resolve the exact member data directory, container name, and member home from its project note; never hardcode another member's home or credentials. Run the helper's `--dry-run`, then send with an explicit `user:<id>` or `group:<id>` target. The helper reads the existing Gateway token in memory, supplies `buffer`, `filename`, and `mimeType` to `/tools/invoke`, and does not create a second Zalo connection.
+
+Accept a result only with `status: sent`, a platform message ID, and a receipt thread/conversation ID equal to the requested numeric target. For groups, also reject `via: direct` or any receipt that does not identify media; this prevents an accidental private-message fallback. Never report a file sent from a timeout or a missing receipt. Do not use `openclaw message send --media <local-path>` or standalone `zca-js` for this case.
+
+The helper is independent of the optional bounded `zca-js` acknowledgement guard. If the guard is changed, follow the backup, fixture test, syntax check, plugin doctor, probe, and Supervisor rollback procedure already documented above. The helper can be rolled back by restoring its timestamped member-workspace backup and does not require a Gateway restart.
+
+## Permanent local-media hydration guard (2026-09-23)
+
+For a member that previously passed `media=<local path>` with an empty `buffer`, install the reusable `zalo-buffer-file-send/scripts/patch_openclaw_buffer_hydration.sh`. The patch is intentionally narrow: in the OpenClaw `message-action-normalization-*` bundle, `message.send` hydrates a local media/file path into the bounded base64 buffer, filename, and content type before the Gateway Zalo plugin dispatches it. This prevents the old path from reaching `zca-js` without bytes. It does not bypass media access policy, size limits, or credentials.
+
+Run the script's dry-run, apply it with the required member container, run `node --check`, then restart only the Supervisor-owned `openclaw-gateway`. The script stores the original bundle and SHA-256 under `/root/_Backups/<member>-zalo-buffer-hydration/<UTC-timestamp>/`. After an OpenClaw upgrade, rerun the dry-run because hashed bundle names and anchors can change. Rollback is file-level from that backup followed by the same gateway restart; stop if the live bundle hash no longer matches the backup baseline.
+
+Acceptance requires one owner-approved attachment sent through the ordinary message action with a local media path, `deliveryStatus: sent`, a media receipt, and a matching user/group thread ID. Keep the buffer helper as the fallback and never claim success from text health, a queued request, or a timeout.
+
+### Guard v2: stage the hydrated attachment (2026-09-23)
+
+The first local-media guard set `buffer` but retained the original `media` path. That was insufficient for a Zalo plugin branch that prefers `mediaUrl`. The current portable patch is v2: it reads the local path with the normal media policy, validates the bounded base64, stages the bytes in the canonical outbound media store, and replaces `media`, `mediaUrl`, and `mediaUrls` with the staged path before dispatch. This closes the remaining path-specific upload timeout.

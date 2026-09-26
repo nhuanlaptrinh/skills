@@ -114,7 +114,7 @@ Profile hiện tại:
 /root/Apps/member_vps_factory/profiles/openclaw-standard.json
 ```
 
-Profile giữ CPU `2`, RAM `4g`, swap `6g`, PID `1024`, OpenClaw `2026.9.5` với
+Profile giữ CPU `2`, RAM `4g`, swap `6g`, PID `1024`, OpenClaw `2026.9.4` với
 Node.js `>=24.16.0 <25` (hoặc `>=26.1.0`),
 endpoint mặc định `https://codex.anhlaptrinh.vn/v1`, model `GPT-5.6-sol` và
 image hiện hành. Profile được chuẩn hóa từ runtime sạch của
