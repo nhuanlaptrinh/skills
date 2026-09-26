@@ -58,9 +58,10 @@ Vì VPS mới đã có sẵn Node.js và OpenClaw, ta chỉ cần giải nén đ
 /root/restore_clean_assistant.sh \
   --tarball /root/anhlaptrinhthu_clean_export_20260926.tar.gz \
   --target-home /root \
+  --send-zalo-qr <TELEGRAM_USER_ID> \
   --apply
 ```
-*Script sẽ tự động: cài ffmpeg/libreoffice/rapidocr nếu chưa có, giải nén toàn bộ nhân cách & skills, sửa đường dẫn `/home/anhlaptrinh` -> `/root` trong `openclaw.json`, và khởi động lại Gateway.*
+*Script sẽ tự động: cài ffmpeg/libreoffice/rapidocr nếu chưa có, giải nén toàn bộ nhân cách & skills, sửa đường dẫn `/home/anhlaptrinh` -> `/root` trong `openclaw.json`, khởi động lại Gateway, và tự động tạo mã QR Zalo Personal gửi thẳng vào tin nhắn Telegram của chủ sở hữu.*
 
 #### Cách B (Bung thủ công không cần script - 3 bước):
 ```bash
@@ -137,9 +138,20 @@ Nếu VPS mới chưa cài đặt Node, OpenClaw hay bất kỳ thư viện nào
 2. **Kiểm tra Telegram:**
    - Nhắn tin trực tiếp tới bot Telegram: Bot phải trả lời với đúng tên và nhân cách đã đào tạo.
 
-3. **Kiểm tra Zalo Personal:**
-   - Mở trình duyệt vào `http://<IP_VPS>/openclaw-qr.png` (hoặc gõ `openclaw channels login zalouser` trong terminal).
-   - Dùng Zalo trên điện thoại quét mã QR để kích hoạt lại phiên đăng nhập.
+3. **Đăng nhập Zalo Personal bằng QR:**
+   - **Cách 1 (Gửi thẳng vào Telegram Owner - Khuyên dùng, nhanh nhất):**
+     ```bash
+     node /root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs \
+       --target <TELEGRAM_USER_ID> \
+       --apply
+     ```
+     *Script sẽ tự động sinh QR mới, đóng gói ảnh và gửi thẳng vào tin nhắn Telegram của chủ sở hữu. Chỉ cần mở điện thoại quét ảnh là xong.*
+   - **Cách 2 (Mở ảnh qua Web URL):**
+     Truy cập `http://<IP_VPS>/openclaw-qr.png` (hoặc cổng web của Member VPS, ví dụ `http://<IP_VPS>:3025/openclaw-qr.png`).
+   - **Cách 3 (Chạy lệnh terminal trực tiếp):**
+     ```bash
+     openclaw channels login --channel zalouser
+     ```
 
 ---
 

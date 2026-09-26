@@ -13,6 +13,7 @@ set -euo pipefail
 TARBALL=""
 TARGET_HOME="${HOME:-/root}"
 INSTALL_MISSING_DEPS="true"
+SEND_ZALO_QR=""
 ACTION="dry-run"
 
 usage() {
@@ -21,19 +22,20 @@ Sử dụng:
   $0 --tarball <path> [options]
 
 Các tùy chọn:
-  --tarball <path>      Đường dẫn file .tar.gz sạch cần khôi phục (bắt buộc)
-  --target-home <path>  Thư mục người dùng trên VPS mới (mặc định: $TARGET_HOME)
-  --skip-deps           Bỏ qua bước kiểm tra và cài đặt công cụ phụ trợ còn thiếu
-  --dry-run             Kiểm tra các bước mà không ghi đè dữ liệu
-  --apply               Thực hiện giải nén và cấu hình thực tế
-  -h, --help            Hiển thị trợ giúp này
+  --tarball <path>        Đường dẫn file .tar.gz sạch cần khôi phục (bắt buộc)
+  --target-home <path>    Thư mục người dùng trên VPS mới (mặc định: $TARGET_HOME)
+  --send-zalo-qr <id>     Tự động tạo mã QR Zalo Personal và gửi trực tiếp qua Telegram Owner
+  --skip-deps             Bỏ qua bước kiểm tra và cài đặt công cụ phụ trợ còn thiếu
+  --dry-run               Kiểm tra các bước mà không ghi đè dữ liệu
+  --apply                 Thực hiện giải nén và cấu hình thực tế
+  -h, --help              Hiển thị trợ giúp này
 
 Ví dụ:
   # Kiểm tra trước:
   $0 --tarball /root/anhlaptrinhthu_clean_export_20260926.tar.gz --target-home /root --dry-run
 
-  # Áp dụng khôi phục thật (tự bổ sung gói còn thiếu):
-  $0 --tarball /root/anhlaptrinhthu_clean_export_20260926.tar.gz --target-home /root --apply
+  # Áp dụng khôi phục thật (tự bổ sung gói còn thiếu & gửi QR Zalo qua Telegram):
+  $0 --tarball /root/<ten-member>_clean_export_<timestamp>.tar.gz --target-home /root --send-zalo-qr <TELEGRAM_USER_ID> --apply
 EOF
     exit 1
 }
@@ -46,6 +48,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --target-home)
             TARGET_HOME="$2"
+            shift 2
+            ;;
+        --send-zalo-qr)
+            SEND_ZALO_QR="$2"
             shift 2
             ;;
         --skip-deps)
@@ -129,15 +135,47 @@ tar -xzf "$TARBALL" -C "$TMP_DIR"
 
 echo "[3/4] Đưa dữ liệu đào tạo, skills, cấu hình vào $TARGET_HOME..."
 mkdir -p "$TARGET_HOME"
-if [ -d "$TMP_DIR/home" ]; then
-    cp -a "$TMP_DIR/home/"* "$TARGET_HOME/" 2>/dev/null || true
-    cp -a "$TMP_DIR/home/".* "$TARGET_HOME/" 2>/dev/null || true
+for hdir in "$TMP_DIR/home" "$TMP_DIR/home_"*; do
+    if [ -d "$hdir" ]; then
+        cp -a "$hdir/"* "$TARGET_HOME/" 2>/dev/null || true
+        cp -a "$hdir/".* "$TARGET_HOME/" 2>/dev/null || true
+    fi
+done
+
+# Tạo symlink phòng ngừa script cũ hardcode /home/anhlaptrinh
+if [[ "$TARGET_HOME" != "/home/anhlaptrinh" && ! -e "/home/anhlaptrinh" ]]; then
+    mkdir -p /home
+    ln -sfn "$TARGET_HOME" /home/anhlaptrinh 2>/dev/null || true
 fi
 
-# Chuẩn hóa đường dẫn nếu target_home khác /home/anhlaptrinh
-if [[ "$TARGET_HOME" != "/home/anhlaptrinh" && -f "$TARGET_HOME/.openclaw/openclaw.json" ]]; then
-    echo "   -> Chuẩn hóa đường dẫn trong openclaw.json: /home/anhlaptrinh -> $TARGET_HOME"
-    sed -i "s|/home/anhlaptrinh|$TARGET_HOME|g" "$TARGET_HOME/.openclaw/openclaw.json"
+# Chuẩn hóa đường dẫn và cấu hình hệ thống trong openclaw.json
+if [[ -f "$TARGET_HOME/.openclaw/openclaw.json" ]]; then
+    if [[ "$TARGET_HOME" != "/home/anhlaptrinh" ]]; then
+        echo "   -> Chuẩn hóa đường dẫn trong openclaw.json: /home/anhlaptrinh -> $TARGET_HOME"
+        sed -i "s|/home/anhlaptrinh|$TARGET_HOME|g" "$TARGET_HOME/.openclaw/openclaw.json"
+    fi
+
+    # Đảm bảo các trường multi-agent bắt buộc của OpenClaw 2026.9+
+    python3 -c "
+import json
+p = '$TARGET_HOME/.openclaw/openclaw.json'
+try:
+    with open(p) as f:
+        d = json.load(f)
+    changed = False
+    if 'agents' in d and 'entries' in d['agents'] and len(d['agents']['entries']) > 1:
+        if d['agents'].get('ownership') != 'explicit':
+            d['agents']['ownership'] = 'explicit'
+            changed = True
+        if not d['agents'].get('defaults', {}).get('systemAgent', {}).get('agentId'):
+            d.setdefault('agents', {}).setdefault('defaults', {}).setdefault('systemAgent', {})['agentId'] = 'main'
+            changed = True
+    if changed:
+        with open(p, 'w') as f:
+            json.dump(d, f, indent=2, ensure_ascii=False)
+except Exception:
+    pass
+" 2>/dev/null || true
 fi
 
 echo "[4/4] Khôi phục cấu hình dịch vụ..."
@@ -159,6 +197,11 @@ if [ -d "$TMP_DIR/container_root/Apps" ]; then
     cp -a "$TMP_DIR/container_root/Apps/"* /root/Apps/ 2>/dev/null || true
 fi
 
+if [ -d "$TMP_DIR/container_root/root_agents_skills/skills" ]; then
+    mkdir -p /root/.agents/skills
+    cp -a "$TMP_DIR/container_root/root_agents_skills/skills/"* /root/.agents/skills/ 2>/dev/null || true
+fi
+
 rm -rf "$TMP_DIR"
 
 # Khởi động lại dịch vụ
@@ -172,6 +215,28 @@ if command -v supervisorctl >/dev/null 2>&1; then
 elif command -v openclaw >/dev/null 2>&1; then
     echo "Khởi động lại OpenClaw Gateway..."
     openclaw gateway restart || openclaw gateway run --daemon || true
+fi
+
+# Tự động gửi mã QR đăng nhập Zalo Personal qua Telegram Owner nếu có yêu cầu
+if [[ -n "$SEND_ZALO_QR" ]]; then
+    echo ""
+    echo "======================================================================"
+    echo "ĐANG TẠO VÀ GỬI MÃ QR ĐĂNG NHẬP ZALO PERSONAL QUA TELEGRAM..."
+    echo "Người nhận: Telegram ID $SEND_ZALO_QR"
+    echo "======================================================================"
+    SEND_SCRIPT="/root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs"
+    if [ ! -f "$SEND_SCRIPT" ]; then
+        SEND_SCRIPT="$TARGET_HOME/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs"
+    fi
+    if [ -f "$SEND_SCRIPT" ]; then
+        node "$SEND_SCRIPT" --target "$SEND_ZALO_QR" --apply || {
+            echo "[!] Không thể gửi tự động qua script, hãy chạy thủ công:"
+            echo "    node $SEND_SCRIPT --target $SEND_ZALO_QR --apply"
+        }
+    else
+        echo "[!] Không tìm thấy script send_zalo_qr_to_telegram_owner.mjs."
+        echo "    Hãy chạy: openclaw channels login --channel zalouser"
+    fi
 fi
 
 echo "======================================================================"
