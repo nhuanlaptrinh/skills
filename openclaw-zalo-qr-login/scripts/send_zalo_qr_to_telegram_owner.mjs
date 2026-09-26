@@ -438,6 +438,14 @@ async function main() {
       await runOfficialZaloLogin(options.accountId, options.timeoutSeconds, (qrSourcePath) => {
         fs.copyFileSync(qrSourcePath, qrPath);
         fs.chmodSync(qrPath, 0o600);
+        try {
+          if (fs.existsSync("/var/www/html")) {
+            fs.copyFileSync(qrSourcePath, "/var/www/html/openclaw-qr.png");
+            fs.chmodSync("/var/www/html/openclaw-qr.png", 0o644);
+          }
+        } catch {
+          // Fallback sync to web folder is best-effort.
+        }
         qrReceipt = deliver(
           telegramAccountId,
           options.target,
