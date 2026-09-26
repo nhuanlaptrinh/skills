@@ -43,36 +43,61 @@ Helper dùng cho workflow không tương tác:
 - Global: `/root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs`
 - Trong member workspace: `<workspace>/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs`
 
-Helper chạy lệnh chính thức `openclaw channels login --channel zalouser`, theo dõi file QR mà CLI tạo, giữ Telegram tiếp tục chạy để gửi ảnh, chờ quét, rồi để CLI bật lại Zalo khi thành công. Cách này tương thích plugin Zalo cài ngoài trên OpenClaw 2026.8.x, nơi Gateway có thể không công bố `web.login.*`. Không restart container và không đổi model/provider/token/policy.
+Helper chạy lệnh chính thức `openclaw channels login --channel zalouser`, theo dõi file QR mà CLI tạo, giữ Telegram tiếp tục chạy để gửi ảnh, chờ quét, rồi để CLI bật lại Zalo khi thành công. Cách này tương thích plugin Zalo cài ngoài trên OpenClaw 2026.8.x và 2026.9.x.
 
-Helper dùng khóa `~/.openclaw/state/zalo-qr-owner-login.lock` để từ chối lượt chạy chồng nhau, gửi qua đúng Telegram account đã khai báo trong plugin approval target, và chỉ coi là đã gửi khi CLI trả về `messageId` cùng destination khớp.
-
-Với OpenClaw 2026.7.x, receipt direct-send có thể nằm trong `payload.result`; với 2026.8.x, destination của plugin Telegram có thể nằm ở `payload.chatId` thay vì `payload.to`. Helper hỗ trợ các dạng receipt này và vẫn yêu cầu `messageId` thật cùng đúng destination.
-
-Dry-run bắt buộc trước:
-
+### 1. Lệnh thực thi trên Host VPS chính:
 ```bash
-node /path/to/send_zalo_qr_to_telegram_owner.mjs \
-  --target <telegram_user_id> \
+# Kiểm tra trước (Dry-run):
+node /root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs \
+  --target <TELEGRAM_USER_ID> \
   --dry-run
-```
 
-Chạy thật chỉ khi owner đã yêu cầu đăng nhập lại hoặc gửi QR mới:
-
-```bash
-node /path/to/send_zalo_qr_to_telegram_owner.mjs \
-  --target <telegram_user_id> \
+# Chạy thật gửi QR vào Telegram (Apply):
+node /root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs \
+  --target <TELEGRAM_USER_ID> \
   --apply
 ```
 
-Input/output:
+### 2. Lệnh thực thi trên Member VPS (Docker container):
+Nếu Trợ lý chạy trong container Docker member (ví dụ `user-anhlaptrinhthu`), chạy lệnh sau từ Host:
+```bash
+# Xóa lock cũ nếu có và chạy gửi QR vào Telegram:
+docker exec user-<member> rm -f /root/.openclaw/state/zalo-qr-owner-login.lock
+docker exec -it user-<member> bash -lc "
+set -a; [ -f /root/.openclaw/token-codex.env ] && . /root/.openclaw/token-codex.env; set +a
+node /root/.agents/skills/openclaw-zalo-qr-login/scripts/send_zalo_qr_to_telegram_owner.mjs --target <TELEGRAM_USER_ID> --apply
+"
+```
 
-- Input: Telegram user ID đã có đủ các lớp quyền trên; account Zalo mặc định là `default`; timeout mặc định 180 giây.
-- Output: ảnh QR được stage tạm trong `~/.openclaw/media/outbound/` rồi gửi vào DM Telegram của owner; helper vẫn tạo QR khi Zalo đã `stopped` sau lỗi listener, sau khi quét kênh Zalo được start lại.
-- Backup: `~/.openclaw/backups/zalo-qr-<timestamp>/` với mode riêng tư; không in nội dung credential.
-- Rerun: nếu QR hết hạn, chạy lại lệnh `--apply`; mỗi lượt tạo QR mới và xóa ảnh tạm sau khi kết thúc.
-- Concurrent rerun: nếu một lượt còn chờ quét, helper trả lỗi `already running` mà không tạo hoặc gửi QR thứ hai. Lock stale được tự dọn khi PID cũ không còn chạy.
-- An toàn: `--apply` sẽ thay phiên Zalo hiện tại, vì vậy không chạy khi owner chỉ muốn kiểm tra trạng thái.
+### 3. Xử lý lỗi thường gặp khi tạo QR Zalo:
+1. **Lỗi `A Zalo QR delivery workflow is already running`:**
+   - Do phiên chạy trước đó bị gián đoạn nhưng file lock vẫn còn lưu.
+   - Khắc phục: Xóa lock bằng lệnh:
+     ```bash
+     rm -f ~/.openclaw/state/zalo-qr-owner-login.lock
+     # hoặc trên container member:
+     docker exec user-<member> rm -f /root/.openclaw/state/zalo-qr-owner-login.lock
+     ```
+2. **Lỗi `Multiple agents are configured, but channel plugin discovery has no explicit owner`:**
+   - Xảy ra khi hệ thống có từ 2 agent trở lên (multi-agent roster) nhưng chưa chỉ định agent quản lý channel plugin mặc định.
+   - Khắc phục: Thêm `"systemAgent": { "agentId": "main" }` vào `agents.defaults` trong `openclaw.json`:
+     ```json
+     "agents": {
+       "defaults": {
+         "systemAgent": {
+           "agentId": "main"
+         }
+       }
+     }
+     ```
+3. **Lỗi `Telegram target is missing required permissions`:**
+   - ID Telegram của người nhận chưa được phân quyền owner đầy đủ.
+   - Cần đảm bảo ID có mặt trong:
+     + `channels.telegram.allowFrom`
+     + `commands.ownerAllowFrom` (dạng `<id>` hoặc `telegram:<id>`)
+     + `tools.elevated.allowFrom.telegram`
+     + `channels.telegram.execApprovals.approvers`
+     + `approvals.plugin.targets` (channel: telegram, to: <id>, accountId: <account>)
 
 ## Link QR chuẩn cần dùng
 
