@@ -57,13 +57,13 @@ def fail(message: str) -> None:
 def validate_url(raw_url: str) -> str:
     parsed = urllib.parse.urlparse(raw_url)
     hostname = (parsed.hostname or "").lower()
-    if parsed.scheme != "https" or not (hostname == "zdn.vn" or hostname.endswith(".zdn.vn")):
+    if parsed.scheme != "https" or not any(hostname == h or hostname.endswith("." + h) for h in ("zdn.vn", "flchat.vn", "dlfl.vn")):
         fail("URL voice Zalo khong hop le")
     return raw_url
 
 
 def download_audio(url: str, destination: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "OpenClaw-ZaloVoice/2.0"})
+    request = urllib.request.Request(validate_url(url), headers={"User-Agent": "OpenClaw-ZaloVoice/2.0"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
             total = 0

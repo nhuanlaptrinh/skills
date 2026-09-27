@@ -170,3 +170,12 @@ Sau apply:
 - Neu token shared bi lo, dung quy trinh rotate trong skill `shared-local-stt-service`; khong in token ra terminal/log.
 
 Chi tiet kien truc va validation xem `references/architecture.md`.
+
+
+## Zalo voice intake repair (managed 2026-09-27)
+
+When Zalo receives a voice message but the agent says STT is unavailable, first run the local STT client against the saved audio. If transcription succeeds, the failure is the Zalo monitor intake path: it did not pass the signed voice URL to `transcribe_zalo_voice.py`.
+
+Use `scripts/patch_zalo_voice_intake.py --monitor <active-monitor.mjs> --dry-run` before editing. The active bundle is the newest `@openclaw/zalouser/dist/.setup/monitor-*.mjs` under the member `.openclaw/npm/projects/` tree. Apply only after a root-only backup, then run `node --check` on the monitor and adjacent `zalo_voice_intake.mjs`, `openclaw config validate`, and restart only the Supervisor-owned Gateway. The patch extracts only HTTPS voice URLs from `zdn.vn`, `flchat.vn`, or `dlfl.vn`, calls the existing local STT helper with a bounded timeout, replaces the inbound body with the transcript, and logs only success/failure markers.
+
+Do not claim the audio was understood from Gateway connectivity alone. A successful fixture STT run plus a real owner voice test must produce a `[zalouser-audio] transcription ok` log marker and a transcript in the agent turn. Roll back the exact monitor and helper from the timestamped backup if startup or voice handling regresses.
