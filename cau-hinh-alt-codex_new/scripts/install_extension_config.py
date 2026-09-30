@@ -21,6 +21,15 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
 
 
 SUPPORTED_FILES = ("auth.json", "config.toml")
+SUPPORTED_MODELS = frozenset(
+    {
+        "GPT-6.1-sol",
+        "GPT-5.6-sol",
+        "GPT-5.6-terra",
+        "GPT-5.6-luna",
+        "GPT-6-astra",
+    }
+)
 
 
 class ValidationError(RuntimeError):
@@ -76,7 +85,7 @@ def load_auth(path: Path) -> tuple[dict, str]:
     return data, key.strip()
 
 
-def load_config(path: Path) -> tuple[dict, str, str]:
+def load_config(path: Path) -> tuple[dict, str, str, str]:
     text = path.read_text(encoding="utf-8")
     if tomllib is None:
         # Keep a useful validation path on Python 3.10 without adding a dependency.
@@ -97,6 +106,7 @@ def load_config(path: Path) -> tuple[dict, str, str]:
 
         top_level = sections[""]
         provider_match = top_level.get("model_provider", "")
+        model_match = top_level.get("model", "")
         provider_values = sections.get(f"model_providers.{provider_match}", {})
         base_match = provider_values.get("base_url", "")
         auth_match = top_level.get("preferred_auth_method", "")
@@ -104,16 +114,17 @@ def load_config(path: Path) -> tuple[dict, str, str]:
         requires_auth_match = provider_values.get("requires_openai_auth", "").lower()
         if (
             not provider_match
+            or model_match not in SUPPORTED_MODELS
             or not base_match
             or auth_match != "apikey"
             or store_match != "file"
             or requires_auth_match != "true"
         ):
             raise ValidationError(
-                "config.toml thiếu model_provider/base_url hoặc phải đặt preferred_auth_method=apikey, "
-                "cli_auth_credentials_store=file và requires_openai_auth=true"
+                "config.toml phải có model được hỗ trợ, model_provider/base_url, "
+                "preferred_auth_method=apikey, cli_auth_credentials_store=file và requires_openai_auth=true"
             )
-        return {}, provider_match, base_match
+        return {}, provider_match, base_match, model_match
     try:
         data = tomllib.loads(text)
     except (tomllib.TOMLDecodeError, TypeError) as exc:
@@ -121,6 +132,12 @@ def load_config(path: Path) -> tuple[dict, str, str]:
     provider = data.get("model_provider")
     if not isinstance(provider, str) or not provider:
         raise ValidationError("config.toml thiếu model_provider")
+    model = data.get("model")
+    if model not in SUPPORTED_MODELS:
+        raise ValidationError(
+            "config.toml phải dùng một trong các model được hỗ trợ: "
+            + ", ".join(sorted(SUPPORTED_MODELS))
+        )
     provider_config = data.get("model_providers", {}).get(provider)
     if not isinstance(provider_config, dict):
         raise ValidationError(f"config.toml thiếu model_providers.{provider}")
@@ -136,10 +153,10 @@ def load_config(path: Path) -> tuple[dict, str, str]:
             f"config.toml phải đặt model_providers.{provider}.requires_openai_auth=true "
             "để Codex gửi Authorization từ auth.json"
         )
-    return data, provider, base_url.strip()
+    return data, provider, base_url.strip(), model
 
 
-def gateway_probe(base_url: str, key: str, timeout: float) -> tuple[int, int]:
+def gateway_probe(base_url: str, key: str, model: str, timeout: float) -> tuple[int, int]:
     models_url = base_url.rstrip("/") + "/models"
     request = urllib.request.Request(
         models_url,
@@ -149,7 +166,7 @@ def gateway_probe(base_url: str, key: str, timeout: float) -> tuple[int, int]:
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             status = int(response.status)
-            response.read(256)
+            models_payload = response.read(2_000_000)
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
             raise ValidationError("Gateway trả HTTP 401: OPENAI_API_KEY thiếu, sai hoặc chưa được gateway cấp quyền") from exc
@@ -158,6 +175,24 @@ def gateway_probe(base_url: str, key: str, timeout: float) -> tuple[int, int]:
         raise ValidationError(f"Không kiểm tra được gateway: {type(exc).__name__}") from exc
     if status < 200 or status >= 300:
         raise ValidationError(f"Gateway trả HTTP {status} khi kiểm tra /models")
+    try:
+        parsed_models = json.loads(models_payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValidationError("Gateway /models không trả JSON hợp lệ để xác minh model cấu hình") from exc
+    entries = parsed_models.get("data", parsed_models.get("models")) if isinstance(parsed_models, dict) else None
+    model_ids = {
+        entry.get("id")
+        for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+    } if isinstance(entries, list) else set()
+    expected_model = model.casefold()
+    model_is_available = any(
+        candidate.casefold() == expected_model
+        or candidate.rsplit("/", 1)[-1].casefold() == expected_model
+        for candidate in model_ids
+    )
+    if not model_is_available:
+        raise ValidationError(f"Gateway /models không công bố model đã chọn: {model}")
 
     # An empty Responses request must reach input validation, never the missing-key guard.
     responses_url = base_url.rstrip("/") + "/responses"
@@ -249,10 +284,10 @@ def main() -> int:
         raise ValidationError("target-dir nằm ngoài home; xác nhận rõ bằng --allow-outside-home nếu đây là CODEX_HOME hợp lệ")
 
     _, key = load_auth(source / "auth.json")
-    _, provider, base_url = load_config(source / "config.toml")
+    _, provider, base_url, model = load_config(source / "config.toml")
     statuses = None
     if not args.skip_gateway_check:
-        statuses = gateway_probe(base_url, key, args.timeout)
+        statuses = gateway_probe(base_url, key, model, args.timeout)
 
     if args.backup_dir:
         backup_dir = Path(args.backup_dir).expanduser()
@@ -265,6 +300,7 @@ def main() -> int:
     print(f"Source: {source}")
     print(f"Target CODEX_HOME: {target}")
     print(f"Provider: {provider}")
+    print(f"Model: {model}")
     print("requires_openai_auth: true")
     print("OPENAI_API_KEY: present")
     if statuses is None:
@@ -287,6 +323,7 @@ def main() -> int:
     if backups:
         print("Backup: " + ", ".join(str(path) for path in backups))
     print("Xác minh đích: OPENAI_API_KEY có và config.toml hợp lệ; không in giá trị key.")
+    print("CHƯA BÀN GIAO: thoát/mở lại Antigravity rồi chạy codex exec để nghiệm thu request thật.")
     return 0
 
 

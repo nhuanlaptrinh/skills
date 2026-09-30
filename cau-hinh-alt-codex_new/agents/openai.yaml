@@ -1,4 +1,4 @@
 interface:
-  display_name: "Cấu hình ALT Codex và sửa lỗi 401"
-  short_description: "Cài Codex ALT, bắt buộc auth flag và test thật"
-  default_prompt: "Dùng $cau-hinh-alt-codex để cấu hình ALT, bắt buộc requires_openai_auth=true và kiểm thử thật bằng codex exec."
+  display_name: "Cài Codex Extension Antigravity qua ALT"
+  short_description: "Cài Extension Codex mặc định GPT-6.1-sol, rồi test thật"
+  default_prompt: "Dùng $cau-hinh-alt-codex để cài Codex Extension trong Antigravity qua ALT với GPT-6.1-sol mặc định; bắt buộc requires_openai_auth=true, restart hoàn toàn và kiểm thử thành công bằng codex exec trước khi bàn giao."

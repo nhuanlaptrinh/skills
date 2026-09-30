@@ -17,7 +17,7 @@ usage() {
   cat <<'EOF'
 Usage: set_alt_model.sh --model MODEL [options]
 
-Models: GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, GPT-6-astra
+Models: GPT-6.1-sol, GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, GPT-6-astra
 
 Options:
   --all-agents              Update managed model overrides in agents.list
@@ -37,6 +37,7 @@ normalize_model() {
   local normalized
   normalized=$(printf '%s' "$1" | tr '[:upper:]_' '[:lower:] ' | sed -E 's/[[:space:]]+/-/g; s/-+/-/g; s/^-|-$//g')
   case "$normalized" in
+    gpt-6.1-sol) printf '%s' 'GPT-6.1-sol' ;;
     gpt-5.6-sol) printf '%s' 'GPT-5.6-sol' ;;
     gpt-5.6-terra) printf '%s' 'GPT-5.6-terra' ;;
     gpt-5.6-luna) printf '%s' 'GPT-5.6-luna' ;;
@@ -69,7 +70,7 @@ if [[ -z "$MODEL" ]]; then
 fi
 
 if ! MODEL=$(normalize_model "$MODEL"); then
-  echo "Unsupported model. Choose GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, or GPT-6-astra." >&2
+  echo "Unsupported model. Choose GPT-6.1-sol, GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, or GPT-6-astra." >&2
   exit 2
 fi
 
@@ -105,6 +106,7 @@ detect_openclaw_provider() {
     | to_entries[]
     | select(any(.value.models[]?;
         .id == "codex" or
+        .id == "GPT-6.1-sol" or
         .id == "GPT-5.6-sol" or
         .id == "GPT-5.6-terra" or
         .id == "GPT-5.6-luna" or
@@ -172,13 +174,14 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   jq --arg model "$MODEL" --arg ref "$OPENCLAW_MODEL" --arg provider "$OPENCLAW_PROVIDER" --argjson allAgents "$ALL_AGENTS" '
     def managed($provider):
       . == ($provider + "/codex") or
+      . == ($provider + "/GPT-6.1-sol") or
       . == ($provider + "/GPT-5.6-sol") or
       . == ($provider + "/GPT-5.6-terra") or
       . == ($provider + "/GPT-5.6-luna") or
       . == ($provider + "/GPT-6-astra");
     .models.providers[$provider].models = (
       (.models.providers[$provider].models // []) as $existing
-      | ["GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna", "GPT-6-astra"] as $managedIds
+      | ["GPT-6.1-sol", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna", "GPT-6-astra"] as $managedIds
       | ($existing | map(select((.id as $id | $managedIds | index($id)) == null))) +
         ($managedIds | map({
           id: ., name: .,

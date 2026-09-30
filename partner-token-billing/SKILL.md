@@ -35,6 +35,7 @@ This app is independent from `/root/Apps/9router_usage_dashboard`. Do not edit, 
 - Do not add partner storefronts, downstream-customer login, downstream payment orders, or retail-customer billing to this project unless the user explicitly changes the approved scope.
 - A custom Base URL is shown only after its domain status is changed to `active`; pending domains continue using the shared Base URL.
 - Usage is calculated from 9Router `usageHistory` joined to `apiKeys`, filtered by assigned external API UUIDs.
+- For provider `codex`, `gpt-6.1-sol` uses a read-time OpenAI API-equivalent fallback when 9Router reports `cost=0`: `$2.00/M` input, `$0.10/M` cached input, `$2.50/M` cache writes, and `$10.00/M` output. Prompts above 272K tokens apply 2x input/cache and 1.5x output. The fallback reads `usageHistory.tokens`, preserves nonzero router costs, and keeps the source SQLite read-only for reports, partner balances, estimated profit, and credit enforcement.
 - Full API keys display once and must never be stored in documentation or logs.
 - New payment invoice codes use prefix `DTA`, separate from Token Codex `CDX` invoices.
 - Promotions from the Token Codex project are disabled in this app.
