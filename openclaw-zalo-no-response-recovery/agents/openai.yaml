@@ -1,0 +1,6 @@
+interface:
+  display_name: "OpenClaw Zalo Recovery"
+  short_description: "Khôi phục và harden Zalo OpenClaw member"
+  default_prompt: "Use $openclaw-zalo-no-response-recovery to diagnose, recover, and harden a Docker member whose OpenClaw Zalo Personal channel is not responding."
+policy:
+  allow_implicit_invocation: true

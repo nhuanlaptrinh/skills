@@ -260,7 +260,7 @@ Use this sequence when logs contain `claim→adoption stalled`,
    dry-run first:
 
    ```bash
-   MEMBER_HOME=/home/<member> \
+   MEMBER_HOME=/home/<member> SESSION_AGENT=main \
    SESSION_PATTERN='agent:main:zalouser:group:<group-id>' \
    TOKEN_THRESHOLD_64K=18000 TOKEN_THRESHOLD_128K=40000 \
    SESSION_IDLE_SECONDS=600 MAX_COMPACTIONS_PER_RUN=1 \

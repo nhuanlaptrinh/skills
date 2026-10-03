@@ -23,6 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
 SUPPORTED_FILES = ("auth.json", "config.toml")
 SUPPORTED_MODELS = frozenset(
     {
+        "codex",
         "GPT-6.1-sol",
         "GPT-5.6-sol",
         "GPT-5.6-terra",

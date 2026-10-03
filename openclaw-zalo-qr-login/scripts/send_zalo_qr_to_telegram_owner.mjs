@@ -392,7 +392,10 @@ async function main() {
   }
 
   const status = gatewayCall("channels.status", {}, 15_000);
-  const telegramRunning = status.channels?.telegram?.running === true;
+  const telegramAccounts = status.channelAccounts?.telegram ?? status.channels?.telegram?.accounts ?? [];
+  const telegramRunning = status.channels?.telegram?.running === true ||
+    (Array.isArray(telegramAccounts) && telegramAccounts.some((entry) => entry?.running === true)) ||
+    (telegramAccounts && typeof telegramAccounts === "object" && Object.values(telegramAccounts).some((entry) => entry?.running === true));
   if (!telegramRunning) {
     fail("Telegram channel must be running before sending a Zalo QR");
   }
