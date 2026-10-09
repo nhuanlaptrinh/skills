@@ -1,0 +1,18 @@
+{
+  "id": "telegram-customer-inbox",
+  "name": "Telegram Customer Inbox",
+  "description": "Routes Telegram customer DMs to a staff group with AI-default and per-customer takeover control.",
+  "version": "1.0.0",
+  "activation": { "onStartup": true },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "groupId": { "type": "string" },
+      "accountId": { "type": "string" },
+      "brandName": { "type": "string" },
+      "staffIds": { "type": "array", "items": { "type": "string" } },
+      "stateFile": { "type": "string" }
+    }
+  }
+}

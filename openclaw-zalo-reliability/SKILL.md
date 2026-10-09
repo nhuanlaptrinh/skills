@@ -78,6 +78,20 @@ and outbound, session, then authentication.
 
 ## Durable Prevention
 
+### Receipt-aware long text splitting
+
+For generated-but-undelivered long text or OCR replies, use the reusable host
+skill `/root/.agents/skills/openclaw-zalo-text-delivery-guard/SKILL.md`.
+Its installer resolves the active member HOME/mount/generation, performs a
+dry-run, preserves existing Zalo patches, backs up and tests the candidate, and
+reloads only the Supervisor-owned Gateway when code changes. It applies to all
+text-only Zalo replies: plain numbered parts up to 1,000 UTF-16 units, preserved
+list numbers/link destinations, receipts per part and persistent failed-delivery
+context. Retry is limited to explicit API rejection without receipts; do not
+stack the legacy broad text retry patch on this guard. It does not repair login
+or change attachment delivery. An unauthenticated member may receive the code,
+but must still be reported offline until separately authorized login recovery.
+
 ### Cache inbound Zalo image URLs before vision tools
 
 When a Zalo image arrives only as a short-lived `photo-stal-*.zdn.vn` or

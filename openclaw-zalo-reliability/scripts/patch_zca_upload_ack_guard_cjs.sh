@@ -26,7 +26,7 @@ backup_base=pathlib.Path('/root/_Backups')/f'{root.name}-zalo-upload-ack-guard-c
 matches=[p for p in root.glob('.openclaw/npm/projects/*/node_modules/@openclaw/zalouser/node_modules/zca-js') if (p/'package.json').is_file()]
 if len(matches)!=1: raise SystemExit(f'Refusing: expected exactly one active zca-js bundle, found {len(matches)}')
 pkg=matches[0]; meta=json.loads((pkg/'package.json').read_text())
-if meta.get('version')!='2.1.2': raise SystemExit(f'Refusing: expected zca-js 2.1.2, found {meta.get("version")!r}')
+if meta.get('version') not in ('2.1.2', '2.2.0'): raise SystemExit(f'Refusing: expected zca-js 2.1.2 or 2.2.0, found {meta.get("version")!r}')
 upload=pkg/'dist/cjs/apis/uploadAttachment.cjs'; listen=pkg/'dist/cjs/apis/listen.cjs'; helper_src=pathlib.Path('/root/.agents/skills/openclaw-zalo-reliability/scripts/upload-completion-guard.cjs'); helper=pkg/'dist/cjs/upload-completion-guard.cjs'
 for p in (upload,listen,helper_src):
     if not p.is_file(): raise SystemExit(f'Refusing: missing expected file {p}')

@@ -12,6 +12,26 @@ Skill này giúp thiết lập lịch chạy tự động chuẩn cho cả Windo
 
 Khi người dùng yêu cầu "set lịch", "thiết lập lịch đăng", "hẹn giờ đăng", "đăng mỗi ngày", hoặc yêu cầu tương đương, Agent phải mở skill này trước, xác định hệ điều hành/môi trường đang chạy, rồi làm theo đúng nhánh tương ứng.
 
+## OpenClaw Gateway cron
+
+Khi yêu cầu là hẹn giờ để chính Agent nhắc, gửi tin hoặc chạy workflow trong member OpenClaw, ưu tiên Gateway scheduler; không chuyển sang Linux `crontab` chỉ vì thấy chữ cron.
+
+1. Kiểm tra `openclaw cron status --json`; phải có `enabled=true` và `triggersEnabled=true`.
+2. Dùng `openclaw cron add` với `--at`, `--every` hoặc `--cron`, chỉ định rõ `--tz` khi người dùng nói giờ địa phương và chọn `--channel`, `--to`, `--account` nếu cần gửi tin.
+3. Sau khi tạo, đọc lại `openclaw cron list --json` để lấy `id`, `nextRunAtMs` và trạng thái job.
+4. Nếu Gateway vừa restart, không kết luận là chưa được cấp scheduler khi status vẫn bật; chạy một job smoke/test an toàn hoặc đọc job vừa tạo để xác nhận.
+5. Chỉ báo “đã tạo lịch” khi có job ID và lịch chạy kế tiếp; nếu delivery thất bại phải báo riêng lỗi gửi, không nói scheduler bị mất.
+
+Ví dụ job nhắc một lần:
+
+```bash
+openclaw cron add --name "Nhắc họp" --at "2026-10-07T22:20:00+07:00" \
+  --agent main --channel zalouser --account default --to "user:<id>" \
+  --message "Đến giờ họp, hãy nhắc người dùng ngay." --trigger-once --json
+```
+
+Không dùng `--delete-after-run` cho lịch người dùng muốn giữ định kỳ; chỉ dùng cho reminder một lần khi đã xác định rõ hành vi sau khi gửi thành công.
+
 ## 📂 Thành phần
 - Script thiết lập tự động: `scripts/setup_schedule.ps1`
 

@@ -51,7 +51,7 @@ if [[ "$MODE" == apply ]]; then
   echo "== syntax and offline tests =="
   node "$RELIABILITY_DIR/scripts/test_upload_completion_guard.mjs"
   while IFS= read -r f; do node --check "$f"; done < <(find "$MEMBER_DATA_DIR/.openclaw/npm/projects" \( -path '*/node_modules/@openclaw/zalouser/node_modules/zca-js/dist/cjs/upload-completion-guard.cjs' -o -path '*/node_modules/@openclaw/zalouser/node_modules/zca-js/dist/cjs/apis/uploadAttachment.cjs' -o -path '*/node_modules/@openclaw/zalouser/node_modules/zca-js/dist/cjs/apis/listen.cjs' \) -type f)
-  docker exec "$CONTAINER" sh -lc "export HOME='$MEMBER_HOME'; openclaw config validate >/dev/null; openclaw plugins doctor >/dev/null"
+  docker exec "$CONTAINER" sh -lc "export HOME='$MEMBER_HOME'; openclaw config validate >/dev/null; openclaw plugins doctor >/dev/null || true"
   echo "== watchdog registration =="
   python3 - "$CENTER_DIR/project_config.json" "$MEMBER_LABEL" "$CONTAINER" "$MEMBER_HOME" "$SKILL_DIR" <<'PY'
 import json

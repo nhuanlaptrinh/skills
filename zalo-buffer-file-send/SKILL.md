@@ -68,6 +68,10 @@ A failed or ambiguous live call is not proof of failure or success; check the re
 
 ## Permanent core guard
 
+Guard v3 uses the normalization bundle's native `loadWebMedia`, `buildAttachmentMediaLoadOptions`, and `resolveAttachmentMaxBytes` for Zalo-only path hydration. The old v2 guard referenced undefined `hydrateAttachmentPayload` and `resolveSendBufferMaxBytes` on OpenClaw 2026.9.7; syntax checking alone did not detect those runtime errors.
+
+Before replacing a bundle, the patch helper now runs `verify_buffer_hydration.mjs` against the staged candidate. Its offline checks exercise real local-file loading/staging, filename/path aliases, dry-run isolation, root/size/upload-authority denial, and unchanged Telegram/base64/sendAttachment behavior. The verification makes no platform calls and does not send attachments. To verify an already-created DOCX without sending it, pass the normalization bundle path and then the DOCX path to this verification script inside the member container. A passing hydration check is not a platform delivery receipt.
+
 The helper is the safe sender; the member can also install a narrow OpenClaw core guard so ordinary `message.send` calls with `media=<local path>` are hydrated into `buffer` automatically before Zalo dispatch. This is the fix for preventing recurrence, while the helper remains the fallback and verification path.
 
 Run the patch script from the VPS host (where Docker and `/root/_Backups` are available), against the exact member container. Do not run this host patch script from inside the member container. It is dry-run by default and creates a timestamped bundle backup before applying:

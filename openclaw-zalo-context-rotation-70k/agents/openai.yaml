@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zalo tự reset context 70k"
+  short_description: "Xoay session Zalo 70k an toàn cho từng khách hàng"
+  default_prompt: "Use $openclaw-zalo-context-rotation-70k to inspect or install safe 70000-token Zalo session rotation for the requested OpenClaw Docker member. Verify its mount and HOME, run dry-run, and apply only to the authorized customer."

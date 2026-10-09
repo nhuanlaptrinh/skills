@@ -1,0 +1,3 @@
+interface:
+  display_name: "OpenClaw Zalo Text Delivery Guard"
+  short_description: "Chia tin Zalo dài và theo dõi giao tin trên Member VPS"

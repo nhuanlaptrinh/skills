@@ -1,0 +1,4 @@
+interface:
+  display_name: "Member VPS Install New"
+  short_description: "Provision a new OpenClaw member VPS safely from a template"
+  default_prompt: "Use $member-vps-install-new to provision a new OpenClaw member VPS from a clean template."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Telegram Customer Inbox"
+  short_description: "Replicate AI and staff takeover inboxes"
+  default_prompt: "Use $openclaw-telegram-customer-inbox to install or verify this Telegram customer inbox on another OpenClaw VPS."

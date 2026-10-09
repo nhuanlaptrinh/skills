@@ -1,13 +1,13 @@
 ---
 name: openclaw-docx-reader
-description: Đọc và trích xuất nội dung Word .docx/.docm nhận từ Telegram trong OpenClaw member Docker khi bộ tiền xử lý báo Unsupported document format. Dùng để đọc cục bộ, không tải tài liệu ra ngoài.
+description: Đọc và trích xuất nội dung Word, Excel và PowerPoint cũ/mới nhận từ Telegram trong OpenClaw member Docker khi bộ tiền xử lý báo Unsupported document format. Dùng để đọc cục bộ, không tải tài liệu ra ngoài.
 ---
 
 # OpenClaw DOCX reader
 
 ## Khi nào dùng
 
-- Khi group Telegram gửi `.docx`, `.docm`, `.dotx` hoặc `.dotm` và OpenClaw báo `Unsupported document format`.
+- Khi group Telegram gửi `.doc`, `.docx`, `.docm`, `.dotx`, `.dotm`, `.xls`, `.xlsx`, `.ppt` hoặc `.pptx` và OpenClaw báo `Unsupported document format`.
 - Khi cần lấy toàn văn Word để dịch, tóm tắt, biên tập hoặc kiểm tra số liệu.
 - Không dùng để tự động đọc file của chat khác; phải ghép đúng tên file với attachment của lượt hiện tại.
 
@@ -51,7 +51,8 @@ Script tự kiểm tra cấu trúc ZIP/CRC và giới hạn kích thước trư�
 
 - Nội dung chính, bảng, đầu/chân trang, footnote/endnote và comment được đưa vào text UTF-8.
 - Giữ tab trong bảng và xuống dòng; không đảm bảo bố cục Word, biểu đồ hoặc ảnh được diễn giải.
-- `.doc` đời cũ chỉ đọc được nếu container có `antiword`; nếu không, yêu cầu người dùng gửi `.docx` hoặc PDF.
+- `.doc`, `.xls` và `.ppt` đời cũ dùng `antiword`, `xls2csv` và `catppt`; V3 cài sẵn các công cụ này.
+- `.xlsx` và `.pptx` được đọc cục bộ bằng parser OOXML không cần tải tài liệu ra ngoài.
 - Giới hạn mặc định: file 25 MB, tổng dữ liệu giải nén 150 MB, text 2 triệu ký tự.
 - Chỉ dùng text đã trích xuất làm nguồn; không suy diễn số liệu bị thiếu. Đánh dấu phần cần kiểm chứng trong bản dịch.
 

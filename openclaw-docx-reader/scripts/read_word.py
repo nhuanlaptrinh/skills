@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Safely extract readable text from Word OOXML files for an OpenClaw member.
+"""Safely extract readable text from common Office files for an OpenClaw member.
 
 The OpenClaw media preprocessor currently extracts plain text and PDF, but not
 Office OOXML.  This small dependency-free reader is intentionally local-only:
 it reads a validated .docx/.docm ZIP, extracts Word XML text, and writes UTF-8
-text.  It does not upload, modify, or delete the source document.
+text. It does not upload, modify, or delete the source document.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from xml.etree import ElementTree as ET
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 W = "{" + W_NS + "}"
-SUPPORTED_SUFFIXES = {".docx", ".docm", ".dotx", ".dotm"}
+SUPPORTED_SUFFIXES = {".doc", ".docx", ".docm", ".dotx", ".dotm", ".xls", ".xlsx", ".ppt", ".pptx"}
 MAX_SOURCE_BYTES = 25 * 1024 * 1024
 MAX_MEMBERS = 5000
 MAX_UNCOMPRESSED_BYTES = 150 * 1024 * 1024
@@ -70,14 +70,13 @@ def choose_input(path: str | None, inbound_dir: str | None, name: str | None) ->
     return max(candidates, key=lambda p: p.stat().st_mtime_ns).resolve()
 
 
-def _run_legacy_doc(path: Path) -> str:
-    antiword = shutil.which("antiword")
-    if not antiword:
-        raise RuntimeError(
-            "Tệp .doc đời cũ không có bộ đọc trên container; hãy lưu lại thành .docx hoặc PDF."
-        )
+def _run_command(command: list[str], tool: str, path: Path) -> str:
+    executable = shutil.which(command[0])
+    if not executable:
+        raise RuntimeError(f"Thiếu công cụ {tool} để đọc {path.suffix}; hãy dùng image V3 mới nhất.")
+    command[0] = executable
     proc = subprocess.run(
-        [antiword, str(path)],
+        command,
         check=False,
         capture_output=True,
         text=True,
@@ -86,8 +85,20 @@ def _run_legacy_doc(path: Path) -> str:
         timeout=60,
     )
     if proc.returncode:
-        raise RuntimeError(f"antiword không đọc được tệp (mã {proc.returncode})")
+        raise RuntimeError(f"{tool} không đọc được tệp (mã {proc.returncode})")
     return proc.stdout
+
+
+def _run_legacy_doc(path: Path) -> str:
+    return _run_command(["antiword", str(path)], "antiword", path)
+
+
+def _run_legacy_xls(path: Path) -> str:
+    return _run_command(["xls2csv", str(path)], "xls2csv", path)
+
+
+def _run_legacy_ppt(path: Path) -> str:
+    return _run_command(["catppt", str(path)], "catppt", path)
 
 
 def _text_of(node: ET.Element) -> str:
@@ -153,30 +164,82 @@ def _extract_part(root: ET.Element) -> tuple[list[str], int]:
     return lines, tables
 
 
+def _zip_limits(archive: zipfile.ZipFile) -> set[str]:
+    infos = archive.infolist()
+    if len(infos) > MAX_MEMBERS:
+        raise ValueError("Office ZIP có quá nhiều thành phần")
+    total = 0
+    for info in infos:
+        if not _safe_relative(info.filename):
+            raise ValueError("Office ZIP chứa đường dẫn không an toàn")
+        total += info.file_size
+        if total > MAX_UNCOMPRESSED_BYTES:
+            raise ValueError("Office ZIP giải nén vượt giới hạn an toàn")
+    bad_member = archive.testzip()
+    if bad_member:
+        raise ValueError(f"Office ZIP hỏng CRC tại thành phần: {bad_member}")
+    return set(archive.namelist())
+
+
+def _extract_xlsx(archive: zipfile.ZipFile, names: set[str]) -> str:
+    shared: list[str] = []
+    if "xl/sharedStrings.xml" in names:
+        root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+        shared = ["".join(node.itertext()) for node in root.findall(".//{*}si")]
+    lines: list[str] = []
+    for member in sorted(n for n in names if n.startswith("xl/worksheets/") and n.endswith(".xml")):
+        root = ET.fromstring(archive.read(member))
+        rows: list[str] = []
+        for row in root.findall(".//{*}row"):
+            values: list[str] = []
+            for cell in row.findall("{*}c"):
+                value = cell.find("{*}v")
+                text = "" if value is None else "".join(value.itertext())
+                if cell.get("t") == "s" and text.isdigit() and int(text) < len(shared):
+                    text = shared[int(text)]
+                values.append(text)
+            if values:
+                rows.append("\t".join(values))
+        if rows:
+            lines.extend([f"[{Path(member).stem}]", *rows, ""])
+    return _clean_lines(lines)
+
+
+def _extract_pptx(archive: zipfile.ZipFile, names: set[str]) -> str:
+    lines: list[str] = []
+    for member in sorted(n for n in names if n.startswith("ppt/slides/slide") and n.endswith(".xml")):
+        root = ET.fromstring(archive.read(member))
+        text = " ".join(node.text or "" for node in root.findall(".//{*}t"))
+        if text.strip():
+            lines.extend([f"[{Path(member).stem}]", text, ""])
+    return _clean_lines(lines)
+
+
 def extract_docx(path: Path) -> tuple[str, dict[str, int | str]]:
     size = path.stat().st_size
     if size > MAX_SOURCE_BYTES:
         raise ValueError(f"Tệp quá lớn ({size} bytes; giới hạn {MAX_SOURCE_BYTES} bytes)")
-    if path.suffix.casefold() not in SUPPORTED_SUFFIXES:
-        if path.suffix.casefold() == ".doc":
-            return _run_legacy_doc(path), {"source": str(path), "format": ".doc"}
-        raise ValueError("Chỉ hỗ trợ .docx/.docm/.dotx/.dotm (hoặc .doc khi có antiword)")
+    suffix = path.suffix.casefold()
+    if suffix == ".doc":
+        text = _clean_lines(_run_legacy_doc(path).splitlines())
+        return text, {"source": str(path), "format": suffix, "bytes": size, "characters": len(text)}
+    if suffix == ".xls":
+        text = _clean_lines(_run_legacy_xls(path).splitlines())
+        return text, {"source": str(path), "format": suffix, "bytes": size, "characters": len(text)}
+    if suffix == ".ppt":
+        text = _clean_lines(_run_legacy_ppt(path).splitlines())
+        return text, {"source": str(path), "format": suffix, "bytes": size, "characters": len(text)}
+    if suffix not in SUPPORTED_SUFFIXES:
+        raise ValueError("Hỗ trợ Word, Excel và PowerPoint: .doc/.docx, .xls/.xlsx, .ppt/.pptx")
 
     with zipfile.ZipFile(path) as archive:
-        infos = archive.infolist()
-        if len(infos) > MAX_MEMBERS:
-            raise ValueError("Word ZIP có quá nhiều thành phần")
-        total = 0
-        for info in infos:
-            if not _safe_relative(info.filename):
-                raise ValueError("Word ZIP chứa đường dẫn không an toàn")
-            total += info.file_size
-            if total > MAX_UNCOMPRESSED_BYTES:
-                raise ValueError("Word ZIP giải nén vượt giới hạn an toàn")
-        bad_member = archive.testzip()
-        if bad_member:
-            raise ValueError(f"Word ZIP hỏng CRC tại thành phần: {bad_member}")
-        names = set(archive.namelist())
+        names = _zip_limits(archive)
+        if suffix == ".xlsx":
+            text = _extract_xlsx(archive, names)
+            return text, {"source": str(path), "format": suffix, "bytes": size, "characters": len(text)}
+        if suffix == ".pptx":
+            text = _extract_pptx(archive, names)
+            return text, {"source": str(path), "format": suffix, "bytes": size, "characters": len(text)}
         if "word/document.xml" not in names:
             raise ValueError("Không phải Word OOXML hợp lệ: thiếu word/document.xml")
 
@@ -220,7 +283,7 @@ def extract_docx(path: Path) -> tuple[str, dict[str, int | str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Đọc Word cục bộ cho OpenClaw")
+    parser = argparse.ArgumentParser(description="Đọc Office cục bộ cho OpenClaw")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--input", help="Đường dẫn .docx/.docm cụ thể")
     source.add_argument("--name", help="Tên gốc hoặc một phần tên file Telegram")

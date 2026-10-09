@@ -1,0 +1,4 @@
+interface:
+  display_name: "Member VPS To Local Migration"
+  short_description: "Move an OpenClaw member bot from VPS to its local computer"
+  default_prompt: "Use $member-vps-to-local-migration to migrate this member bot from the VPS to the owner’s local computer."

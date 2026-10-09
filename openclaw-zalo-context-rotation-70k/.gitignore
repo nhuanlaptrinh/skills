@@ -1,0 +1,25 @@
+.env
+.env.*
+!.env.example
+credentials.json
+client_secret*.json
+*token*
+*secret*
+*credential*
+**/zalo-chrome-profile/
+**/chrome-profile/
+**/user-data-dir/
+**/__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.log
+*.sqlite*
+*.tar.gz
+Cookies
+Login Data
+Local Storage
+IndexedDB
+Session Storage
+Secure Preferences

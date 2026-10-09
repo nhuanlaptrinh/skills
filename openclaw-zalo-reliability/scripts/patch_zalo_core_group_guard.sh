@@ -48,8 +48,16 @@ i2='''\tif (!explicitChannel) {
 \t}
 \tenforceZalouserGroupTarget(params, inferredChannel, normalizedArgs);
 \tapplyTargetToParams({'''
-if s.count(a2)!=1: raise SystemExit('call anchor changed')
-s=s.replace(a2,i2,1)
+if s.count(a2) == 1:
+    s = s.replace(a2, i2, 1)
+else:
+    a2_alt = '''\tif (!explicitChannel && inferredChannel && isDeliverableMessageChannel(inferredChannel)) normalizedArgs.channel = inferredChannel;
+\tapplyTargetToParams({'''
+    i2_alt = '''\tif (!explicitChannel && inferredChannel && isDeliverableMessageChannel(inferredChannel)) normalizedArgs.channel = inferredChannel;
+\tenforceZalouserGroupTarget(params, inferredChannel, normalizedArgs);
+\tapplyTargetToParams({'''
+    if s.count(a2_alt) != 1: raise SystemExit('call anchor changed')
+    s = s.replace(a2_alt, i2_alt, 1)
 if mode=='dry-run':
  print('anchors verified; would apply scoped group guard; no changes')
  raise SystemExit(0)
