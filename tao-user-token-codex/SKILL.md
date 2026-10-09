@@ -22,6 +22,12 @@ Skill này là bước bắt buộc trước khi tạo member VPS bằng `tao-tr
 - Output: thông báo thành công và full API key đúng một lần; không in mật khẩu
 - Sheet: không ghi
 
+## Quy Tắc Tên API Mới
+
+Từ 2026-10-08, tên gửi sang 9Router cho API mới có dạng `<tên-email>-<ID-khách-hàng>-<tên-API>`, trong đó tên email là phần trước `@`, bỏ khoảng trắng đầu/cuối và chuyển chữ thường. Ví dụ dữ liệu giả `nguyenhoang@example.com`, ID `123`, tên API `codex` tạo tên `nguyenhoang-123-codex`. Email trống dùng tiền tố `kh`. Command và website/Telegram dùng chung helper `dashboard.services.customer_api_key_name`; tên lưu ở `ManagedApiKey.api_name` và `UserApiAccess.api_name` vẫn là tên API gốc.
+
+Chỉ áp dụng khi tạo API mới. Không đổi tên hoặc tạo lại API cũ, không thay ID/key/phân quyền/hạn mức, không sửa tên trong lịch sử lưu trữ; thay email tài khoản cũng không tự đổi tên API đã có. Không cần migration dữ liệu. Nếu command được chạy lại với `--update-existing` và đã có API active, giữ nguyên API đó như trước.
+
 ## Input
 
 Bắt buộc có email hợp lệ. Có thể thêm tên, mật khẩu hoặc credit tùy chỉnh.

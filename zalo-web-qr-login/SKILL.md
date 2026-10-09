@@ -45,7 +45,8 @@ Use bundled script instead of hand-writing files:
 The script creates:
 
 - `script/zalo_web_qr_server.py`: HTTP server on `127.0.0.1:<UPSTREAM_PORT>`.
-- `script/start_zalo_web_qr_worker.sh`: Xvfb + Chrome worker that captures `screen.png` every `REFRESH_SECONDS`.
+- `script/start_zalo_web_qr_worker.sh`: Xvfb + Chrome worker that captures `screen.png`, verifies the visible chat UI, and confirms persistence after a second Chrome launch.
+- `script/zalo_cdp_state.py`: read-only DevTools probe for the Zalo page; it checks the contact-search control and rejects login/activation screens without sending messages.
 - `zalo_web_qr_link.txt`: public URL for the user.
 - `/etc/systemd/system/<service>.service`: QR web service.
 - Nginx `location <URL_PATH>` in the selected domain site file.
@@ -53,11 +54,11 @@ The script creates:
 ## Runtime Behavior
 
 1. User opens `https://DOMAIN/URL_PATH`.
-2. Web server starts the worker if needed.
+2. Start the worker explicitly with `Mở QR Login`; merely opening or refreshing the page must not take the profile from automation.
 3. Worker opens Chrome with the existing Zalo profile on an Xvfb display.
 4. Worker writes screenshot to `/var/www/html/<safe-path>/screen.png`.
 5. Page refreshes every `REFRESH_SECONDS`, default `5`.
-6. When Chrome DevTools reports `https://chat.zalo.me`, worker closes Chrome, removes the manual-login flag, and exits so automation can use the profile.
+6. The worker waits for the contact-search control and stable chat UI, closes and reopens Chrome with the same profile, checks the same UI again, and only then removes the manual-login flag and exits.
 
 ## Validation
 
@@ -77,6 +78,7 @@ Expected:
 - URL returns `200 OK`.
 - HTML contains `refresh content="5"` or configured refresh seconds.
 - `screen.png` is a PNG image.
+- The status page explicitly says the session survived reopening Chrome.
 - After login succeeds, `check_zalo_profile_available.sh automation` returns exit `0`.
 
 ## Troubleshooting
@@ -90,6 +92,12 @@ Expected:
 ## Existing Reference Implementation
 
 Working example on this VPS:
+
+The `01_zalo_lg_se` implementation is hardened separately from the generic installer. Do not overwrite its worker with the legacy generated URL-only template. It uses `script/zalo_cdp_state.py`, graceful DevTools `Browser.close`, a 30-second visible-chat gate, a same-profile reopen and another 15-second visible-chat gate. It writes root-only `zalo_login_verified.json` only after completion, protects the profile with the shared N8N send lock, deduplicates restored Zalo tabs and never publishes chat content in `screen.png`.
+
+Read-only probe: `cd /root/Automation/zalo/01_zalo_lg_se && ./venv/bin/python script/zalo_cdp_state.py`. Start: `curl -fsS -o /dev/null http://127.0.0.1:18790/zalo-login/start`. Progress: `/var/www/html/zalo-login/status.txt`. Rerun QR only after expiration; do not refresh during phone confirmation. No Google Sheet or Zalo send operation is part of verification.
+
+The project probe also supports `--activate`, restricted to the visible official `Kích hoạt` modal on `chat.zalo.me`, using a trusted DevTools mouse event rather than a JavaScript click. The worker handles this after both launches, then rechecks the visible chat UI. An activation prompt alone does not mean the authenticated session was lost. QR can also be shown on the existing RDP desktop with ImageMagick `display -update 2 /var/www/html/zalo-login/screen.png`; this is a screenshot viewer only and must not create a second authenticated Chrome profile.
 
 - URL: `https://9router.anhlaptrinh.vn/zalo-login/`
 - Project: `/root/Automation/zalo/01_zalo_lg_se`

@@ -195,6 +195,12 @@ systemctl reload nginx
 systemctl restart altcp-dashboard
 ```
 
+## API Name Convention For New Keys
+
+From 2026-10-08, all newly created customer keys use `<email-local-part>-<customer-id>-<api-name>` as their 9Router name. For example, the synthetic email `nguyenhoang@example.com`, customer ID `123`, and API name `codex` produce `nguyenhoang-123-codex`. The email local part is trimmed and lowercased; when email is empty, use `kh` as the fallback. Keep the customer ID separated with hyphens and preserve the supplied API name, including spaces and punctuation.
+
+Use the shared `dashboard.services.customer_api_key_name` helper from both `create_api_key_for_customer` (website, admin customer provisioning, and Telegram) and `manage.py create_customer_account`. Django `ManagedApiKey.api_name` and `UserApiAccess.api_name` still store the supplied API name without the email/ID prefix. This rule is creation-only: never rename existing 9Router keys, change their IDs/secrets/access/credit, migrate archived names, or automatically rename keys when a customer's email changes. No data migration is required. Test using mocks and a temporary database; never create a real customer key as a deployment test. Restart only `altcp-dashboard.service` and `altcp-telegram-bot.service` after testing so their loaded code is refreshed.
+
 ## Tạo Tài Khoản Khách Hàng Bằng Command
 
 Dùng global skill `tao-user-token-codex` hoặc command `manage.py create_customer_account` khi cần tạo user từ email. Command mặc định cấp mật khẩu tạm `alt123`, hạn mức `250` USD và tạo 1 API key, hỗ trợ `--dry-run`, `--api-name`, `--no-create-api`, đồng thời từ chối ghi đè user đã tồn tại nếu không có `--update-existing`. Full API key chỉ hiển thị một lần; không ghi vào tài liệu hoặc log.

@@ -26,6 +26,8 @@ cd /root/Automation/zalo/01_zalo_lg_se
 - Do not run standalone/headless Chrome for Zalo automation.
 - The Python script opens Chrome for Testing, attaches Selenium through `127.0.0.1:9223`, sends messages, updates Google Sheet, and closes Chrome afterward.
 - If Zalo is logged out, open the web QR page `http://187.127.177.163/zalo-login/<token>/`, scan QR, then rerun the Python command.
+- QR success is not inferred from the URL alone. The worker checks the visible contact-search UI through `/root/Automation/zalo/01_zalo_lg_se/script/zalo_cdp_state.py`, reopens Chrome with the same profile, and only releases the profile after the chat UI remains ready again.
+- Read-only state check: `cd /root/Automation/zalo/01_zalo_lg_se && ./venv/bin/python script/zalo_cdp_state.py` while the project Chrome debugger is active. It never sends a message.
 - For QR login, open Chrome as a normal browser window with `--new-window https://chat.zalo.me/`, not `--app=https://chat.zalo.me/`; app mode can open and then disappear on this VPS.
 - Include `--password-store=basic` for the project Chrome launch so XFCE/GNOME Keyring cannot block the RDP login window with an unlock prompt.
 - Before opening QR login, clear old Chrome session tabs under `zalo-login-profile/Default/Sessions/` to prevent many restored `chat.zalo.me` tabs. Multiple Zalo Web tabs cause Zalo to show "Bạn đang mở Zalo trên một Tab khác..." and block automation.
@@ -171,11 +173,11 @@ Use the web QR page as a fallback when Telegram delivery is unavailable.
 2. Open `http://187.127.177.163/zalo-login/<token>/` in a browser.
 3. Wait 10-20 seconds for the page to auto-refresh and show the Zalo QR screenshot.
 4. Scan the QR with the phone.
-5. Wait until Zalo Web reaches the chat interface, then run the Python command again.
+5. Wait for the page status to say the session survived reopening Chrome; only then run the Python command again.
 
 Open the web QR page on a computer or tablet, then scan it with the Zalo app on the phone. Do not open the Telegram screenshot and try to import/scan it on the same phone; Zalo computer-login QR is intended to be scanned from another screen.
 
-The web page includes a `Lấy QR mới` button. QR must not refresh automatically while the user is scanning because changing the code during phone confirmation makes Zalo report it as invalid. Only click the refresh button after the current QR visibly expires. The worker considers login successful only when the active page has moved to `https://chat.zalo.me/` and is no longer titled `Đăng nhập tài khoản Zalo`.
+The web page includes a `Lấy QR mới` button. QR must not refresh automatically while the user is scanning because changing the code during phone confirmation makes Zalo report it as invalid. Only click the refresh button after the current QR visibly expires. The worker considers login successful only when the visible contact-search UI is ready, no login/activation state is present, and the same profile remains ready after reopening Chrome.
 
 Opening or auto-refreshing the QR web page must not start Chrome automatically. Use the explicit `Mở QR Login` button when login is required. This prevents an old browser tab from spawning the QR worker and stealing the shared profile while `OpenZaloSendContact.py` is sending messages.
 
@@ -184,9 +186,22 @@ Service/files:
 - Systemd service: `zalo-web-qr.service`.
 - Web QR server: `/root/Automation/zalo/01_zalo_lg_se/script/zalo_web_qr_server.py`.
 - QR worker: `/root/Automation/zalo/01_zalo_lg_se/script/start_zalo_web_qr_worker.sh`.
+- Read-only CDP state probe: `/root/Automation/zalo/01_zalo_lg_se/script/zalo_cdp_state.py`.
 - Public screenshot: `/var/www/html/zalo-login/screen.png`.
 
 Do not close or replace `zalo-login-profile`.
+
+### Verified Login And Safe Reruns
+
+- Dry-run: `bash -n script/start_zalo_web_qr_worker.sh` and `./venv/bin/python script/zalo_cdp_state.py`; the latter only observes DOM state and fails closed when Chrome is offline.
+- Start explicitly: `curl -fsS -o /dev/null http://127.0.0.1:18790/zalo-login/start`; use `https://9router.anhlaptrinh.vn/zalo-login/` on another screen to scan with the phone.
+- Initial chat UI must stay ready for 30 seconds; the worker then requests graceful `Browser.close`, reopens the same profile, and requires another 15 stable seconds. A URL redirect or activation modal never counts as success.
+- Only `zalo_login_verified.json` with `state=verified`, `reopened=true`, no manual-login flag and a finished worker confirms completion. The root-only receipt contains no account details, cookies or tokens. Public progress is `/var/www/html/zalo-login/status.txt`.
+- The worker holds `/run/lock/zalo-send-contact-from-n8n.lock`; N8N sends stop with exit 75 while QR verification is running. Do not rerun sends until verification finishes. `--check` checks dependencies only, not authentication.
+- Restored duplicate Zalo tabs are closed in the owned browser only; no alternate profile or session backup is created. Chat contents are never copied to the public QR screenshot.
+- If persistence fails, no success receipt is written. The worker keeps the login flow available; refresh the QR only after it expires, never during phone confirmation. The flow does not send Zalo messages or update Google Sheet/API rows.
+- The Telegram QR helper uses the fresh verified receipt too; it must not confirm success from URL/title or an old status file.
+- If the same-profile reopen shows the official `Kích hoạt` modal, the worker uses `./venv/bin/python script/zalo_cdp_state.py --activate` to click only that visible modal button with a trusted DevTools mouse event. It does not send any message. Both worker validation and the normal sender wait for the chat UI again after activation; this is not a reason to ask the user to rescan QR.
 
 ### RDP Display Troubleshooting
 
