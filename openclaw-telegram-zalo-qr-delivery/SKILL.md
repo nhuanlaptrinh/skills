@@ -5,6 +5,8 @@ description: Tạo và gửi ảnh QR đăng nhập Zalo Personal trực tiếp 
 
 # Gửi QR Zalo qua Telegram, không chuyển việc sang dashboard
 
+Nếu runtime đã cài `telegram-zalo-owner-login`, ưu tiên tool `telegram_zalo_login_qr` cho owner yêu cầu login trong Telegram riêng, hoặc lệnh native `/zaloqr`. Tool xác minh owner từ cấu hình hiện tại và gửi ảnh riêng cho đúng sender. Để cài/nâng cấp luồng này trên một Docker member đã chọn, dùng skill `telegram-zalo-owner-login`; không tự rollout sang member khác.
+
 ## Kết quả cần đạt
 
 Khi owner đã yêu cầu hoặc cho phép đăng nhập Zalo, tự khởi tạo login trong đúng OpenClaw runtime và gửi **ảnh QR còn hiệu lực** vào Telegram riêng của owner. Người dùng chỉ cần quét và xác nhận bằng Zalo trên điện thoại. Không kết luận “phải mở OpenClaw app/dashboard → nhập connect zalouser” chỉ vì công cụ chat trả về một hướng dẫn như vậy.
