@@ -17,8 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-CONTEXT_WINDOW = 1_000_000
-MAX_TOKENS = 384_000
+SUPPORTED_MODELS = ("GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra")
+CONTEXT_WINDOW = 128_000
+MAX_TOKENS = 4096
 
 
 def model_definition(model_id: str, *, vision: bool) -> dict:
@@ -36,8 +37,8 @@ def model_definition(model_id: str, *, vision: bool) -> dict:
 def update_provider_models(provider: dict, default_id: str, vision_id: str) -> bool:
     models = provider.setdefault("models", [])
     changed = False
-    for model_id, vision in ((default_id, False), (vision_id, True)):
-        wanted = model_definition(model_id, vision=vision)
+    for model_id in dict.fromkeys((default_id, vision_id)):
+        wanted = model_definition(model_id, vision=model_id == vision_id)
         current = next((m for m in models if m.get("id") == model_id), None)
         if current is None:
             models.append(wanted)
@@ -45,6 +46,8 @@ def update_provider_models(provider: dict, default_id: str, vision_id: str) -> b
             continue
         # Keep provider-specific fields, but make capability metadata accurate.
         for key, value in wanted.items():
+            if key in {"contextWindow", "maxTokens", "cost", "reasoning"} and key in current:
+                continue
             if current.get(key) != value:
                 current[key] = copy.deepcopy(value)
                 changed = True
@@ -76,12 +79,6 @@ def update_config(data: dict, provider_id: str, default_id: str, vision_id: str)
     if image_model.get("primary") != vision_ref:
         image_model["primary"] = vision_ref
         changes.append("agents.defaults.imageModel.primary")
-
-    media_models = defaults.setdefault("mediaModels", {})
-    media_image = media_models.setdefault("image", {})
-    if media_image.get("primary") != vision_ref:
-        media_image["primary"] = vision_ref
-        changes.append("agents.defaults.mediaModels.image.primary")
 
     policy = defaults.setdefault("modelPolicy", {})
     allowed = policy.setdefault("allow", [])
@@ -170,8 +167,8 @@ def main() -> int:
         help="Backup directory label; defaults to the member directory name",
     )
     parser.add_argument("--provider", default="9r")
-    parser.add_argument("--default-model", default="ds-v4-flash")
-    parser.add_argument("--vision-model", default="ds-v4-flash-vision-exp")
+    parser.add_argument("--default-model", choices=SUPPORTED_MODELS, default=SUPPORTED_MODELS[0])
+    parser.add_argument("--vision-model", choices=SUPPORTED_MODELS, default=SUPPORTED_MODELS[0])
     parser.add_argument("--backup-root", type=Path)
     parser.add_argument("--apply", action="store_true", help="Write changes; otherwise perform a dry run")
     args = parser.parse_args()

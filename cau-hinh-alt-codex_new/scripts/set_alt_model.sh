@@ -17,7 +17,7 @@ usage() {
   cat <<'EOF'
 Usage: set_alt_model.sh --model MODEL [options]
 
-Models: GPT-6.1-sol, GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, GPT-6-astra
+Models: GPT-6.1-sol, GPT-6-terra, GPT-6-luna, GPT-6-astra
 
 Options:
   --all-agents              Update managed model overrides in agents.list
@@ -38,9 +38,8 @@ normalize_model() {
   normalized=$(printf '%s' "$1" | tr '[:upper:]_' '[:lower:] ' | sed -E 's/[[:space:]]+/-/g; s/-+/-/g; s/^-|-$//g')
   case "$normalized" in
     gpt-6.1-sol) printf '%s' 'GPT-6.1-sol' ;;
-    gpt-5.6-sol) printf '%s' 'GPT-5.6-sol' ;;
-    gpt-5.6-terra) printf '%s' 'GPT-5.6-terra' ;;
-    gpt-5.6-luna) printf '%s' 'GPT-5.6-luna' ;;
+    gpt-6-terra) printf '%s' 'GPT-6-terra' ;;
+    gpt-6-luna) printf '%s' 'GPT-6-luna' ;;
     gpt-6-astra) printf '%s' 'GPT-6-astra' ;;
     *) return 1 ;;
   esac
@@ -70,7 +69,7 @@ if [[ -z "$MODEL" ]]; then
 fi
 
 if ! MODEL=$(normalize_model "$MODEL"); then
-  echo "Unsupported model. Choose GPT-6.1-sol, GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna, or GPT-6-astra." >&2
+  echo "Unsupported model. Choose GPT-6.1-sol, GPT-6-terra, GPT-6-luna, or GPT-6-astra." >&2
   exit 2
 fi
 
@@ -107,9 +106,8 @@ detect_openclaw_provider() {
     | select(any(.value.models[]?;
         .id == "codex" or
         .id == "GPT-6.1-sol" or
-        .id == "GPT-5.6-sol" or
-        .id == "GPT-5.6-terra" or
-        .id == "GPT-5.6-luna" or
+        .id == "GPT-6-terra" or
+        .id == "GPT-6-luna" or
         .id == "GPT-6-astra"))
     | .key
   ' "$OPENCLAW_CONFIG")
@@ -173,17 +171,17 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
 
   jq --arg model "$MODEL" --arg ref "$OPENCLAW_MODEL" --arg provider "$OPENCLAW_PROVIDER" --argjson allAgents "$ALL_AGENTS" '
     def managed($provider):
-      . == ($provider + "/codex") or
-      . == ($provider + "/GPT-6.1-sol") or
-      . == ($provider + "/GPT-5.6-sol") or
-      . == ($provider + "/GPT-5.6-terra") or
-      . == ($provider + "/GPT-5.6-luna") or
-      . == ($provider + "/GPT-6-astra");
+      . as $reference
+      | ["codex", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna",
+         "GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra"]
+      | map($provider + "/" + .)
+      | index($reference) != null;
     .models.providers[$provider].models = (
       (.models.providers[$provider].models // []) as $existing
-      | ["GPT-6.1-sol", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna", "GPT-6-astra"] as $managedIds
-      | ($existing | map(select((.id as $id | $managedIds | index($id)) == null))) +
-        ($managedIds | map({
+      | ["GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra"] as $managedIds
+      | ["codex", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna"] as $retiredIds
+      | ($existing | map(select((.id as $id | ($managedIds + $retiredIds) | index($id)) == null))) +
+        ($managedIds | map(. as $modelId | ($existing | map(select(.id == $modelId)) | first) // {
           id: ., name: .,
           contextWindow: 128000,
           maxTokens: 4096
@@ -193,8 +191,10 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
     | .agents.defaults.models = ((.agents.defaults.models // {}) + {($ref): {}})
     | if $allAgents == 1 then
         .agents.list = ((.agents.list // []) | map(
-          if (.model? | type) == "string" and (.model | managed($provider)) then .model = $ref
-          elif (.model?.primary? | type) == "string" and (.model.primary | managed($provider)) then .model.primary = $ref
+          if (.model? | type) == "string" then
+            if (.model | managed($provider)) then .model = $ref else . end
+          elif (.model? | type) == "object" then
+            if (.model.primary? | managed($provider)) then .model.primary = $ref else . end
           else . end
         ))
       else . end

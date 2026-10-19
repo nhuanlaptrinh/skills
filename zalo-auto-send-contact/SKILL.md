@@ -24,14 +24,46 @@ cd /root/Automation/zalo/01_zalo_lg_se
 
 - Do not create alternate profiles or copy profiles from another machine.
 - Do not run standalone/headless Chrome for Zalo automation.
-- The Python script opens Chrome for Testing, attaches Selenium through `127.0.0.1:9223`, sends messages, updates Google Sheet, and closes Chrome afterward.
+- The Python script reuses an existing Chrome with the exact project profile through `127.0.0.1:9223`; it opens pinned Chrome for Testing only if the profile is idle. Existing RDP Chrome stays open after Selenium detaches. Only Chrome started by that run is closed gracefully afterward.
 - If Zalo is logged out, open the web QR page `http://187.127.177.163/zalo-login/<token>/`, scan QR, then rerun the Python command.
 - QR success is not inferred from the URL alone. The worker checks the visible contact-search UI through `/root/Automation/zalo/01_zalo_lg_se/script/zalo_cdp_state.py`, reopens Chrome with the same profile, and only releases the profile after the chat UI remains ready again.
 - Read-only state check: `cd /root/Automation/zalo/01_zalo_lg_se && ./venv/bin/python script/zalo_cdp_state.py` while the project Chrome debugger is active. It never sends a message.
 - For QR login, open Chrome as a normal browser window with `--new-window https://chat.zalo.me/`, not `--app=https://chat.zalo.me/`; app mode can open and then disappear on this VPS.
 - Include `--password-store=basic` for the project Chrome launch so XFCE/GNOME Keyring cannot block the RDP login window with an unlock prompt.
-- Before opening QR login, clear old Chrome session tabs under `zalo-login-profile/Default/Sessions/` to prevent many restored `chat.zalo.me` tabs. Multiple Zalo Web tabs cause Zalo to show "Bạn đang mở Zalo trên một Tab khác..." and block automation.
+- Do not delete or copy profile session files to repair automation. The sender deduplicates Zalo tabs in its newly opened browser through CDP, without a session backup or another profile. Never steal a busy browser or remove its locks.
 - Launch QR Chrome with `nohup setsid` or another detached method so the window survives after the desktop launcher exits.
+
+## Chrome Startup And Safe Browser Preflight
+
+Use this section for exit 22, a missing debugger, stale XRDP displays, or exit 23 incorrectly reported for a browser-startup error. Source: `/root/Automation/zalo/01_zalo_lg_se/OpenZaloSendContact.py`; N8N entrypoint: `script/run_zalo_send_contact_from_n8n.sh` in that project.
+
+Safe checks, repeatable without messages or Sheet access:
+
+```bash
+cd /root/Automation/zalo/01_zalo_lg_se
+./venv/bin/python -m py_compile OpenZaloSendContact.py
+bash -n script/run_zalo_send_contact_from_n8n.sh
+./script/run_zalo_send_contact_from_n8n.sh --check
+./script/run_zalo_send_contact_from_n8n.sh --check-browser
+```
+
+`--check` validates dependencies only. `--check-browser` uses the shared non-blocking N8N/QR lock and verifies the visible contact-search UI. It reuses the current project browser, or opens the same profile if idle and closes only its own browser afterward. It never reads or writes Google Sheet, sends Zalo/Telegram, or changes the saved account. No additional input or credentials are accepted on the command line.
+
+- Success output: `N8N_ZALO_BROWSER_READY`, exit 0. Exit 1 means the chat UI is not ready, not necessarily logged out.
+- Exit 22 means Chrome/display/debugger startup failed. The sender never sends a QR for this failure. Review `zalo_automation_chrome.log` and `zalo_automation_display.log` in the project; these are root-only operational logs, not public files.
+- Exit 23 means an actual Zalo login page was observed. The sending flow captures a fresh root-only `zalo_qr.png` from that page; it never reuses an old QR image. Preflight itself does not send the image. For sustained QR login, use the owner QR helper described below after releasing the profile.
+- Exit 21 means manual QR login is active; exit 75 means the shared profile lock is busy. Wait; never kill the owner browser or reset the account to bypass these conditions.
+- Display discovery probes each candidate using `xdpyinfo`. Stale/unreachable sockets and stale `DISPLAY` values are skipped. If none is accessible, Xvfb chooses a free display through `-displayfd`, and readiness is verified before Chrome starts. No hardcoded `:12` fallback is used.
+- The sender checks that the debugger belongs to the project profile. It refuses to steal a busy profile, preserves borrowed RDP Chrome, and closes only its own Chrome through `Browser.close`, without `kill -9`.
+
+Real sending, only with explicit authorization to process current `UNAPPROVED` Sheet rows:
+
+```bash
+cd /root/Automation/zalo/01_zalo_lg_se
+./script/run_zalo_send_contact_from_n8n.sh
+```
+
+Input/output columns and message/status updates remain as documented in Google Sheet Flow. Rerun `--check-browser` after repair; do not automatically rerun a real send or overwrite Sheet statuses. N8N HTTP 200 or an execution marked `success` does not prove that the subprocess exited 0: check its returned exit status. A future workflow health branch should treat 22/23/21/75 separately and avoid automatic retries of real sends to prevent duplicates. No cron, workflow version, Gateway secret, or member config is changed by these checks.
 
 ## N8N OpenClaw 401 And Exec Repair
 
@@ -60,7 +92,7 @@ Runner security:
 - Tool profile is `minimal` with only `exec` and `process` added through `alsoAllow`.
 - Exec mode and approval security are `allowlist`; `ask=off`, `askFallback=deny`.
 - The only approved executable is the fixed wrapper above.
-- The wrapper rejects unexpected arguments, uses a non-blocking process lock, and supports `--check` without sending Zalo.
+- The wrapper rejects unexpected arguments, uses a non-blocking process lock, and supports `--check` and `--check-browser` without sending Zalo.
 - Never set this runner to Full Exec and never point these four HTTP nodes back to agent `main`.
 
 Dry-run:
@@ -90,6 +122,44 @@ The helper:
 - With `--test-auth`, runs only the wrapper `--check` path and expects `N8N_ZALO_RUNNER_CHECK_OK`; it never runs `OpenZaloSendContact.py`, sends Zalo messages, changes Sheet rows, or touches the Zalo browser profile.
 
 Do not validate this repair by manually triggering the real webhook unless the owner explicitly wants to process current `UNAPPROVED` rows.
+
+### Provider auth failure despite a correct Gateway token
+
+If the response contains `Provider 9rt has auth issue` and `MODEL_FALLBACK_SKIPPED`, distinguish Gateway authentication from OpenClaw's provider credential. Correct N8N headers do not repair the OpenClaw-to-9Router key.
+
+On OpenClaw 2026.9.4, auth profiles take precedence over the inline provider key. Shared credentials reside in `/root/.openclaw/state/openclaw.sqlite`; agent-local overrides reside in `/root/.openclaw/agents/zalo-n8n-runner/agent/openclaw-agent.sqlite`. Retired `auth-profiles.json` files are not the active store.
+
+Read-only diagnosis:
+
+```bash
+timeout 90s openclaw models auth list --agent zalo-n8n-runner --provider 9rt --json
+```
+
+Compare the effective `9rt:default` key against the configured provider key and the live 9Router key registry without printing their values. A disabled key can return `API key required for remote API access`; this message does not prove that the Authorization header was absent. Use authenticated `GET /v1/models` to check the candidate key before applying it; do not call a real Zalo workflow.
+
+After explicit repair authorization, create a consistent SQLite backup and copy the current Gateway config under a root-only directory in `/root/_Backups/openclaw-9router-auth-repair/`. Include the agent database if it already contains local credentials. Never copy only the main SQLite file while WAL writes are active.
+
+Apply the configured, verified-active key to the runner's existing profile using stdin, not a command-line secret:
+
+```bash
+python3 -c 'import json; print(json.load(open("/root/.openclaw/openclaw.json"))["models"]["providers"]["9rt"]["apiKey"], end="")' | \
+  openclaw models auth paste-api-key \
+    --agent zalo-n8n-runner --provider 9rt --profile-id 9rt:default
+```
+
+This command writes an agent-local override and config auth metadata; it does not replace the shared profile or credentials for other agents. Input is the existing active provider key; output is redacted CLI status and the updated runner auth store. Preserve the Gateway token, workflow version, model, and runner allowlist.
+
+Verify without changing N8N or sending Zalo:
+
+```bash
+/root/Automation/zalo/01_zalo_lg_se/venv/bin/python \
+  /root/Automation/zalo/01_zalo_lg_se/script/sync_n8n_openclaw_token.py \
+  --dry-run --test-auth
+```
+
+Success requires HTTP 200 and `N8N_ZALO_RUNNER_CHECK_OK` from the N8N container. This only executes the wrapper's `--check` branch; it does not send messages, update Sheet rows, or open Chrome. Rerunning this check is safe.
+
+The auth CLI attempts a live refresh. A refresh warning alone is not evidence that the running Gateway still uses the old key: run the harmless test first. If it passes, do not restart just because of the warning. If a restart is genuinely required, drain active work, restart only the host user's `openclaw-gateway.service`, and poll readiness for up to 120 seconds before retesting. Do not restart N8N/9Router or edit member containers to repair this route. Do not restore a full live state database as a casual rollback.
 
 ## Google Sheet Flow
 

@@ -1,24 +1,29 @@
 ---
 name: bo-sung-codex-openclaw
-description: Configure OpenClaw on a VPS so 9router stays the primary model provider and Codex/OpenAI OAuth is added as fallback, including remote OAuth redirect paste steps, config patching, auth verification, and test commands. Use when the user asks to bổ sung Codex, thêm Codex fallback, đăng nhập Codex cho OpenClaw, test OpenAI fallback, or repair OpenClaw 9router/Codex auth.
+description: Cấu hình primary/fallback Codex cho OpenClaw chỉ với GPT-6.1-sol, GPT-6-terra, GPT-6-luna, GPT-6-astra; giữ provider hiện có. Chỉ bổ sung OpenAI OAuth làm fallback khi provider đó thực sự công bố model được phép, không tự dùng model ngoài danh sách.
 ---
 
 # Bổ sung Codex/OpenAI fallback cho OpenClaw
 
+## Chính sách model — 2026-10-19
+
+- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
+- Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
+- Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
+
 ## Mục tiêu
 
-Dùng skill này khi cần giữ `9router` làm model chính trong OpenClaw và thêm `Codex/OpenAI` làm phương án dự phòng. Quy trình phù hợp VPS/headless: mở OAuth URL trên trình duyệt local, paste full redirect URL về terminal VPS, rồi test bằng `openclaw infer`.
+Giữ provider chính đang dùng và chọn primary/fallback từ đúng bốn model được phép. Mặc định cho cấu hình mới là `GPT-6.1-sol`. OAuth đăng nhập thành công không đồng nghĩa provider OpenAI có các model alias của gateway; nếu catalog không công bố đúng ID được phép thì không thêm OpenAI fallback.
 
-## Nguyên tắc an toàn
+## An toàn và input/output
 
-- Không ghi token, OAuth code, redirect URL thật, email thật vào skill, log công khai, commit hoặc tài liệu chia sẻ.
-- Khi cần minh họa, dùng placeholder: `email_cua_ban@example.com`, `Nhap_API_Cua_Ban`, `http://localhost:1455/auth/callback?code=...&state=...`.
-- Trước khi sửa `~/.openclaw/openclaw.json`, luôn backup hoặc xác nhận OpenClaw đã tạo backup.
-- Không đổi model chính sang OpenAI nếu người dùng muốn `9router` là primary; chỉ thêm OpenAI vào `fallbacks`.
+- Input: config active, provider đã xác minh, model đích trong danh sách và credential hiện có. Không đổi `.env`, workspace, session hoặc provider key khi không được yêu cầu.
+- Trước khi ghi, backup config active dưới `/root/_Backups/openclaw-model-fallback/<UTC timestamp>/` với quyền riêng tư. Không ghi token, OAuth code, redirect URL thật, cookie hoặc toàn bộ config vào log/skill.
+- Output: phần primary/fallback và model allowlist trong config active; không ghi Sheet/API nghiệp vụ hoặc gửi tin Telegram/Zalo.
+- Rerun: kiểm tra trạng thái và catalog trước, chỉ đổi phần model cần thiết. Rollback: khôi phục đúng config đã backup, validate rồi reload đúng Gateway khi được phép.
 
-## Quy trình nhanh
-
-### 1. Kiểm tra trạng thái hiện tại
+## 1. Kiểm tra trước khi thay đổi
 
 ```bash
 openclaw models status
@@ -26,95 +31,53 @@ openclaw models auth list
 openclaw config validate
 ```
 
-Xác định:
-- Default/primary hiện đang là model 9router, thường như `9r/codex` hoặc `9router/ModeFree`.
-- Fallback đã có `openai/gpt-5.5` chưa.
-- Auth store của agent hiện tại có profile OpenAI OAuth chưa.
+Xác định config active từ `OPENCLAW_CONFIG_PATH` hoặc `${HOME}/.openclaw/openclaw.json`, provider chính và agent đích. Dùng credential trong bộ nhớ để kiểm tra `/v1/models` của đúng provider; chỉ báo HTTP status và model có/không, không in key hoặc toàn bộ phản hồi.
 
-### 2. Cập nhật cấu hình fallback
+Dry-run là đối chiếu config/catalog và báo các đường dẫn model dự kiến thay đổi, chưa ghi file hoặc reload. Script test ở bước 4 gọi inference thật, không phải dry-run.
 
-Sửa `~/.openclaw/openclaw.json` để phần mặc định có cấu trúc tương tự:
+## 2. Cấu hình primary/fallback đã được xác minh
+
+Ví dụ dưới đây chỉ dùng khi provider thực tế là `9r` và đã công bố đủ model tương ứng. Nếu provider có ID khác, giữ nguyên ID đó trong mọi tham chiếu:
 
 ```json
 {
-  "auth": {
-    "profiles": {
-      "openai:personal": {
-        "provider": "openai",
-        "mode": "oauth"
-      }
-    },
-    "order": {
-      "openai": ["openai:personal"]
-    }
-  },
   "agents": {
     "defaults": {
       "model": {
-        "primary": "9r/codex",
-        "fallbacks": ["openai/gpt-5.5"]
+        "primary": "9r/GPT-6.1-sol",
+        "fallbacks": ["9r/GPT-6-terra", "9r/GPT-6-luna", "9r/GPT-6-astra"]
       },
       "models": {
-        "9r/codex": {},
-        "9r/*": {},
-        "openai/*": {},
-        "openai/gpt-5.5": {}
+        "9r/GPT-6.1-sol": {},
+        "9r/GPT-6-terra": {},
+        "9r/GPT-6-luna": {},
+        "9r/GPT-6-astra": {}
       }
     }
   }
 }
 ```
 
-Điều chỉnh `primary` theo provider 9router đang có thật trên VPS, ví dụ `9r/codex`. Giữ nguyên các provider/key hiện có trong `models.providers`.
+Không thêm wildcard model để lách danh sách, không đổi endpoint/key hiện có. Nếu được yêu cầu bổ sung provider OpenAI thì phải xác minh đúng model được phép ở provider đó trước khi thêm vào `fallbacks`; không suy ra model OAuth từ tên model gateway.
 
-### 3. Đăng nhập Codex/OpenAI OAuth trên VPS
+## 3. OAuth chỉ khi thật sự cần provider OpenAI
 
-Chạy một trong các lệnh sau, ưu tiên OpenClaw auth flow vì nó lưu vào agent auth store:
+Chỉ chạy khi người dùng yêu cầu bổ sung OAuth và bước catalog/provider đã đáp ứng chính sách:
 
 ```bash
-openclaw models auth login --provider openai 
+openclaw models auth login --provider openai
 ```
 
-Với OAuth URL trên VPS/headless:
-1. Mở URL `https://auth.openai.com/oauth/authorize?...` trên trình duyệt máy local.
-2. Đăng nhập ChatGPT/OpenAI.
-3. Browser sẽ chuyển về URL dạng `http://localhost:1455/auth/callback?code=...&scope=...&state=...`.
-4. Copy toàn bộ URL trên thanh địa chỉ, không copy dấu nhắc terminal.
-5. Paste vào dòng `Paste the authorization code (or full redirect URL):` rồi nhấn Enter.
+Trên VPS/headless, mở URL OAuth bằng trình duyệt local rồi paste redirect URL trực tiếp vào phiên terminal đang chờ. Không lưu URL/code/token vào tài liệu hoặc log. Không thay primary chỉ vì vừa đăng nhập OAuth.
 
-Nếu thấy thông báo kiểu `Updated config`, `Auth profile: openai:<email> (openai/oauth)`, nghĩa là OAuth đã lưu.
-
-### 4. Test sau đăng nhập
-
-Chạy:
+## 4. Kiểm tra sau khi thay đổi
 
 ```bash
-openclaw models auth list
 openclaw config validate
 openclaw models status
-openclaw infer model run --local --model openai/gpt-5.5 --prompt 'Reply exactly: OpenAI fallback OK'
+bash /root/.agents/skills/bo-sung-codex-openclaw/scripts/test_openclaw_codex_fallback.sh 9r/GPT-6-terra
 ```
 
-Kết luận OK khi có đủ các dấu hiệu:
-- `openclaw config validate` trả về `Config valid`.
-- `openclaw models status` hiển thị `Default : 9r/codex` hoặc model 9router đang dùng.
-- `Fallbacks` có `openai/gpt-5.5`.
-- `Runtime auth` cho OpenAI/Codex có `status=usable`.
-- Lệnh `infer model run` trả về đúng nội dung test, ví dụ `OpenAI fallback OK`.
+Thay `9r/GPT-6-terra` bằng tham chiếu provider/model đã xác minh. Script bắt buộc nhận tham chiếu rõ ràng, từ chối ID ngoài danh sách và không tự chọn model OpenAI cũ. Test inference có thể tiêu tốn quota nhưng không gửi tin nhắn qua channel.
 
-## Script hỗ trợ
-
-Có thể chạy script kiểm tra nhanh đi kèm skill:
-
-```bash
-bash /root/.agents/skills/bo-sung-codex-openclaw/scripts/test_openclaw_codex_fallback.sh
-```
-
-Script này chỉ đọc trạng thái và gọi prompt test ngắn với `openai/gpt-5.5`; không in token đầy đủ.
-
-## Xử lý lỗi thường gặp
-
-- `Profiles: (none)`: OAuth chưa lưu vào agent auth store; chạy lại `openclaw models auth login --provider openai --profile-id openai:personal`.
-- `status` không phải `usable`: kiểm tra lại OAuth profile, hạn token, và agent đang dùng đúng auth store.
-- `Default model available ... use --set-default`: không cần dùng `--set-default` nếu mục tiêu là giữ 9router làm primary; chỉ dùng OpenAI làm fallback.
-- OAuth URL bị xuống dòng trong terminal: copy nguyên URL từ thanh địa chỉ trình duyệt, không copy đoạn bị wrap từ terminal.
+Chỉ báo hoàn tất khi config hợp lệ, primary/fallback đúng model được phép, auth usable cho route cần dùng và inference trả `OpenAI fallback OK`. Nếu provider không có model phù hợp hoặc auth không usable thì dừng và báo đúng nguyên nhân, không tự đổi sang model khác.

@@ -16,14 +16,59 @@ description: Operate, test, extend, or integrate the shared internal OpenClaw AI
 - Legacy migration script: `/root/AI_Runtime/openclaw_bridge/scripts/migrate_deepseek_websites.py`
 - OpenClaw gateway: `http://127.0.0.1:18789/v1/chat/completions`
 - OpenClaw config: `/root/.openclaw/openclaw.json`
-- Website agent primary model: `9r/GPT-5.6-luna`
-- Model source of truth: `WEBSITE_MODEL` in `/root/AI_Runtime/openclaw_bridge/scripts/register_course_websites.py`
+- Legacy scaffold default: `WEBSITE_MODEL=9r/GPT-5.6-luna` in `/root/AI_Runtime/openclaw_bridge/scripts/register_course_websites.py`; this is not a guarantee of the live route.
+- Live model source of truth: `agents.entries.<agent>.model` in `/root/.openclaw/openclaw.json`, verified with `openclaw models status --agent <agent> --check --json`.
 - Docker network: `root_traefik` (`172.18.0.0/16`)
 - AIA mapping: project `aia` -> agent `website-aia` -> website folder `36_domain_aia`
+
+Deployment note: `website-oplw` currently routes through `9rr/GPT-5.6-sol` with `9rr/GPT-5.6-terra` and `9rr/GPT-5.6-luna` fallbacks via the local reliable proxy. Keep this route when maintaining OPLW unless the direct provider profile is revalidated first.
+
+Deployment note: `website-alt` currently routes through `9rr/GPT-5.6-luna` with `9rr/GPT-5.6-terra` and `9rr/GPT-5.6-sol` fallbacks via the local reliable proxy. The direct `openai/gpt-5.6-luna` route is not usable while its subscription authentication is expired. `luna` is preferred for shorter advisor responses; keep the fallback order unless the provider is revalidated.
+
+For ALT, keep the Bridge project timeout at 60 seconds and the website advisor timeout at 90 seconds. The reliable proxy can take longer than the legacy 35/40-second defaults during provider recovery.
+
+## OPLW Incident Recovery
+
+- On 2026-10-15, the direct `openai/gpt-5.6-luna` route failed with `Explicit auth order for openai has no usable profiles`; Gateway returned HTTP 500. DeepSeek simultaneously returned HTTP 402 `Insufficient Balance`, so Bridge returned HTTP 502 and the website showed its generic retry message.
+- Routing only `website-oplw` through the existing `9rr` provider restored local and public advisor responses. No website code, `.env`, credentials, shared provider settings or other agents were changed. Backup: `/root/_Backups/oplw_chatbot_fix_20261015T105324Z`.
+- `/health` checks configuration/connectivity, not model authentication or provider balance. Always verify a synthetic advisor request with `notify_telegram: false`, a non-empty answer and `configured: true`.
+- Diagnose model/auth status before changing anything. Do not stop Gateway merely to run an optional provider probe; the CLI may refuse live probes while Gateway is active. Prefer the non-notifying Bridge/website request.
+- The legacy registration script writes all managed agents and uses `agents.list`; inspect the current `agents.entries` schema and preserve live model overrides before any bulk apply. Do not use it for a single-agent repair.
+- DeepSeek remains unavailable until the account is funded or an authorized working fallback is configured. Do not top up, replace secrets or change other websites without authorization.
 
 Websites never receive or mount the OpenClaw gateway token. The host Bridge reads it locally and maps each allowed project to one restricted OpenClaw agent.
 
 ## Provider Fallback
+
+### ALT Recovery Notes
+
+- ALT portal: `/root/Apps/course_websites/10Web_BH/28_domain_alt`, container `alt-sub-django`, public domain `https://anhlaptrinh.vn`, loopback `127.0.0.1:8006`, Bridge project `alt`, agent `website-alt`.
+- On 2026-10-15, direct OpenAI subscription authentication was unavailable and DeepSeek returned HTTP 402. Switching only the ALT model restored AI access, but a stale inherited `9rr:default` profile caused HTTP 401 followed by provider-wide auth cooldown. A single successful response did not establish recovery.
+- The verified provider key already configured in `models.providers.9rr.apiKey` was saved as an agent-local override. Effective auth now comes from `/root/.openclaw/agents/website-alt/agent/openclaw-agent.sqlite`, not the inherited profile. Do not replace shared profiles or change another agent to repair ALT.
+- Back up configuration and take consistent SQLite snapshots of the shared state and existing target agent database before updating auth. Never copy a live SQLite main file without its WAL and never restore the full shared database as a routine rollback. Incident backup: `/root/_Backups/alt_chatbot_fix_20261015T123919Z`.
+- An authenticated `/v1/models` HTTP 200 alone is insufficient: verify a non-delivering synthetic chat completion with the candidate key before copying it. Do not print keys, auth headers, or provider configuration.
+- If the candidate is verified and repair is authorized, use the existing key through stdin, not a command-line argument or a manual credential-file edit:
+
+```bash
+jq -jr '.models.providers["9rr"].apiKey' /root/.openclaw/openclaw.json | \
+  openclaw models auth paste-api-key \
+    --agent website-alt --provider 9rr --profile-id 9rr:default
+```
+
+- The CLI also updates the non-secret `auth.profiles.9rr:default` metadata in `openclaw.json`. Confirm that all other agent/provider/channel configuration remains unchanged. Never store the key in this skill or a website `.env`.
+- A CLI live-refresh warning does not by itself justify a restart: test the safe advisor request first. If required, restart only the host user's Gateway once, let active work drain, and wait for `/healthz` plus an actual advisor response. A `/readyz` failure naming an unrelated Telegram account does not imply that the website endpoint is unavailable; record it separately and do not change Telegram tokens in this task.
+- Keep ALT's Bridge OpenClaw timeout at 60 seconds, DeepSeek fallback at 25 seconds, and website `OPENCLAW_TIMEOUT_SECONDS` default at 90 seconds. The outer deadline must cover both provider budgets plus overhead. Update `website/views.py` and `.env.example` together; preserve an explicit production environment override unless authorized.
+- Bridge reads project settings per request; no Bridge restart is needed for only its ALT timeout entry. The current ALT container bind-mounts source and uses Django autoreload; verify that the server reloaded before testing.
+- Confirm multiple consecutive advisor responses and browser selection/submission on desktop and mobile. All synthetic browser requests must rewrite `notify_telegram` to `false` before reaching the server. Check that a non-empty AI answer is rendered and the retry notice is absent.
+- For browser smoke tests, an in-memory wrapper around `requestDeepSeekAdvisor` can force its third argument to `false` without network interception or changing production JavaScript. The 2026-10-15 acceptance run verified real frontend submission on desktop 1440x1000 and mobile 390x844, HTTP 200, rendered answers, no retry notice and no JavaScript errors; screenshots are in the incident backup. A separate final public API check took 2.89 seconds. These timings are observations, not a latency guarantee.
+
+```bash
+curl -sS --max-time 100 \
+  -H 'Content-Type: application/json' \
+  -H 'User-Agent: ALT-chatbot-healthcheck' \
+  -d '{"course_code":"37_domain_opas","question":"Chuong trinh nay phu hop voi ai?","notify_telegram":false}' \
+  https://anhlaptrinh.vn/api/course-advisor/
+```
 
 - Priority is OpenClaw first, DeepSeek second, website fallback message last.
 - DeepSeek credentials exist only in `/root/AI_Runtime/openclaw_bridge/.env` with mode `600`; never copy them into website projects or skill files.

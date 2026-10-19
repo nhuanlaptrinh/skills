@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${1:-openai/gpt-5.5}"
+MODEL="${1:-}"
+if [[ "$MODEL" != */* ]]; then
+  echo "Usage: $0 <verified-provider>/GPT-6-terra" >&2
+  exit 2
+fi
+case "${MODEL##*/}" in
+  GPT-6.1-sol|GPT-6-terra|GPT-6-luna|GPT-6-astra) ;;
+  *) echo "Unsupported model. Choose GPT-6.1-sol, GPT-6-terra, GPT-6-luna, or GPT-6-astra." >&2; exit 2 ;;
+esac
 PROMPT="Reply exactly: OpenAI fallback OK"
 
 echo "== OpenClaw config validate =="

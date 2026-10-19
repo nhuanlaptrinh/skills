@@ -5,6 +5,13 @@ description: Bật, kiểm tra hoặc sửa các mức `/thinking off|minimal|lo
 
 # Set OpenClaw Thinking Levels
 
+## Chính sách model — 2026-10-19
+
+- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
+- Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
+- Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
+
 ## Mục tiêu
 
 Cấu hình model reasoning để OpenClaw dùng được:
@@ -55,7 +62,7 @@ Ví dụ nhiều agent:
 node scripts/set_openclaw_thinking_levels.mjs \
   --all-agents \
   --provider 9r \
-  --model GPT-5.6-sol \
+  --model GPT-6.1-sol \
   --default off \
   --dry-run
 ```
@@ -110,4 +117,3 @@ Output:
 - Không tự đổi model/provider của agent.
 - Không gửi tin Telegram/Zalo thật khi verify.
 - Trên production, luôn backup và validate trước khi restart.
-

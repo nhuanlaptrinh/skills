@@ -2,6 +2,8 @@ param(
   [string]$Token = "chatbot",
   [int]$Port = 18789,
   [string]$Bind = "loopback",
+  [ValidateSet("GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra")]
+  [string]$Model = "GPT-6.1-sol",
   [switch]$SkipPythonPip,
   [switch]$SkipCodex,
   [switch]$SkipDeepSeek
@@ -11,7 +13,7 @@ $ErrorActionPreference = "Stop"
 $DashboardUrl = "http://127.0.0.1:$Port/"
 $OpenClawVersion = "2026.7.1-2"
 $TokenCodexBaseUrl = "https://codex.anhlaptrinh.vn/v1"
-$TokenCodexModelId = "GPT-5.6-sol"
+$TokenCodexModelId = $Model
 $TokenCodexProviderId = "token-codex"
 
 function Write-Step {
@@ -153,34 +155,6 @@ function Configure-OpenClaw {
   openclaw config validate
 }
 
-function Configure-DeepSeek {
-  param(
-    [string]$ApiKey
-  )
-
-  if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-    Write-Host "DeepSeek API key not found. Skipping DeepSeek provider."
-    return
-  }
-
-  Write-Step "Enabling DeepSeek provider"
-  & openclaw onboard `
-    --non-interactive `
-    --accept-risk `
-    --mode local `
-    --auth-choice deepseek-api-key `
-    --deepseek-api-key $ApiKey `
-    --skip-channels `
-    --skip-search `
-    --skip-skills `
-    --install-daemon `
-    --skip-health `
-    --gateway-bind $Bind `
-    --gateway-auth token `
-    --gateway-port $Port `
-    --gateway-token $Token
-}
-
 function Configure-TokenCodex {
   param(
     [string]$ApiKey
@@ -215,13 +189,20 @@ const baseUrl = process.env.TOKEN_CODEX_BASE_URL_RUNTIME;
 const modelId = process.env.TOKEN_CODEX_MODEL_ID_RUNTIME;
 const providerId = process.env.TOKEN_CODEX_PROVIDER_ID_RUNTIME;
 const primaryModel = `${providerId}/${modelId}`;
+const modelIds = ['GPT-6.1-sol', 'GPT-6-terra', 'GPT-6-luna', 'GPT-6-astra'];
+if (!modelIds.includes(modelId)) throw new Error('Unsupported Token Codex model');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 config.agents ??= {};
 config.agents.defaults ??= {};
 config.agents.defaults.model = { primary: primaryModel };
 config.agents.defaults.models ??= {};
-config.agents.defaults.models[primaryModel] ??= {};
+config.agents.defaults.models = Object.fromEntries(
+  Object.entries(config.agents.defaults.models).filter(([reference]) => !reference.startsWith(`${providerId}/`))
+);
+for (const supportedModelId of modelIds) {
+  config.agents.defaults.models[`${providerId}/${supportedModelId}`] = {};
+}
 config.models ??= {};
 config.models.mode = 'merge';
 config.models.providers ??= {};
@@ -229,7 +210,7 @@ config.models.providers[providerId] = {
   baseUrl,
   apiKey,
   api: 'openai-completions',
-  models: [{ id: modelId, name: modelId }]
+  models: modelIds.map(supportedModelId => ({ id: supportedModelId, name: supportedModelId }))
 };
 
 fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
@@ -267,9 +248,6 @@ function Configure-Providers {
     Configure-CodexAccount
   }
 
-  if (-not $SkipDeepSeek) {
-    Configure-DeepSeek -ApiKey $env:DEEPSEEK_API_KEY
-  }
 
   $tokenCodexApiKey = $env:TOKEN_CODEX_API_KEY
   if ([string]::IsNullOrWhiteSpace($tokenCodexApiKey)) {
@@ -308,9 +286,6 @@ Write-Host "Token: $Token"
 if (-not $SkipCodex) {
   Write-Host "Codex/OpenAI account login is manual:"
   Write-Host "Install/open official Codex CLI, then run: codex login"
-}
-if ([string]::IsNullOrWhiteSpace($env:DEEPSEEK_API_KEY)) {
-  Write-Host "DeepSeek not enabled yet. Set DEEPSEEK_API_KEY, then rerun this script."
 }
 $finalTokenCodexApiKey = $env:TOKEN_CODEX_API_KEY
 if ([string]::IsNullOrWhiteSpace($finalTokenCodexApiKey)) {

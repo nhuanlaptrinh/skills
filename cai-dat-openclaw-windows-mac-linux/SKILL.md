@@ -1,9 +1,16 @@
 ---
 name: cai-dat-openclaw-windows-mac-linux
-description: "Cai dat, sua loi, hoac chuan hoa OpenClaw tren Windows, macOS/MacBook, hoac Linux cho lop hoc/giang vien: kiem tra va cai Node.js LTS, Python/pip, OpenClaw CLI, tao config local, dat gateway token mac dinh la chatbot, dashboard mac dinh http://127.0.0.1:18789/, uu tien Token Codex voi Base URL https://codex.anhlaptrinh.vn/v1 va model GPT-5.6-sol khi nguoi dung cung cap API key, chuan bi Codex CLI account login thu cong, tu enable DeepSeek khi co DEEPSEEK_API_KEY, restart va kiem tra trang thai. Use when the user asks to install OpenClaw, setup OpenClaw on many Windows, MacBook, or Linux computers, configure Token Codex as the default OpenClaw model, add pip/Python for teaching machines, prepare Codex ChatGPT account login without running it automatically, enable DeepSeek, reset the local dashboard/token standard, or make a repeatable OpenClaw installer."
+description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux với Python/pip, gateway local và Token Codex; chỉ chọn GPT-6.1-sol, GPT-6-terra, GPT-6-luna, GPT-6-astra, mặc định GPT-6.1-sol. Không tự cài/login Codex CLI hoặc bật DeepSeek."
 ---
 
 # Cai Dat OpenClaw Windows, macOS, Linux
+
+## Chính sách model — 2026-10-19
+
+- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
+- Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
+- Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
 
 ## Defaults
 
@@ -16,15 +23,14 @@ description: "Cai dat, sua loi, hoac chuan hoa OpenClaw tren Windows, macOS/MacB
 - Gateway auth mode must default to `token`.
 - Gateway token must default to `chatbot` unless the user explicitly requests another value.
 - Install or repair Python/pip by default because classroom machines often do not have pip.
-- When setting an API-backed model in OpenClaw, always default to provider ID `token-codex`, Base URL `https://codex.anhlaptrinh.vn/v1`, exact case-sensitive model ID `GPT-5.6-sol`, and primary model `token-codex/GPT-5.6-sol`.
+- When setting an API-backed model in OpenClaw, always default to provider ID `token-codex`, Base URL `https://codex.anhlaptrinh.vn/v1`, exact case-sensitive model ID `GPT-6.1-sol`, and primary model `token-codex/GPT-6.1-sol`.
 - The user may supply the API key through `TOKEN_CODEX_API_KEY`; also accept `CUSTOM_PROVIDER_API_KEY` as a compatibility fallback. Never invent a key, print it, or put a real key in the skill repository.
 - If neither API-key variable exists, leave Token Codex unconfigured and clearly tell the user what variable to set before rerunning. Do not replace the missing key with a placeholder inside the live OpenClaw config.
-- Although a user may write `GPT-5.6-SOL`, normalize the live configuration to `GPT-5.6-sol` because the API model ID is case-sensitive.
+- Although a user may write `GPT-6.1-SOL`, normalize the live configuration to `GPT-6.1-sol` because the API model ID is case-sensitive.
 - Prepare Codex/OpenAI for ChatGPT/Codex account login, not OpenAI API key, unless the user explicitly asks for API billing.
 - Do not install or run Codex login automatically. The teacher/student must install official Codex CLI and run login manually after OpenClaw install.
 - Force Codex CLI to prefer ChatGPT account login by setting `forced_login_method = "chatgpt"` in `~/.codex/config.toml`.
 - If the OpenClaw Codex plugin/provider is used later, clear `OPENAI_API_KEY` from the spawned Codex app-server environment so a machine-level API key does not skip account login.
-- Enable DeepSeek automatically when `DEEPSEEK_API_KEY` exists in the environment.
 - Never print API keys or store them inside the skill files.
 
 ## Workflow
@@ -35,8 +41,18 @@ description: "Cai dat, sua loi, hoac chuan hoa OpenClaw tren Windows, macOS/MacB
 4. On macOS/MacBook, prefer `scripts/install_openclaw_macos.sh`.
 5. On Linux, prefer `scripts/install_openclaw_linux.sh`.
 6. If installing on a different machine, copy or reference the skill folder and run the matching script from that machine.
-7. If `TOKEN_CODEX_API_KEY` or `CUSTOM_PROVIDER_API_KEY` is present, configure Token Codex and make `token-codex/GPT-5.6-sol` the OpenClaw primary model.
+7. If `TOKEN_CODEX_API_KEY` or `CUSTOM_PROVIDER_API_KEY` is present, configure Token Codex and make `token-codex/GPT-6.1-sol` the OpenClaw primary model.
 8. After install, tell the user to install/log in separately with official Codex CLI only when they also want ChatGPT/Codex account auth outside the Token Codex provider.
+
+## Chọn model và kiểm tra trước khi chạy
+
+- Linux/macOS: đặt `TOKEN_CODEX_MODEL_ID` thành một trong bốn ID được phép; nếu không đặt thì dùng `GPT-6.1-sol`.
+- Windows: truyền `-Model GPT-6-terra`, `-Model GPT-6-luna` hoặc model được phép khác. Giá trị ngoài danh sách phải bị từ chối trước khi cài đặt.
+- Installer đăng ký đúng bốn model vào provider `token-codex`; không tự bật provider khác từ key trong môi trường. Tham số Windows `-SkipDeepSeek` cũ chỉ còn được chấp nhận để tương thích, không bật DeepSeek khi bỏ tham số này.
+- Các installer chưa có dry-run đầy đủ. Không chạy installer chỉ để xem kế hoạch: dùng `bash -n scripts/install_openclaw_linux.sh` hoặc `bash -n scripts/install_openclaw_macos.sh` để kiểm tra cú pháp. Trên Windows, kiểm tra script bằng PowerShell parser trước khi chạy thật.
+- Trước khi chạy thật trên máy đã có config, backup các file liên quan, kiểm tra model đích trong `/v1/models` bằng key trong bộ nhớ và không in credential.
+- Input: API key qua môi trường, model và hệ điều hành. Output: config local tại `~/.openclaw/openclaw.json`, tùy chọn đăng nhập Codex trong `~/.codex/config.toml`, và log trạng thái; không ghi Google Sheet, upload hoặc gửi tin nhắn.
+- Rerun bằng cùng installer và model sau khi backup; nếu lỗi thì khôi phục đúng config đã backup rồi validate trước khi restart.
 
 ## Token Codex Default Provider
 
@@ -46,7 +62,13 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
 {
   "agents": {
     "defaults": {
-      "model": {"primary": "token-codex/GPT-5.6-sol"}
+      "model": {"primary": "token-codex/GPT-6.1-sol"},
+      "models": {
+        "token-codex/GPT-6.1-sol": {},
+        "token-codex/GPT-6-terra": {},
+        "token-codex/GPT-6-luna": {},
+        "token-codex/GPT-6-astra": {}
+      }
     }
   },
   "models": {
@@ -57,7 +79,10 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
         "apiKey": "YOUR_TOKEN_CODEX_API_KEY",
         "api": "openai-completions",
         "models": [
-          {"id": "GPT-5.6-sol", "name": "GPT-5.6-sol"}
+          {"id": "GPT-6.1-sol", "name": "GPT-6.1-sol"},
+          {"id": "GPT-6-terra", "name": "GPT-6-terra"},
+          {"id": "GPT-6-luna", "name": "GPT-6-luna"},
+          {"id": "GPT-6-astra", "name": "GPT-6-astra"}
         ]
       }
     }
@@ -65,7 +90,7 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
 }
 ```
 
-After writing the provider, restrict the private config file to the current user where supported, run `openclaw config validate`, restart the gateway, and verify `openclaw models list` contains `token-codex/GPT-5.6-sol`.
+After writing the provider, restrict the private config file to the current user where supported, run `openclaw config validate`, restart the gateway, and verify `openclaw models list` contains `token-codex/GPT-6.1-sol`.
 
 ### Windows
 
@@ -86,12 +111,6 @@ If browser login is inconvenient, use the Codex CLI device flow, not OpenClaw's 
 
 ```powershell
 codex login --device-auth
-```
-
-To enable DeepSeek on a new Windows computer, set `DEEPSEEK_API_KEY` before running:
-
-```powershell
-[Environment]::SetEnvironmentVariable("DEEPSEEK_API_KEY", "Nhap_API_Cua_Ban", "User")
 ```
 
 To make Token Codex the default OpenClaw model, set the user environment variable before running, then open a new PowerShell window:
@@ -118,12 +137,6 @@ After install, install or open official Codex CLI manually only when the teacher
 ```bash
 codex logout
 codex login
-```
-
-To enable DeepSeek on a MacBook, export `DEEPSEEK_API_KEY` before running:
-
-```bash
-export DEEPSEEK_API_KEY="Nhap_API_Cua_Ban"
 ```
 
 To make Token Codex the default OpenClaw model, export:
@@ -156,12 +169,6 @@ If the machine is headless or browser callback is inconvenient, use:
 codex login --device-auth
 ```
 
-To enable DeepSeek on Linux, export `DEEPSEEK_API_KEY` before running:
-
-```bash
-export DEEPSEEK_API_KEY="Nhap_API_Cua_Ban"
-```
-
 To make Token Codex the default OpenClaw model, export:
 
 ```bash
@@ -191,7 +198,7 @@ codex login status
 ```
 
 Report the final dashboard link exactly as `http://127.0.0.1:18789/`.
-When Token Codex was configured, also report the Base URL `https://codex.anhlaptrinh.vn/v1` and primary model `token-codex/GPT-5.6-sol`, but never report any part of the API key.
+When Token Codex was configured, also report the Base URL `https://codex.anhlaptrinh.vn/v1` and primary model `token-codex/GPT-6.1-sol`, but never report any part of the API key.
 
 ## Manual Fallbacks
 
@@ -204,7 +211,6 @@ python -m ensurepip --upgrade
 python -m pip install --upgrade pip
 npm install -g openclaw@2026.7.1-2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
-openclaw onboard --non-interactive --accept-risk --mode local --auth-choice deepseek-api-key --deepseek-api-key $env:DEEPSEEK_API_KEY --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart
 openclaw gateway status
@@ -221,7 +227,6 @@ python3 -m ensurepip --upgrade || true
 python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip
 npm install -g openclaw@2026.7.1-2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
-openclaw onboard --non-interactive --accept-risk --mode local --auth-choice deepseek-api-key --deepseek-api-key "$DEEPSEEK_API_KEY" --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart
 openclaw gateway status

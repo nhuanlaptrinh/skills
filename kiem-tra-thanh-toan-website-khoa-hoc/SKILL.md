@@ -103,7 +103,15 @@ Use its findings as hints, then inspect the code directly before editing.
    - Payment-success webhook should include: `name`, `email`, `phone`, `payment_status`, `invoice_number`, `amount`, `subtotal_amount`, `vat_rate_percent`, `vat_amount`, `payment_method`, `course_code`, `course_name`, `source`.
    - Do not hardcode real secrets in skill files or examples. Prefer env vars for configurable URLs where practical.
 
-8. Build or adapt the payment page when requested.
+8. Verify webhook delivery reliability.
+   - The sender must treat only an explicit n8n acknowledgement `HTTP 2xx` response containing `message: "Workflow was started"` as accepted.
+   - The sender must not follow redirects, because a redirect can hide a wrong webhook URL or route.
+   - Retry only connection-establishment failures and HTTP 429, with a bounded attempt count and short backoff.
+   - Do not automatically retry read timeouts, interrupted responses, or HTTP 5xx responses: n8n may already have started the workflow, so retrying can duplicate email/Zalo/Sheet actions.
+   - If delivery is uncertain, preserve the activation link, show a clear status to the operator, and require checking the n8n execution before any manual resend.
+   - Log invoice number, attempt, HTTP status, and sanitized reason only; never log activation tokens, email addresses, webhook URLs, cookies, or credentials.
+
+9. Build or adapt the payment page when requested.
    - Registration creates `Registration` and `Order`, then redirects to `/thanhtoan/?invoice=<CODE12345>`.
    - Payment page shows one clear QR, bank account details, transfer amount, and transfer content.
    - QR URL should include `amount` and `addInfo=<invoice_number>`.
@@ -111,13 +119,50 @@ Use its findings as hints, then inspect the code directly before editing.
    - Frontend polling should call `/payment/check-status/?invoice=<invoice>` and redirect to `/payment/success/` only after backend status is `paid`.
    - Keep coupon logic, if any, server-side; update `Order.amount` before rendering QR.
 
-9. Deploy and verify.
+10. Deploy and verify.
    - Run `python3 manage.py check`.
    - If Docker Compose changed, run `docker compose config --quiet`.
    - Recreate/restart the service if necessary.
    - Check logs: `docker logs --tail 200 <container>`.
    - Create a test registration and confirm the invoice prefix is correct.
    - Do not send real test payment unless the user explicitly asks. For payload tests, mock `requests.post` or use a local dry run.
+
+## OPLW Activation Delivery Operations
+
+This implementation is deployed only to `/root/Apps/course_websites/10Web_BH/03_domain_oplw`, container `oplw-django`; do not assume sibling websites have the same sender.
+
+- Shared sender: `trolyai/n8n_notifications.py:send_activation_notification`; callers are `_send_activation_link_webhook` and `_send_payment_success_notification` in `trolyai/views.py`.
+- Input: an existing paid `Order` and its registration, or the manual activation form `/khtc/`. The existing activation token/link is preserved; submitting the same paid email reuses its order.
+- Output: `accepted`, `failed`, or `unknown`, plus attempt count, HTTP status and an operator-safe message. `accepted` confirms n8n started the workflow, not that email/Zalo finished or the customer read anything.
+- Timeout: 5 seconds connecting, 30 seconds reading; at most 3 attempts for connect failures/HTTP 429, with 1 then 2 seconds of backoff. Read timeouts, HTTP 5xx and missing acknowledgement remain `unknown` and are not automatically resent.
+- Logs: `docker logs oplw-django`, logger `trolyai.n8n_notifications`. No extra output files, cron job, or notification queue is created. Registration/orders remain in the existing project SQLite database.
+- Email, Zalo Bot notifications and the Google Sheets row are created downstream by the existing n8n registration/activation workflow, not directly by this sender. Do not expose webhook URLs, spreadsheet credentials, contact information, or activation links while inspecting executions.
+
+Dry run and validation, with all notification POST requests mocked:
+
+```bash
+docker exec oplw-django python manage.py test trolyai.tests.ActivationNotificationTests trolyai.tests.ManualActivationNotificationTests
+docker exec oplw-django python manage.py check
+```
+
+Real execution is submitting `/khtc/` with the intended customer's information. Resending an existing order also sends real notifications: first obtain explicit approval and check the invoice's existing n8n executions. An `unknown` result is not permission to retry blindly. After approval, replace the invoice placeholder and run once:
+
+```bash
+docker exec -i -e DJANGO_SETTINGS_MODULE=mysite.settings -e ACTIVATION_INVOICE='<MA_DON_CAN_GUI>' oplw-django python - <<'PY'
+import os
+import django
+django.setup()
+from trolyai.models import Order
+from trolyai.views import _send_activation_link_webhook
+order = Order.objects.select_related('registration').get(invoice_number=os.environ['ACTIVATION_INVOICE'])
+if order.status != 'paid':
+    raise ValueError('Only resend an existing paid order.')
+result = _send_activation_link_webhook(order)
+print({key: result.get(key) for key in ['status', 'attempts', 'http_status', 'message']})
+PY
+```
+
+For an uncertain response, inspect n8n before rerunning; never rotate an existing activation token or create another paid order just to retry delivery. This is a notification workflow, not a renderer, so no rerender operation exists. Backup for the October 11, 2026 change is `/root/_Backups/oplw-n8n-webhook-reliability/20261011T082734Z/`; rollback restores the original views, settings, tests and manual template, without reverting the live order database or changing n8n credentials/workflows.
 
 ## Implementation Reference
 

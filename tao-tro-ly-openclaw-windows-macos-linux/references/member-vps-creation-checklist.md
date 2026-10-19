@@ -35,7 +35,7 @@
 
 ## Token Codex trước VPS
 - [ ] Đọc mục **Chuẩn bị Token Codex trước member VPS** trong skill chính
-- [ ] `/models` trả HTTP `200` và có đủ `GPT-5.6-sol`, `GPT-5.6-terra`, `GPT-5.6-luna`
+- [ ] `/models` trả HTTP `200` và có đủ `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`
 - [ ] Nếu tạo tài khoản mới: provisioning backend đã được xác minh và dry-run thực sự tồn tại
 - [ ] Nếu sinh key mới: thư mục `/root/Data/private_accounts/token_codex/` quyền `700`, file output quyền `600`
 - [ ] Không in full API key vào chat hoặc log chung
@@ -140,11 +140,11 @@
 ## Hệ thống
 - [ ] Token Codex provider dùng `https://codex.anhlaptrinh.vn/v1`
 - [ ] Không thêm `/v1` lần thứ hai; API là `openai-completions`
-- [ ] Cả ba model provider khai báo `input: ["text", "image"]`
-- [ ] Cả ba model provider khai báo `maxTokens: 4096`
-- [ ] `agents.defaults.model.primary` và `agents.defaults.imageModel.primary` là `token-codex/GPT-5.6-sol`
-- [ ] Nếu cần image generation, chỉ dùng `agents.defaults.mediaModels.image.primary` sau khi provider tạo ảnh đã được cấu hình và `openclaw infer image providers --json` xác nhận; không dùng `token-codex/GPT-5.6-sol` hoặc key legacy `imageGenerationModel`
-- [ ] API Token Codex đã cấu hình và cả ba model chat test thành công
+- [ ] Cả bốn model provider khai báo `input: ["text", "image"]`
+- [ ] Cả bốn model provider khai báo `maxTokens: 4096`
+- [ ] `agents.defaults.model.primary` và `agents.defaults.imageModel.primary` là `token-codex/GPT-6.1-sol`
+- [ ] Nếu cần image generation, chỉ dùng `agents.defaults.mediaModels.image.primary` sau khi provider tạo ảnh đã được cấu hình và `openclaw infer image providers --json` xác nhận; không dùng `token-codex/GPT-6.1-sol` hoặc key legacy `imageGenerationModel`
+- [ ] API Token Codex đã cấu hình và cả bốn model chat test thành công
 - [ ] Ảnh smoke test được `openclaw infer image describe` đọc đúng chữ/nội dung đã biết
 - [ ] Ảnh không nhạy cảm đi qua đúng Telegram/Zalo/dashboard được bot mô tả đúng nếu channel đó đã cấu hình
 - [ ] Không bàn giao nếu chỉ validate JSON đạt nhưng chưa xác nhận đọc ảnh
