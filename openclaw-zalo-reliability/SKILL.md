@@ -78,6 +78,24 @@ and outbound, session, then authentication.
 
 ## Durable Prevention
 
+### Inconclusive probes on an overloaded host
+
+Do not treat a timed-out CLI or a missing Zalo status line as proof that the
+channel stopped. The shared `scripts/check_member_zalouser.sh` supports opt-in
+`PROBE_TIMEOUT_SECONDS=120 DEFER_INCONCLUSIVE_PROBE=true` in one member's
+registry `run_command`. Defaults remain 45 seconds and the historical behavior
+for other members. With the opt-in enabled, an inconclusive probe logs `DEFER`
+without restarting; an explicit stopped channel or recent listener failure
+still follows the existing recovery path when authentication is available.
+An explicit unlinked/not-authenticated status instead emits `MANUAL_REQUIRED`
+without restarting, logging out, or requesting a QR automatically. This does
+not resolve host pressure or prove that messages are delivered.
+
+Back up the script and registry before changing them, preserve other entries,
+and use the dry-run/validation commands in
+`references/supervisor-watchdog.md`. Never solve a slow probe by deleting Zalo
+credentials or repeatedly restarting a Gateway that is still booting.
+
 ### Receipt-aware long text splitting
 
 For generated-but-undelivered long text or OCR replies, use the reusable host

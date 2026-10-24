@@ -44,6 +44,38 @@ Configure `member_<name>_zalouser` as `openclaw_channel`. Pass `CONTAINER`,
 `scripts/check_member_zalouser.sh`. Schedule every five minutes. It may restart
 only the Supervisor-managed Gateway and must keep a ten-minute cooldown.
 
+For a member whose CLI times out under host pressure, back up the script and
+registry under `/root/_Backups/`, then add the opt-in environment values
+`PROBE_TIMEOUT_SECONDS='120' DEFER_INCONCLUSIVE_PROBE='true'` to only that
+member's `run_command`. Without the opt-in, other members retain their previous
+behavior. An inconclusive probe emits `DEFER probe_inconclusive`, not a restart;
+explicit stopped status and recent listener failure remain actionable when
+linked. An explicit `not linked`, `not authenticated`, or `unlinked` Zalo status
+emits `MANUAL_REQUIRED` without another futile Gateway restart. Confirm live
+authentication and obtain owner approval before QR login; timeouts alone are
+not proof that a cookie expired. Logs
+remain at the entry's `log_file`; this path does not write Sheets/APIs or replay
+messages. Existing recovery notifications are unchanged.
+
+Dry-run for the affected member, then let its existing shared cron run the
+registered command; do not add duplicate cron jobs:
+
+```bash
+CONTAINER='user-<name>' MEMBER_HOME='/home/<name>' MEMBER_LABEL='<name>' \
+  PROJECT_KEY='member_<name>_zalouser' PROBE_TIMEOUT_SECONDS=120 \
+  DEFER_INCONCLUSIVE_PROBE=true \
+  bash /root/Automation/watchdog/shared_self_healing/scripts/check_member_zalouser.sh --dry-run
+/root/Automation/watchdog/shared_self_healing/run_project.sh member_<name>_zalouser
+python3 -m unittest discover -s /root/Automation/watchdog/shared_self_healing/tests -p 'test_member_zalouser_guard.py' -v
+```
+
+The second command is live recovery and can restart the member Gateway/send
+its existing recovery notification on a confirmed fault. Rerun the dry-run for
+inspection; never replay messages. Roll back only the changed script and
+registry entry from the timestamped backup. Host overload remains a separate
+capacity issue; require a fresh inbound/outbound receipt before claiming
+end-to-end recovery.
+
 ## Session Maintenance
 
 Configure `member_<name>_sessions` as `openclaw_session` and call

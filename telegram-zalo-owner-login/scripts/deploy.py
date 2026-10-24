@@ -17,6 +17,7 @@ PLUGIN_ID = "telegram-zalo-owner-login"
 LEGACY_ID = "vuhoainam-telegram-zalo-login"
 START_MARKER = "<!-- telegram-zalo-owner-login:start -->"
 END_MARKER = "<!-- telegram-zalo-owner-login:end -->"
+SUPPORTED_VERSIONS = {"2026.9.9", "2026.10.6"}
 
 
 def execute(arguments, log_path=None, timeout=120):
@@ -99,6 +100,30 @@ def select_account(accounts, requested, label):
     raise RuntimeError(f"Select one configured {label} account explicitly.")
 
 
+def tested_version(output):
+    match = re.search(r"\bOpenClaw\s+(\S+)", output)
+    version = match.group(1) if match else None
+    if version not in SUPPORTED_VERSIONS:
+        raise RuntimeError("Only tested OpenClaw 2026.9.9 and 2026.10.6 are supported; validate SDK/CLI before porting.")
+    return version
+
+
+def effective_routes(base, accounts):
+    script = """
+import fs from "node:fs";
+import { createRequire } from "node:module";
+const require = createRequire(fs.realpathSync("/usr/bin/openclaw"));
+const { resolveAgentRoute } = await import(require.resolve("openclaw/plugin-sdk/routing"));
+const config = JSON.parse(fs.readFileSync(process.env.OPENCLAW_CONFIG_PATH, "utf8"));
+const accounts = JSON.parse(process.argv[1]);
+console.log(JSON.stringify(accounts.map(({ channel, accountId }) => {
+    const route = resolveAgentRoute({ cfg: config, channel, accountId });
+    return { channel, accountId, agentId: route.agentId, matchedBy: route.matchedBy };
+})));
+"""
+    return json.loads(execute(base + ["node", "--input-type=module", "-e", script, json.dumps(accounts)]))
+
+
 def snapshot_database(source, destination):
     with sqlite3.connect(f"file:{source}?mode=ro", uri=True) as original:
         with sqlite3.connect(destination) as backup:
@@ -160,12 +185,19 @@ def main():
     zalo_accounts = zalo.get("accounts") or {"default": zalo}
     telegram_account = select_account(telegram_accounts, args.telegram_account, "Telegram")
     zalo_account = select_account(zalo_accounts, args.zalo_account, "Zalo")
+    base = ["docker", "exec", "-e", f"HOME={runtime_home}", "-e", f"OPENCLAW_STATE_DIR={runtime_root}",
+            "-e", f"OPENCLAW_CONFIG_PATH={runtime_root}/openclaw.json", "-e", "OPENCLAW_PROFILE=", container]
+    version = tested_version(execute(base + ["openclaw", "--version"]))
     for channel, account in [("telegram", telegram_account), ("zalouser", zalo_account)]:
         routes = {entry.get("agentId") for entry in config.get("bindings", [])
                   if entry.get("match", {}).get("channel") == channel
-                  and entry.get("match", {}).get("accountId") == account}
-        if routes != {args.agent}:
+                  and entry.get("match", {}).get("accountId") in (None, "*", account)}
+        if routes and routes != {args.agent}:
             raise RuntimeError(f"Selected {channel} account must already belong only to the selected agent.")
+    routes = effective_routes(base, [{"channel": "telegram", "accountId": telegram_account},
+                                    {"channel": "zalouser", "accountId": zalo_account}])
+    if len(routes) != 2 or any(route.get("agentId") != args.agent for route in routes):
+        raise RuntimeError("Installed routing SDK does not resolve both accounts to the selected agent.")
     workspace_runtime = Path(agent.get("workspace") or config.get("agents", {}).get("defaults", {}).get("workspace", ""))
     try:
         workspace = root / workspace_runtime.relative_to(runtime_root)
@@ -173,11 +205,6 @@ def main():
         raise RuntimeError("Supported workspace must be inside this runtime state root.") from error
     if workspace.resolve() != workspace or not workspace.is_dir():
         raise RuntimeError("Workspace is missing or symlinked.")
-    base = ["docker", "exec", "-e", f"HOME={runtime_home}", "-e", f"OPENCLAW_STATE_DIR={runtime_root}",
-            "-e", f"OPENCLAW_CONFIG_PATH={runtime_root}/openclaw.json", "-e", "OPENCLAW_PROFILE=", container]
-    version = execute(base + ["openclaw", "--version"])
-    if not re.search(r"\b2026\.9\.9\b", version):
-        raise RuntimeError("Only exact tested OpenClaw 2026.9.9 is supported; validate SDK/CLI before porting.")
     supervisor = execute(base + ["supervisorctl", "status", "openclaw-gateway"])
     was_running = "RUNNING" in supervisor
     plugin_id = LEGACY_ID if LEGACY_ID in config.get("plugins", {}).get("entries", {}) else PLUGIN_ID
@@ -187,7 +214,7 @@ def main():
     settings = {"pluginId": plugin_id, "telegramAccount": telegram_account, "zaloAccount": zalo_account,
                 "agentId": args.agent, "runtimeHome": str(runtime_home), "runtimeRoot": str(runtime_root)}
     runtime_directory = runtime_root / plugin_directory.relative_to(root)
-    print(f"Target={container}; agent={args.agent}; configured Telegram owners={len(owners)}; plugin={plugin_id}")
+    print(f"Target={container}; version={version}; agent={args.agent}; configured Telegram owners={len(owners)}; plugin={plugin_id}")
     if args.dry_run:
         print("DRY RUN: mapped roots/accounts verified; no config/owner change, login or delivery.")
         return
@@ -240,7 +267,7 @@ def main():
             atomic_write(plugin_directory / "index.mjs", (SKILL_ROOT / "assets" / "index.mjs").read_text())
             write_json(plugin_directory / "package.json", {"name": plugin_id, "version": "1.1.0", "type": "module",
                 "files": ["index.mjs", "settings.json", "openclaw.plugin.json"],
-                "openclaw": {"extensions": ["./index.mjs"], "compat": {"pluginApi": "2026.9.9", "minGatewayVersion": "2026.9.9"}}})
+                "openclaw": {"extensions": ["./index.mjs"], "compat": {"pluginApi": version, "minGatewayVersion": version}}})
             write_json(plugin_directory / "openclaw.plugin.json", {"id": plugin_id, "name": "Telegram Owner Zalo QR Login",
                 "description": "Private Zalo QR login for every configured Telegram owner.", "categories": ["other"],
                 "activation": {"onStartup": True}, "contracts": {"tools": ["telegram_zalo_login_qr"]},

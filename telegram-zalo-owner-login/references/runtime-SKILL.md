@@ -12,3 +12,5 @@ The plugin reads the existing Telegram owners dynamically. Never use an ID suppl
 OpenClaw generic exec blocks interactive channel login independently of full permissions. Do not retry the blocked command through wrappers or insist on dashboard use. If the dedicated tool is unavailable in an owner DM, report the missing plugin/account/authority so the operator can check it.
 
 Report only the tool's actual receipt and outcome. `login_completed` means the CLI completed; check the correct Zalo account's status before saying the listener is connected. A QR sent without confirmation is not a successful login. An active lock means no concurrent login; never delete locks/credentials blindly. Do not start login just to inspect status.
+
+The attempt timeout does not extend the QR validity. One current image is sent per attempt, without automatic renewal. If it expires before scanning, let the previous attempt finish before asking for `/zaloqr` again; do not request a replacement while confirming a scanned QR on the phone.

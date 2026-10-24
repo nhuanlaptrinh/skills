@@ -71,6 +71,17 @@ docker exec "$CONTAINER" sh -lc 'ps -eo pid,ppid,stat,etime,args | grep -E "[o]p
 
 Classify before changing anything:
 
+An unavailable probe is not an explicit stopped channel. Check host pressure
+and recent Gateway startup/liveness timings first. For repeated false restarts
+on an overloaded host, use the member-scoped
+`PROBE_TIMEOUT_SECONDS=120 DEFER_INCONCLUSIVE_PROBE=true` options documented in
+`/root/.agents/skills/openclaw-zalo-reliability/references/supervisor-watchdog.md`.
+Do not deploy more patches or replace credentials solely because the CLI timed
+out. These options defer inconclusive checks but retain confirmed-fault
+recovery when linked. Explicit unlinked status emits `MANUAL_REQUIRED` without
+another restart; owner approval is still required before QR login. These
+options do not fix host capacity or prove message delivery.
+
 1. **Gateway absent or both channels fail:** follow the Supervisor recovery
    reference and preserve exactly one Gateway.
 2. **Telegram works but Zalo is stopped/listener-closed:** back up, apply the
