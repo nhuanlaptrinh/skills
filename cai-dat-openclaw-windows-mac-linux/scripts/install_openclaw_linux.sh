@@ -5,7 +5,7 @@ TOKEN="${TOKEN:-chatbot}"
 PORT="${PORT:-18789}"
 BIND="${BIND:-loopback}"
 SKIP_CODEX="${SKIP_CODEX:-0}"
-OPENCLAW_VERSION="2026.7.1-2"
+OPENCLAW_VERSION="2026.10.6"
 DASHBOARD_URL="http://127.0.0.1:${PORT}/"
 TOKEN_CODEX_BASE_URL="https://codex.anhlaptrinh.vn/v1"
 TOKEN_CODEX_MODEL_ID="${TOKEN_CODEX_MODEL_ID:-GPT-6.1-sol}"
@@ -27,6 +27,18 @@ ensure_linux() {
   fi
 }
 
+require_supported_node() {
+  node -e '
+const [major, minor, patch] = process.versions.node.split(".").map(Number);
+const supported = (major === 24 && (minor > 22 || (minor === 22 && patch >= 1))) ||
+  major > 26 || (major === 26 && (minor > 12 || (minor === 12 && patch >= 1)));
+if (!supported) {
+  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.10.6 requires >=24.22.1 <25 || >=26.12.1. Install a supported Node.js release, then rerun.`);
+  process.exit(1);
+}
+'
+}
+
 ensure_node_python() {
   if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
     echo "Node found: $(node -v)"
@@ -36,7 +48,9 @@ ensure_node_python() {
     step "Installing Node.js, npm, Python, and pip"
     if command -v apt-get >/dev/null 2>&1; then
       sudo apt-get update
-      sudo apt-get install -y curl ca-certificates nodejs npm python3 python3-pip python3-venv
+      sudo apt-get install -y curl ca-certificates python3 python3-pip python3-venv
+      curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+      sudo apt-get install -y nodejs
     elif command -v dnf >/dev/null 2>&1; then
       sudo dnf install -y nodejs npm python3 python3-pip
     elif command -v yum >/dev/null 2>&1; then
@@ -49,6 +63,8 @@ ensure_node_python() {
     fi
   fi
 
+  require_supported_node
+
   step "Ensuring pip"
   python3 -m ensurepip --upgrade >/dev/null 2>&1 || true
   python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip || true
@@ -58,11 +74,18 @@ ensure_node_python() {
 ensure_openclaw() {
   step "Installing OpenClaw CLI ${OPENCLAW_VERSION}"
   if npm prefix -g >/dev/null 2>&1 && [[ -w "$(npm prefix -g)" ]]; then
-    npm install -g "openclaw@${OPENCLAW_VERSION}"
+    npm install --engine-strict -g "openclaw@${OPENCLAW_VERSION}"
   else
-    sudo npm install -g "openclaw@${OPENCLAW_VERSION}"
+    sudo npm install --engine-strict -g "openclaw@${OPENCLAW_VERSION}"
   fi
-  openclaw --version
+  local installed_version
+  local version_pattern="(^|[[:space:]])${OPENCLAW_VERSION//./\\.}([[:space:]]|$)"
+  installed_version="$(openclaw --version)"
+  printf '%s\n' "$installed_version"
+  if [[ ! "$installed_version" =~ $version_pattern ]]; then
+    echo "Expected OpenClaw ${OPENCLAW_VERSION}; stopping before configuration." >&2
+    exit 1
+  fi
 }
 
 configure_codex_chatgpt_login_preference() {

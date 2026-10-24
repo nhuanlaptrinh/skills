@@ -11,7 +11,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $DashboardUrl = "http://127.0.0.1:$Port/"
-$OpenClawVersion = "2026.7.1-2"
+$OpenClawVersion = "2026.10.6"
 $TokenCodexBaseUrl = "https://codex.anhlaptrinh.vn/v1"
 $TokenCodexModelId = $Model
 $TokenCodexProviderId = "token-codex"
@@ -71,6 +71,21 @@ function Ensure-Node {
   Write-Host "npm installed: $(npm -v)"
 }
 
+function Assert-SupportedNode {
+  node -e '
+const [major, minor, patch] = process.versions.node.split(".").map(Number);
+const supported = (major === 24 && (minor > 22 || (minor === 22 && patch >= 1))) ||
+  major > 26 || (major === 26 && (minor > 12 || (minor === 12 && patch >= 1)));
+if (!supported) {
+  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.10.6 requires >=24.22.1 <25 || >=26.12.1. Install a supported Node.js release, then rerun.`);
+  process.exit(1);
+}
+'
+  if ($LASTEXITCODE -ne 0) {
+    throw "A supported Node.js release is required before installing OpenClaw."
+  }
+}
+
 function Get-PythonCommand {
   Refresh-Path
   $python = Get-Command python -ErrorAction SilentlyContinue
@@ -116,13 +131,20 @@ function Ensure-OpenClaw {
   Refresh-Path
 
   Write-Step "Installing OpenClaw CLI $OpenClawVersion"
-  npm install -g "openclaw@$OpenClawVersion"
+  npm install --engine-strict -g "openclaw@$OpenClawVersion"
+  if ($LASTEXITCODE -ne 0) {
+    throw "OpenClaw $OpenClawVersion installation failed; stopping before configuration."
+  }
   Refresh-Path
 
   if (-not (Get-Command openclaw -ErrorAction SilentlyContinue)) {
     throw "OpenClaw was installed but openclaw is not available in PATH. Open a new PowerShell window and rerun this script."
   }
-  openclaw --version
+  $versionOutput = (openclaw --version | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch "(^|\s)$([regex]::Escape($OpenClawVersion))(\s|$)") {
+    throw "Expected OpenClaw $OpenClawVersion; stopping before configuration."
+  }
+  Write-Host $versionOutput
 }
 
 function Configure-CodexChatGptLoginPreference {
@@ -272,6 +294,7 @@ Write-Host "Gateway token will be: $Token"
 Write-Host "OpenClaw version will be: $OpenClawVersion"
 
 Ensure-Node
+Assert-SupportedNode
 Ensure-PythonPip
 Ensure-OpenClaw
 Configure-CodexChatGptLoginPreference

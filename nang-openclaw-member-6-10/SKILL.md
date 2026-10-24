@@ -31,6 +31,8 @@ Driver không ghi Google Sheet, không upload/post, không gửi Telegram/Zalo t
 
 ## Lượt tuần tự đã được duyệt ngày 2026-10-24
 
+Kết quả hoàn tất 2026-10-24 11:33 UTC: **12 member được nâng**, Minh Vương đã có target nên không cài/restart lại (người dùng sau đó yêu cầu bỏ qua). Cả 13 có receipt nghiệm thu 6.10; hậu kiểm 12 member vừa nâng đều đúng version/Node và đúng một Gateway Supervisor RUNNING, không quay lại live-check Minh Vương sau yêu cầu bỏ qua. Tất cả model smoke đạt, không gửi tin thật. Zalo `default` của **Hoàng Tuấn Kiệt và Lê Thắng Holand** đã unlinked từ preflight và giữ nguyên, không báo healthy. Hai migration schema được review riêng là Thanh Thái và Nguyễn Văn Tiếng. Tổng kết và evidence links: `/root/Data/reports/openclaw-members-2026.10.6/20261024T061912Z/FINAL.json`. Quiet-window maintenance locks đã nhả; không sửa cron/config để giảm tải, không bảo đảm host luôn ít tải sau batch.
+
 Người dùng đã yêu cầu đúng thứ tự: `hoangtuankiet`, `lehuynhphong`, `minhvuong`, `nguyendinhtan`, `qnvuong`, `thanhthai`, `bstuannk`, `trolyketoancatminh`, `doquyet`, `nndung`, `nguyenvantieng`, `levietngoc`, `lethangholand`; sau đó yêu cầu **không tạo backup, nâng luôn**. Việc bỏ backup chỉ áp dụng khi có yêu cầu rõ như lượt này; mặc định driver vẫn backup.
 
 Driver mới nhận `--no-backup` để bỏ toàn bộ archive thủ công và `node.before`, **không** tắt retention/recovery bắt buộc của updater chính thức, không xóa backup cũ. Thư mục dưới `_Backups` của lượt này chỉ chứa log/report/artifact Node, không có nghĩa đã tạo bản backup thủ công. `SUCCESS.json` ghi rõ `manualBackupCreated=false`, `backup=null`, `reportDir`.
@@ -42,6 +44,8 @@ python3 /root/Automation/openclaw/member_sequential_upgrade/run_2026_10_6.py --a
 ```
 
 Runner chỉ dùng danh sách 13 member đã duyệt, không lấy danh sách cũ trong `run_sequential.py`. Dry-run runner chỉ in kế hoạch. Chạy thật chỉ có **một** driver hoạt động, giữ batch/fleet lock, nghiệm thu xong rồi nghỉ 30 giây mới sang member kế tiếp. Trước mỗi member cần MemAvailable >=3072 MiB, disk >=8 GiB, load trung bình/CPU <=1.5; thiếu RAM/CPU chờ tối đa 15 phút rồi dừng, không cố chạy khi host yếu.
+
+Nếu watchdog/probe đồng loạt khiến host không hạ tải, không hạ ngưỡng, kill workload hoặc disable cron toàn cụm. Có thể dùng maintenance flock tạm của **chính member đã nâng trong danh sách** để tạo quiet window có hạn: chỉ chọn job `_sessions`, `_zalouser`, `_zalo_delivery` với `ai_on_failure=false`, exact container match trong registry, acquire nonblocking và không gián đoạn job đang chạy; thử lại acquisition trong cửa sổ nếu lock đang bận. Không giữ lock của target driver đang nâng. Luôn `finally` đóng handle, giới hạn từng quiet window tối đa 10 phút, không sửa cron/config hay stop Gateway. Theo dõi số lock đã lấy và resource gate; hết thời gian vẫn không an toàn thì dừng, không coi việc chờ là acceptance. Không áp dụng cho job `ai_on_failure=true` vì lock-busy có thể kích hoạt AI self-healing.
 
 Nếu member đã đúng target, runner dùng `--verify-only`: xác minh lại config/channel/PID ổn định và model, **không** cài lại hoặc restart. Report tổng hợp: `/root/Data/reports/openclaw-members-2026.10.6/<timestamp>/batch.json`. Lỗi mới phải dừng toàn bộ; sau xử lý nguyên nhân, dùng `--start-member <member-chưa-đạt>` để tiếp tục đúng suffix của thứ tự, không chạy lại thành viên đã đạt.
 
@@ -112,6 +116,35 @@ Probe healthy **không phải** kiểm thử nhắn tin hai chiều thật. Ch�
 Báo member, bản cũ/mới, Node, backup, Gateway, kênh và giới hạn kiểm thử. Cập nhật note member và `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`. Nếu sửa driver/đường dẫn/quy trình, cập nhật skill này và mục tương ứng trong skill `openclaw-member-upgrade-telegram-recovery`.
 
 ## Rerun và rollback
+
+### Host timeout không có nghĩa updater trong container đã dừng
+
+- Đã gặp Lê Việt Ngọc khi host quá tải: outer timeout cũ 1.200 giây giết Docker client nhưng updater remote tiếp tục `activating`. Không chạy updater mới, repair, config rewrite hoặc restart Gateway khi ledger/process chưa xác nhận đã kết thúc; không quy lỗi package chỉ từ config read/cleanup error trong cửa sổ migration.
+- Driver hiện dùng outer budget 2.400 giây cho toàn updater nhiều phase, giữ nguyên per-step `--timeout 600`. Nếu outer timeout vẫn xảy ra, driver dừng batch và **không** tự chạy config/recovery start; operator xem ledger read-only và process chính xác, tiếp tục giữ/khôi phục các maintenance locks chưa bận trong cửa sổ recovery có hạn.
+- Chờ đúng run chuyển `finished` và đọc status/steps trước khi sửa. Sau `succeeded`, kiểm tra version/config/migration, start đúng Gateway nếu hợp lệ, rồi verify-only nghiệm thu cùng member trước member tiếp theo. Timeout output có thể không được helper lưu; dùng SQLite ledger và report recovery riêng, không giả tạo receipt official CLI.
+
+### Nâng bản 7.1: legacy exec approvals và plugin convergence
+
+- Trên `nguyenvantieng`, updater 7.1 đã nâng package/Node nhưng post-update Doctor dừng do legacy `exec-approvals.json` khác canonical SQLite, plugin Codex chờ parent release install records, config còn `agents.list`. Không start Gateway khi config/state chưa hợp lệ; không xóa DB, ghi đè policy hoặc tự chọn policy quyền rộng hơn.
+- Đối chiếu raw SQLite policy bằng SHA-256 với snapshot pre-startup-migration updater tự tạo và lịch sử cấu hình đã được duyệt. Trường hợp đã kiểm chứng: SQLite agent main full/off/full/autoAllowSkills đã được duyệt 2026-09-24, giữ nguyên byte qua upgrade; legacy file defaults rỗng và usage entries không phải nguồn policy được duyệt mới.
+- Chỉ khi xác minh được policy có thẩm quyền, giữ nguyên SQLite; giữ legacy source bằng atomic rename sang tên `exec-approvals.json.conflict-retained-<incident>` trong cùng state root, không xóa hoặc in nội dung/socket token. Lưu hash trước và đối chiếu lại sau; đây là lưu bằng chứng xung đột, không tạo archive thủ công. Nếu chưa chứng minh được nguồn policy, dừng để hỏi owner, không bỏ migration gate.
+- Chạy official `openclaw update repair --no-restart --yes --json --timeout 600` sau khi updater parent thoát; không `--accept-capabilities` hoặc force. So config migration trước/sau và SQLite policy hash, validate/start Gateway, chạy verify-only acceptance đúng member rồi mới tiếp tục suffix fleet. Ghi rõ raw fingerprint đã migrate nếu có, không giả báo unchanged.
+
+### Fingerprint đổi do migration schema tương đương
+
+- Không vô hiệu hóa fingerprint check. Trên Thanh Thái 9.4 → 6.10, updater thành công nhưng guard dừng vì duy nhất `agents.entries.main.tts.enabled=true` bị bỏ trong khi `tts.auto="inbound"` đã tồn tại và giữ nguyên. Source 6.10 `migrateLegacyTtsEnabled` xác nhận bỏ legacy `enabled` khi `auto` đã được đặt; không đổi chính sách đọc giọng.
+- So fingerprint preflight với `openclaw.json.pre-update` hoặc `.last-good` do updater tự giữ, so diff **chỉ in key path, không in secret**. Chỉ khi xác minh toàn bộ khác biệt tương đương theo source chính thức, lưu `MIGRATION_REVIEW.json` chứa fingerprint/key path/nonsecret values và kết luận; không ghi `rawConfigPolicyUnchanged=true` cho lượt nâng này.
+- Không chạy broad doctor fix, khôi phục khóa schema đã loại bỏ, hay sửa model/routing để vượt guard. Rerun đúng member target với `--verify-only` qua runner, nghiệm thu đầy đủ trước khi sang member khác. Báo cáo tổng hợp phải dẫn cả receipt nâng/migration-review và receipt verify, phân biệt migration tương đương với raw fingerprint không đổi.
+
+### Lỗi timeout integrity của updater 9.4
+
+Đã xác nhận cùng source SHA-256 và cùng lỗi trên `qnvuong`, `thanhthai`, `trolyketoancatminh` trong batch 2026-10-24; mỗi member được chẩn đoán riêng trước khi áp dụng timeout-only patch.
+
+- Đã gặp trên `qnvuong` ngày 2026-10-24: mọi candidate check đạt nhưng `global install swap` dừng chính xác sau 30 giây với `Package rollback verification timed out`; package vẫn `2026.9.4`, không có swap/backup package đã kích hoạt, Gateway bản cũ phục hồi và probe khỏe. Không suy từ dòng `retained package tree changed` rằng package thực sự đã đổi: khi baseline scan timeout, baseline chưa được tạo nên recovery có thể phát thêm thông báo này.
+- Đọc đúng source updater của member, xác nhận `createPackageIntegrityReader` giới hạn `Math.min(MAX_SCAN_MS, timeoutMs)` và `const MAX_SCAN_MS = 3e4`. Bản 6.10 chính thức bỏ trần 30 giây, nhận budget per-step; không chép bundle 6.10 sang 9.4 hoặc bỏ integrity checks.
+- Chỉ khi chứng minh đúng lỗi trên, dùng `apply_patch` đổi duy nhất `const MAX_SCAN_MS = 3e4;` thành `const MAX_SCAN_MS = 6e5;` trong bundle updater 9.4 hiện hữu; ghi SHA-256 trước/sau, chạy `node --check`. Đây là tăng deadline lên 600 giây khớp `--timeout 600`, không bỏ hashing/metadata/rollback validation. Không sửa credential/config hoặc dùng npm force. User hiện miễn backup; ngoài lượt này vẫn backup trước sửa package.
+- Trên Qnvuong file là `/usr/lib/node_modules/openclaw/dist/update-runner-Bzy-GVSl.mjs`; không suy tên bundle cho member khác. Lệnh dry-run/apply/rerun và input/output vẫn như driver phía trên. Updater thành công sẽ thay cả package bằng 6.10 chính thức nên patch tạm không được replay vào target. Nếu chưa nâng được, ghi rõ trạng thái và hoàn nguyên đúng hằng số khi không còn cần recovery.
+- Khởi chạy lại **đúng member bị dừng**, vẫn qua preflight/model/probe/official updater/acceptance đầy đủ; không tiếp tục fleet khi member chưa đạt. Read-only cache warmup đã thử trên Qnvuong nhưng không giải quyết được trần 30 giây.
 
 - Updater có thể mất nhiều phút ở `validating` / `updater-runtime-retention` để giữ runtime cũ. Không khởi chạy updater thứ hai hoặc bỏ qua validation chỉ vì chưa thấy log mới. Có thể xem ledger chỉ đọc bằng lệnh sau (không in nội dung config/chat):
 

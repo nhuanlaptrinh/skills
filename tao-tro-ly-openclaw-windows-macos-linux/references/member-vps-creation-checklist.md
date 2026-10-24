@@ -22,8 +22,8 @@
 - [ ] Không lộ secret
 
 ## OpenClaw root và skills
-- [ ] OpenClaw pin `2026.9.4` đã cài bằng root trong container
-- [ ] Node.js trong container thỏa `>=24.16.0 <25` (hoặc `>=26.1.0`)
+- [ ] OpenClaw pin `2026.10.6` đã cài bằng root trong container
+- [ ] Node.js trong container thỏa `>=24.22.1 <25` (hoặc `>=26.12.1`)
 - [ ] `HOME=/root`, OpenClaw root `/root/.openclaw`, workspace `/root/.openclaw/workspace`
 - [ ] Không dùng `--skip-skills`
 - [ ] Toàn bộ folder có `SKILL.md` từ root nguồn đã nằm trực tiếp trong `/root/.openclaw/workspace/skills`
@@ -113,7 +113,7 @@
 - [ ] Tạo session `agent:main:telegram:group:<GROUP_ID>` và có outbound hoặc user xác nhận phản hồi
 
 ## Runtime
-- [ ] `openclaw --version` đúng `2026.9.4`
+- [ ] `openclaw --version` đúng `2026.10.6`
 - [ ] `ensure_default_telegram_owner.py --check` đạt sau khi Telegram account tồn tại và trước Full Exec
 - [ ] Member sạch đã chạy unify normalize-only dry-run/apply/check; member legacy đã chạy merge với đúng source agent
 - [ ] `unify-openclaw-bot-workspace --check` đạt trước Full Exec: một account, một `main`, một workspace, một agent state

@@ -130,6 +130,8 @@ endpoint mặc định `https://codex.anhlaptrinh.vn/v1` và image hiện hành.
 session, workspace cá nhân hoặc credential. Chỉ đổi image sau khi đã
 build/kiểm tra image versioned.
 
+Chính sách cài mới cập nhật ngày 2026-10-24: target phải là `openclaw@2026.10.6`, Node.js `>=24.22.1 <25 || >=26.12.1`, plugin Zalo nếu có cũng pin `2026.10.6`. Đoạn profile phía trên mô tả cấu hình cũ, không phải target mới. Trước khi tạo member, kiểm tra profile, pipeline core và kế hoạch dry-run thực tế; nếu vẫn pin `2026.9.4` hoặc Node không đạt engines thì dừng, báo cần cập nhật riêng profile/pipeline thay vì tạo member bản cũ. Cập nhật skill không tự sửa production profile, image, pipeline hoặc nâng runtime đang chạy.
+
 Factory CLI hỗ trợ thêm `--provider-base-url` và `--primary-model`; endpoint
 chỉ nhận HTTPS, còn API key vẫn phải đi qua file root-only mode `600`.
 

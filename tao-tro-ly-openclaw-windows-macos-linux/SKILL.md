@@ -18,7 +18,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 
 ## Chính sách root bắt buộc
 
-- Không được báo hoàn tất nếu chưa cài `openclaw@2026.9.4`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
+- Không được báo hoàn tất nếu chưa cài `openclaw@2026.10.6`, chưa tạo OpenClaw root hoặc chưa đồng bộ đủ skill.
 - Linux/VPS/container member bắt buộc chạy OpenClaw bằng `root`, `HOME=/root`, OpenClaw root `/root/.openclaw` và workspace `/root/.openclaw/workspace`.
 - Với member legacy đã có HOME/OpenClaw root khác và đã được xác minh bằng `docker inspect` cùng project note, giữ đúng đường dẫn persistent hiện hữu; không tự di chuyển về `/root` trong quy trình Zalo onboarding.
 - `/root/.openclaw` trong container phải là thư mục thật nằm trên volume persistent riêng của member; không dùng symlink sang home khác.
@@ -69,8 +69,8 @@ Việc áp dụng này chỉ lưu skill dưới `workspace/skills` và policy tr
 
 ### Mặc định chung
 
-- Luôn cài cố định `openclaw@2026.9.4`; không dùng `latest` và không tự đổi version. Sau khi cài phải xác nhận `openclaw --version` trả đúng `2026.9.4`.
-- Node.js phải thỏa `>=24.16.0 <25` (hoặc `>=26.1.0`); với Debian/Ubuntu ưu tiên NodeSource `24.x` thay vì gói Node cũ của distro.
+- Luôn cài cố định `openclaw@2026.10.6` (cập nhật ngày 2026-10-24); không dùng `latest` và không tự đổi version. Sau khi cài phải xác nhận `openclaw --version` trả đúng `2026.10.6`.
+- Node.js phải thỏa `>=24.22.1 <25` (hoặc `>=26.12.1`); với Debian/Ubuntu ưu tiên NodeSource `24.x` thay vì gói Node cũ của distro. Kiểm tra chỉ đọc bằng `npm view openclaw@2026.10.6 version engines --json`; nếu Node hiện có không đạt thì nâng Node trước khi cài, không bỏ qua engines.
 - Cài Node.js LTS, npm, Python 3 và pip trước khi cài OpenClaw.
 - Bắt buộc chạy bằng quyền root/Administrator và chuẩn bị đầy đủ root nguồn skill trước khi onboarding.
 - Dashboard local mặc định: `http://127.0.0.1:18789/`.
@@ -89,7 +89,7 @@ winget install --id Python.Python.3.12 --exact --accept-package-agreements --acc
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip
 node --version
-npm install -g openclaw@2026.9.4
+npm install --engine-strict -g openclaw@2026.10.6
 $SkillDir = (Get-Location).Path
 $OpenClawRoot = Join-Path $env:USERPROFILE ".openclaw"
 $Workspace = Join-Path $OpenClawRoot "workspace"
@@ -111,12 +111,13 @@ Nếu command chưa vào PATH sau khi cài, mở PowerShell mới rồi chạy l
 Chuẩn bị Node.js/Python bằng tài khoản quản trị, copy toàn bộ root nguồn skill vào `/var/root/.agents/skills` và `/var/root/.codex/skills`, rồi chuyển thư mục hiện hành vào folder skill này:
 
 ```bash
-brew install node python
+brew install node@24 python
+export PATH="$(brew --prefix node@24)/bin:$PATH"
 python3 -m ensurepip --upgrade || true
 python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip
 node --version
 SKILL_DIR="$(pwd -P)"
-sudo -H npm install -g openclaw@2026.9.4
+sudo -H npm install --engine-strict -g openclaw@2026.10.6
 sudo -H env HOME=/var/root openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /var/root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw
 sudo -H python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /var/root/.openclaw --check
@@ -143,7 +144,7 @@ apt-get install -y curl ca-certificates python3 python3-pip python3-venv
 curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt-get install -y nodejs
 node --version
-npm install -g openclaw@2026.9.4
+npm install --engine-strict -g openclaw@2026.10.6
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --install-daemon --skip-health --workspace /root/.openclaw/workspace --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw
 python3 "$SKILL_DIR/scripts/sync_all_skills_to_root.py" --openclaw-root /root/.openclaw --check
@@ -244,8 +245,8 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 4. Cấu hình Telegram/Zalo/provider/document tools theo phạm vi đầu vào; chạy owner setup, áp dụng/check `cap-quyen-telegram-admin-openclaw`, unify về `main` (legacy nhiều route phải unify trước rồi áp dụng lại owner), rồi bật Full Exec cho `main` theo đúng thứ tự trước khi bàn giao.
 5. Chỉ start Gateway sau các file check; sau khi Gateway lên, chạy lại Full Exec runtime check và channel probe.
 6. Nếu người dùng thực sự chỉ cần một container Linux không có OpenClaw, task đó không thuộc skill tạo trợ lý này; chuyển sang workflow quản lý container/VPS riêng và không báo đã tạo trợ lý.
-- OpenClaw phải luôn cài cố định `openclaw@2026.9.4`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
-- Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.9.4 engines --json`; version này yêu cầu Node `>=24.16.0 <25 || >=26.1.0`.
+- OpenClaw phải luôn cài cố định `openclaw@2026.10.6`; không dùng npm dist-tag `latest`, không nhận override version từ môi trường và không tự nâng cấp.
+- Trước khi cài, đọc `engines.node` bằng `npm view openclaw@2026.10.6 engines --json`; version này yêu cầu Node `>=24.22.1 <25 || >=26.12.1`.
 - Mọi member mới phải có `python3`, `python3-full`, `python3-venv`, `python3-pip`.
 - Mọi member mới phải có Poppler (`pdfinfo`, `pdftotext`), `file`, `unzip`, `zip`.
 - Mọi member mới phải có document venv tại `/root/.openclaw/tools/document-venv` với OpenPyXL, PyPDF, pdfplumber, PyMuPDF, Pillow, XlsxWriter và pandas.
@@ -567,7 +568,7 @@ docker exec -e HOME=/root user-<ten_user> sh -lc '
   command -v node
   command -v npm
   command -v python3
-  npm install -g openclaw@2026.9.4
+  npm install --engine-strict -g openclaw@2026.10.6
   openclaw --version
 '
 
@@ -1007,15 +1008,15 @@ chmod 600 "$BACKUP_DIR/openclaw_before.tar.gz"
 
 ### Cài plugin Zalo đúng version
 
-Với OpenClaw pin `2026.9.4`:
+Với OpenClaw pin `2026.10.6`:
 
 ```bash
 docker exec -e HOME=/root user-<ten_user> \
-  openclaw plugins install --pin '@openclaw/zalouser@2026.9.4'
+  openclaw plugins install --pin '@openclaw/zalouser@2026.10.6'
 docker exec -e HOME=/root user-<ten_user> openclaw config validate
 ```
 
-Trước khi cài plugin, chạy `npm view @openclaw/zalouser@2026.9.4 peerDependencies --json` và xác nhận core `2026.9.4` đáp ứng peer dependency `openclaw >=2026.9.4`.
+Trước khi cài plugin, chạy `npm view @openclaw/zalouser@2026.10.6 peerDependencies --json` và xác nhận core `2026.10.6` đáp ứng peer dependency `openclaw >=2026.10.6`. Không nâng core/plugin của runtime đang chạy chỉ vì cập nhật skill; phải có yêu cầu triển khai riêng.
 
 ### Gửi QR mới trực tiếp vào Telegram allowlist
 

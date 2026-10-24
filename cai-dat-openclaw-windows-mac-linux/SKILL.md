@@ -15,8 +15,9 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 ## Defaults
 
 - Dashboard URL must always be `http://127.0.0.1:18789/`.
-- OpenClaw CLI must always be installed as fixed `openclaw@2026.7.1-2`.
-- Do not use `latest` or automatically change versions. Verify the Node engine with `npm view openclaw@2026.7.1-2 engines --json`, then confirm `openclaw --version` returns `2026.7.1-2`.
+- OpenClaw CLI must always be installed as fixed `openclaw@2026.10.6` (policy updated 2026-10-24).
+- Do not use `latest` or automatically change versions. Verify the Node engine with `npm view openclaw@2026.10.6 engines --json`, then confirm `openclaw --version` returns `2026.10.6`.
+- Node.js must satisfy `>=24.22.1 <25 || >=26.12.1`. Prefer Node.js `24.x`; do not accept an older installed Node merely because `node` and `npm` exist. The scripts stop before OpenClaw installation/configuration if Node is unsupported and verify the installed OpenClaw version before onboarding.
 - Do not use a floating latest tag or any other OpenClaw version unless the user explicitly names that version in the current request.
 - Gateway port must default to `18789`.
 - Gateway bind must default to `loopback` so only the local computer can connect.
@@ -36,7 +37,7 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 ## Workflow
 
 1. Detect the operating system first.
-2. Always use the fixed OpenClaw version `2026.7.1-2`.
+2. Always use the fixed OpenClaw version `2026.10.6`.
 3. On Windows, prefer `scripts/install_openclaw_windows.ps1`.
 4. On macOS/MacBook, prefer `scripts/install_openclaw_macos.sh`.
 5. On Linux, prefer `scripts/install_openclaw_linux.sh`.
@@ -50,6 +51,7 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 - Windows: truyền `-Model GPT-6-terra`, `-Model GPT-6-luna` hoặc model được phép khác. Giá trị ngoài danh sách phải bị từ chối trước khi cài đặt.
 - Installer đăng ký đúng bốn model vào provider `token-codex`; không tự bật provider khác từ key trong môi trường. Tham số Windows `-SkipDeepSeek` cũ chỉ còn được chấp nhận để tương thích, không bật DeepSeek khi bỏ tham số này.
 - Các installer chưa có dry-run đầy đủ. Không chạy installer chỉ để xem kế hoạch: dùng `bash -n scripts/install_openclaw_linux.sh` hoặc `bash -n scripts/install_openclaw_macos.sh` để kiểm tra cú pháp. Trên Windows, kiểm tra script bằng PowerShell parser trước khi chạy thật.
+- Kiểm tra chỉ đọc: `node --version` và `npm view openclaw@2026.10.6 version engines --json`. Nếu Node hiện có không đạt engines thì nâng Node trước rồi rerun; không dùng `--force` để bỏ qua yêu cầu. Linux Debian/Ubuntu cài Node mới qua NodeSource `24.x`, macOS dùng Homebrew `node@24`, Windows dùng Node.js LTS đạt engines.
 - Trước khi chạy thật trên máy đã có config, backup các file liên quan, kiểm tra model đích trong `/v1/models` bằng key trong bộ nhớ và không in credential.
 - Input: API key qua môi trường, model và hệ điều hành. Output: config local tại `~/.openclaw/openclaw.json`, tùy chọn đăng nhập Codex trong `~/.codex/config.toml`, và log trạng thái; không ghi Google Sheet, upload hoặc gửi tin nhắn.
 - Rerun bằng cùng installer và model sau khi backup; nếu lỗi thì khôi phục đúng config đã backup rồi validate trước khi restart.
@@ -209,7 +211,7 @@ winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --acce
 winget install --id Python.Python.3.12 --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip
-npm install -g openclaw@2026.7.1-2
+npm install --engine-strict -g openclaw@2026.10.6
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart
@@ -222,10 +224,11 @@ Use these macOS commands only when the bundled shell script cannot run:
 if ! command -v brew >/dev/null 2>&1; then
   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
-brew install node python
+brew install node@24 python
+export PATH="$(brew --prefix node@24)/bin:$PATH"
 python3 -m ensurepip --upgrade || true
 python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip
-npm install -g openclaw@2026.7.1-2
+npm install --engine-strict -g openclaw@2026.10.6
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart
@@ -236,8 +239,10 @@ Use these Linux commands only when the bundled shell script cannot run:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y curl ca-certificates python3 python3-pip nodejs npm
-sudo npm install -g openclaw@2026.7.1-2
+sudo apt-get install -y curl ca-certificates python3 python3-pip
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt-get install -y nodejs
+sudo npm install --engine-strict -g openclaw@2026.10.6
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart

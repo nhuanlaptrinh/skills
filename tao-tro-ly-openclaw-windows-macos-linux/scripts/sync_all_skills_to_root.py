@@ -6,6 +6,7 @@ import ctypes
 import hashlib
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -23,7 +24,7 @@ IGNORED_NAMES = {
     "node_modules",
 }
 IGNORED_SUFFIXES = {".pyc", ".pyo"}
-EXPECTED_OPENCLAW_VERSION = "2026.9.4"
+EXPECTED_OPENCLAW_VERSION = "2026.10.6"
 
 
 def is_admin() -> bool:
@@ -205,7 +206,8 @@ def main() -> int:
         capture_output=True,
         text=True,
     ).stdout
-    if EXPECTED_OPENCLAW_VERSION not in version:
+    version_pattern = rf"(?<![\w.+-]){re.escape(EXPECTED_OPENCLAW_VERSION)}(?![\w.+-])"
+    if not re.search(version_pattern, version):
         raise RuntimeError(f"OpenClaw phải đúng version {EXPECTED_OPENCLAW_VERSION}")
     openclaw_root = (args.openclaw_root or default_openclaw_root()).resolve()
     source_roots = [path.resolve() for path in args.source] or default_sources(openclaw_root)

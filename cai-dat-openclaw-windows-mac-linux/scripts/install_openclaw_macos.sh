@@ -5,7 +5,7 @@ TOKEN="${TOKEN:-chatbot}"
 PORT="${PORT:-18789}"
 BIND="${BIND:-loopback}"
 SKIP_CODEX="${SKIP_CODEX:-0}"
-OPENCLAW_VERSION="2026.7.1-2"
+OPENCLAW_VERSION="2026.10.6"
 DASHBOARD_URL="http://127.0.0.1:${PORT}/"
 TOKEN_CODEX_BASE_URL="https://codex.anhlaptrinh.vn/v1"
 TOKEN_CODEX_MODEL_ID="${TOKEN_CODEX_MODEL_ID:-GPT-6.1-sol}"
@@ -61,9 +61,22 @@ ensure_node() {
   fi
 
   step "Installing Node.js"
-  brew install node
+  brew install node@24
+  export PATH="$(brew --prefix node@24)/bin:$PATH"
   echo "Node installed: $(node -v)"
   echo "npm installed: $(npm -v)"
+}
+
+require_supported_node() {
+  node -e '
+const [major, minor, patch] = process.versions.node.split(".").map(Number);
+const supported = (major === 24 && (minor > 22 || (minor === 22 && patch >= 1))) ||
+  major > 26 || (major === 26 && (minor > 12 || (minor === 12 && patch >= 1)));
+if (!supported) {
+  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.10.6 requires >=24.22.1 <25 || >=26.12.1. Install a supported Node.js release, then rerun.`);
+  process.exit(1);
+}
+'
 }
 
 ensure_python_pip() {
@@ -81,8 +94,15 @@ ensure_python_pip() {
 
 ensure_openclaw() {
   step "Installing OpenClaw CLI ${OPENCLAW_VERSION}"
-  npm install -g "openclaw@${OPENCLAW_VERSION}"
-  openclaw --version
+  npm install --engine-strict -g "openclaw@${OPENCLAW_VERSION}"
+  local installed_version
+  local version_pattern="(^|[[:space:]])${OPENCLAW_VERSION//./\\.}([[:space:]]|$)"
+  installed_version="$(openclaw --version)"
+  printf '%s\n' "$installed_version"
+  if [[ ! "$installed_version" =~ $version_pattern ]]; then
+    echo "Expected OpenClaw ${OPENCLAW_VERSION}; stopping before configuration." >&2
+    exit 1
+  fi
 }
 
 configure_codex_chatgpt_login_preference() {
@@ -222,6 +242,7 @@ echo "OpenClaw version will be: ${OPENCLAW_VERSION}"
 ensure_macos
 ensure_homebrew
 ensure_node
+require_supported_node
 ensure_python_pip
 ensure_openclaw
 configure_codex_chatgpt_login_preference
