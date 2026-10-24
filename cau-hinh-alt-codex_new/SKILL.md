@@ -5,11 +5,18 @@ description: Cài đặt Codex Extension trong Antigravity qua ALT/9Router với
 
 # Cấu Hình Codex Qua ALT Gateway Đa Nền Tảng
 
+## Base URL Bắt Buộc — 2026-10-24
+
+- Luôn sử dụng duy nhất `https://codex.anhlaptrinh.vn/v1` cho provider ALT được cấu hình bằng skill này, trên mọi hệ điều hành và trong Codex Extension, Codex CLI hoặc OpenClaw thuộc phạm vi yêu cầu. Đây là giá trị bắt buộc, không chỉ là mặc định: Codex dùng `base_url`, OpenClaw dùng `baseUrl`.
+- Không lấy base URL khác từ cấu hình cũ, biến môi trường hay bộ file mẫu; không tự chuyển sang domain, IP, localhost hoặc gateway dự phòng khác. Giữ tên/prefix provider hiện có không có nghĩa là giữ endpoint cũ; không sửa provider ngoài phạm vi yêu cầu.
+- Trước khi chạy script cài đặt/đồng bộ hoặc gửi request, xác nhận base URL của provider đích đúng giá trị trên. Kiểm tra model tại `https://codex.anhlaptrinh.vn/v1/models`, kiểm tra Responses tại `https://codex.anhlaptrinh.vn/v1/responses`; không ghép lặp `/v1`. Nếu gateway lỗi, dừng và báo nguyên nhân, không tự đổi base URL.
+- Nếu chỉ được yêu cầu đổi model mà base URL hiện tại khác giá trị bắt buộc, dừng và báo cần được yêu cầu sửa endpoint trước; không âm thầm đổi endpoint hoặc tiếp tục dùng URL khác. Nếu chỉ cập nhật skill, không áp dụng quy tắc này vào runtime/config đang chạy.
+
 ## Chính sách model — 2026-10-19
 
 - Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
-- Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
+- Trước khi apply, xác minh model đích tại `https://codex.anhlaptrinh.vn/v1/models`; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
 
 ## Mục Tiêu
@@ -63,7 +70,7 @@ Sau copy, kiểm tra lại `auth.json` đích có `OPENAI_API_KEY` không rỗng
 
 ## Checklist Bắt Buộc Trước Khi Báo Hoàn Tất
 
-- [ ] `config.toml` đích có đúng custom provider đang được chọn, `wire_api = "responses"` và `requires_openai_auth = true` trong cùng block `[model_providers.<provider>]`.
+- [ ] `config.toml` đích có đúng custom provider đang được chọn, `base_url = "https://codex.anhlaptrinh.vn/v1"`, `wire_api = "responses"` và `requires_openai_auth = true` trong cùng block `[model_providers.<provider>]`; nếu có cấu hình OpenClaw trong phạm vi yêu cầu thì provider ALT đích cũng có `baseUrl` đúng URL này.
 - [ ] `preferred_auth_method = "apikey"`, `cli_auth_credentials_store = "file"`, và `auth.json` trong đúng `CODEX_HOME` có `OPENAI_API_KEY` không rỗng; chỉ báo trạng thái `present/missing`, không in giá trị.
 - [ ] `scripts/install_extension_config.py` chạy đạt mà không dùng `--skip-gateway-check`; cả `/models` và kiểm tra auth `/responses` đều không trả `401`.
 - [ ] Đã thoát hoàn toàn Antigravity/Codex app-server cũ hoặc dừng đúng PID đã xác minh, sau đó mở lại để nạp config mới; không dùng `pkill -f codex` mặc định.
@@ -112,7 +119,7 @@ Nếu người dùng yêu cầu bất kỳ model nào ngoài bốn model trên, 
 - `GPT-6-astra`: model reasoning cao cấp cho workflow cần suy luận sâu; chỉ chọn khi người dùng yêu cầu hoặc cấu hình hiện tại đã dùng model này.
 - Codex ghi model theo đúng tên chính thức trong danh sách bốn model được hỗ trợ.
 - OpenClaw dùng provider/model dạng `<provider-hien-tai>/<model-id>`. Prefix provider có thể là `9r`, `9k`, `8r`, `8k` hoặc tên khác; phải đọc cấu hình hiện tại, không được hardcode.
-- Khi cài mới, sửa provider hoặc đồng bộ VPS/OpenClaw, xác minh model xuất hiện trong endpoint `/v1/models` của gateway đang dùng. Riêng yêu cầu chỉ đổi model trên máy tính thì không test gateway trừ khi người dùng yêu cầu.
+- Khi cài mới, sửa provider hoặc đồng bộ VPS/OpenClaw, xác minh model xuất hiện tại `https://codex.anhlaptrinh.vn/v1/models`. Riêng yêu cầu chỉ đổi model trên máy tính thì không test gateway trừ khi người dùng yêu cầu, nhưng vẫn phải xác nhận base URL trong config đúng quy tắc bắt buộc.
 - Tên model cũ chỉ còn trong logic nhận diện cấu hình cần migrate của script; không được chấp nhận làm đầu vào `--model` hoặc lựa chọn mới. Khi `--all-agents`, giữ nguyên agent không dùng model thuộc phạm vi quản lý.
 
 ## Chỉ Đổi Model Trên Máy Tính
@@ -120,7 +127,7 @@ Nếu người dùng yêu cầu bất kỳ model nào ngoài bốn model trên, 
 Áp dụng workflow này khi người dùng chỉ yêu cầu đổi model Codex trên máy tính, ví dụ “đổi sang GPT-6-terra”, mà không yêu cầu đồng bộ VPS, đổi OpenClaw, copy bộ file mẫu, đổi API key hoặc kiểm tra gateway. Khi cài mới bằng bộ file mẫu mà không chỉ định model, luôn dùng `GPT-6.1-sol`.
 
 1. Chuẩn hóa model theo mục **Model Được Hỗ Trợ**. Nếu model không nằm trong bốn model được hỗ trợ, dừng trước khi sửa file.
-2. Resolve `config.toml` của user hiện tại bằng `$CODEX_HOME` hoặc thư mục `.codex` trong home; không dùng file `config.toml` nằm cạnh `SKILL.md` nếu người dùng không yêu cầu copy bộ file mẫu.
+2. Resolve `config.toml` của user hiện tại bằng `$CODEX_HOME` hoặc thư mục `.codex` trong home; không dùng file `config.toml` nằm cạnh `SKILL.md` nếu người dùng không yêu cầu copy bộ file mẫu. Xác nhận provider đang chọn có `base_url = "https://codex.anhlaptrinh.vn/v1"`; nếu khác hoặc thiếu thì dừng, báo cần sửa endpoint và không tự mở rộng phạm vi thay đổi.
 3. Backup `config.toml` hiện tại với timestamp trước khi ghi nếu file đã tồn tại.
 4. Chỉ cập nhật khóa top-level `model` thành tên chính thức `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra`; giữ nguyên `model_provider`, `model_reasoning_effort`, `[model_providers.*]`, `[projects.*]`, MCP và mọi cấu hình khác.
 5. Không đọc/sửa `auth.json`, không copy file, không sửa OpenClaw, không restart gateway/Antigravity và không test `/v1/models` trừ khi người dùng yêu cầu riêng.
@@ -314,7 +321,7 @@ Sau khi chạy, xác nhận script báo `OPENAI_API_KEY: present`, gateway HTTP 
 ## Workflow Chuẩn
 
 1. Kiểm tra phạm vi yêu cầu. Nếu người dùng chỉ yêu cầu cập nhật skill, sửa và xác thực skill rồi dừng, không áp dụng cấu hình. Nếu họ chỉ yêu cầu đổi model trên máy tính, thực hiện mục **Chỉ Đổi Model Trên Máy Tính** rồi dừng, không chạy workflow copy/đồng bộ phía dưới.
-2. Khi được yêu cầu áp dụng, xác định hệ điều hành, tài khoản đích, profile đích và việc user hiện tại có dùng `CODEX_HOME` hay không.
+2. Khi được yêu cầu áp dụng, xác định hệ điều hành, tài khoản đích, profile đích và việc user hiện tại có dùng `CODEX_HOME` hay không; luôn cấu hình provider ALT đích dùng base URL `https://codex.anhlaptrinh.vn/v1` trước khi chạy script hoặc kiểm tra gateway.
 3. Kiểm tra Codex Extension/Codex CLI đã được cài. Không tự cài extension nếu chưa biết đúng extension ID hoặc nguồn cài đặt.
 4. Nếu người dùng yêu cầu dùng bộ file đi kèm skill, làm theo mục **Sao Chép Bộ File Mẫu** và copy đúng `auth.json`, `config.toml`.
 5. Xác định đường dẫn user config và tạo thư mục `.codex` nếu chưa có.
@@ -443,7 +450,7 @@ Nếu file đã có nhiều cấu hình, không thay toàn bộ file bằng mộ
 - Chuẩn hóa cách viết của người dùng về `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra`; không ghi model khác, tên chữ thường hoặc tên có khoảng trắng vào config.
 - Đảm bảo `model_reasoning_effort = "medium"`, trừ khi người dùng yêu cầu mức khác.
 - Đảm bảo `preferred_auth_method = "apikey"` và `cli_auth_credentials_store = "file"` để Extension/app-server đọc `auth.json` trong đúng `CODEX_HOME`.
-- Tạo hoặc cập nhật `[model_providers.router]` với `name`, `base_url`, `wire_api = "responses"` và `requires_openai_auth = true`; chỉ thêm `env_key = "OPENAI_API_KEY"` khi người dùng chọn workflow biến môi trường CLI, không thêm để thay thế `auth.json` của Extension.
+- Tạo hoặc cập nhật `[model_providers.router]` với `name`, `base_url = "https://codex.anhlaptrinh.vn/v1"`, `wire_api = "responses"` và `requires_openai_auth = true`; chỉ thêm `env_key = "OPENAI_API_KEY"` khi người dùng chọn workflow biến môi trường CLI, không thêm để thay thế `auth.json` của Extension.
 - Giữ nguyên mọi bảng `[projects."..."]`, MCP và cấu hình khác.
 
 ## Xử Lý Lỗi
@@ -516,6 +523,7 @@ Extension có thể chạy trong môi trường GUI khác terminal. Kiểm tra b
 File cấu hình: <đường dẫn config.toml>.
 Model: <GPT-6.1-sol|GPT-6-terra|GPT-6-luna|GPT-6-astra>.
 Provider auth: requires_openai_auth=true.
+Base URL: https://codex.anhlaptrinh.vn/v1.
 API key được lưu trong `auth.json` dưới khóa `OPENAI_API_KEY`, không ghi vào config hoặc báo cáo.
 Kiểm tra gateway: HTTP <mã>.
 Kiểm thử Codex thực tế: `codex exec` thành công, `/v1/responses` HTTP 200.

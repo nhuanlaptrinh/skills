@@ -7,6 +7,12 @@ description: Safely upgrade OpenClaw inside a Docker member VPS and recover Tele
 
 Upgrade one member container without crossing into other members, then verify the complete Telegram inbound-to-outbound path. Prefer the official updater; use a forced npm reinstall only when package integrity is proven broken.
 
+For a new upgrade approved on/after 2026-10-24 to stable **6.10 (`2026.10.6`)**,
+read `/root/.agents/skills/nang-openclaw-member-6-10/SKILL.md` and use
+`/root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_10_6.py`.
+The September command examples below are historical recovery recipes, not the
+current target. Never interpret 6.10 as `2026.6.10`.
+
 ## Inputs and outputs
 
 Resolve these values from Docker metadata and OpenClaw config. Do not guess them:
@@ -21,13 +27,13 @@ export DATA_DIR="/root/Apps/member_vps/docker-users/data/${MEMBER}"
 export BACKUP_ROOT="/root/_Backups/openclaw-member-upgrade-telegram-recovery/${MEMBER}"
 ```
 
-Current approved target for this VPS is OpenClaw `2026.9.5` (05.09), with
-Node.js `>=24.16.0 <25` (or `>=26.1.0`). Do not resolve an unpinned
+Current approved target for this VPS is OpenClaw `2026.10.6` (06.10), with
+Node.js `>=24.22.1 <25` (or `>=26.12.1`). Do not resolve an unpinned
 `latest` tag during a production run.
 
 Expected outputs:
 
-- OpenClaw exactly at the approved target `2026.9.5` inside the target container.
+- OpenClaw exactly at the approved target `2026.10.6` inside the target container.
 - Legacy sessions and workspace state migrated to the current format when required.
 - Exactly one Gateway owned by Supervisor and configured to autorestart.
 - The target Telegram account `running`, `connected`, and able to complete a real reply.
@@ -310,6 +316,19 @@ The reviewed host driver is `/root/Automation/openclaw/member_sequential_upgrade
 
 ## Fleet upgrade pinned to 05.09 (2026.9.5)
 
+Historical target; new 06.10 upgrades use the section below.
+
 - Driver: `/root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_9_5.py`. It is the 03.09 reviewed driver retargeted explicitly to `2026.9.5`, retaining one-member lock, root-only backups, Node 24.20.0 staging, Supervisor/Gateway singleton checks, Telegram/Zalo probes, and no-delivery model smoke.
 - Dry-run: `python3 /root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_9_5.py <member> --home <runtime-home>`; apply adds `--apply`; use `--repair-manager` only for members whose Supervisor RPC is absent and whose project note permits a controlled container restart.
 - Backups and sanitized SUCCESS reports are under `/root/_Backups/openclaw-members-2026.9.5/<member>/`. Never send unsolicited Telegram/Zalo messages; transport probes do not claim real reply success.
+
+## Member upgrade pinned to 06.10 (2026.10.6)
+
+- Authorized October 24 batch: the 13-member ordered list is encoded in `run_2026_10_6.py`. User explicitly waived manual backups; use `--no-backup` only under that authorization. Official updater retention is unchanged. Runner gates host memory/disk/load, validates each member before a 30-second cooldown, and stops on any new failure. Already-current members use `--verify-only` without restart/reinstall. Read the 6.10 skill for baseline-only unlinked-Zalo/auth-quota exceptions and truthful acceptance reporting.
+
+- Step-by-step global skill: `/root/.agents/skills/nang-openclaw-member-6-10/SKILL.md`.
+- Driver: `/root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_10_6.py`; depends on the adjacent `upgrade_2026_9_9.py` helper, but uses the official pinned updater rather than unconditional npm reinstall.
+- Dry-run: `python3 /root/Automation/openclaw/member_sequential_upgrade/upgrade_2026_10_6.py <member> --home <runtime-home>`; apply adds `--apply`. Dry-run does not repair/restart an unhealthy Gateway.
+- Node engines: `>=24.22.1 <25 || >=26.12.1`; incompatible Node is upgraded to official `24.22.1` after SHA-256 verification and a stopped-Gateway backup. No automatic capability acceptance, broad doctor fix, session deletion or routing/model edits.
+- Backups: `/root/_Backups/openclaw-members-2026.10.6/<member>/<timestamp>/`; requires config-policy fingerprint unchanged, singleton Gateway/PID stability, all configured account probes, no-delivery model smoke and new-log checks before `SUCCESS.json`.
+- In-container updates survive restart, not guaranteed recreate from the old image. No compose/image/fleet changes are implied; review member-specific Zalo/core patches before applying beyond the Telegram-only Minh Vuong case.

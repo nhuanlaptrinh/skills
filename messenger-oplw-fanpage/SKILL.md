@@ -2,6 +2,34 @@
 
 Use when operating, checking, starting, or updating the Facebook Messenger auto-reply bot for the OPLW course Fanpage.
 
+## Current Operational State — Paused
+
+- On `2026-10-20 08:17 UTC`, the owner requested a temporary stop of all automatic replies for this project.
+- `01_mes_op_oplw.service` is stopped and disabled. Do not start, enable, or restart it unless the owner explicitly requests resuming replies.
+- This pauses the entire OPLW webhook backend, including conversation-history processing. Incoming webhook forwarding to port `8812` fails while paused; Meta may retry delivery. Other Messenger services and the shared dispatcher remain untouched.
+- Backup of the original unit, previous service state, skill, and project note: `/root/_Backups/pause_messenger_oplw_20261020T081729Z/`.
+
+Read-only status check:
+
+```bash
+systemctl show 01_mes_op_oplw.service --property=ActiveState,SubState,UnitFileState,MainPID
+ss -ltnp '( sport = :8812 )'
+```
+
+Pause again if explicitly requested:
+
+```bash
+systemctl disable --now 01_mes_op_oplw.service
+```
+
+Resume only after an explicit owner request; this immediately allows real Messenger replies and restores startup on boot:
+
+```bash
+systemctl enable --now 01_mes_op_oplw.service
+systemctl show 01_mes_op_oplw.service --property=ActiveState,SubState,UnitFileState,MainPID
+curl --fail --silent --show-error http://127.0.0.1:8812/health
+```
+
 ## Project
 
 - Project path: `/root/Automation/facebook/01_Mess_Fanpage/01_mes_op_oplw`
