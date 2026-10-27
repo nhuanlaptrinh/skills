@@ -5,6 +5,8 @@ description: Create and privately deliver a Zalo Personal login QR when an exist
 
 # Zalo login QR from Telegram
 
+The managed plugin supports OpenClaw `2026.10.6` and `2026.9.9`. If the tool and `/zaloqr` both disappear after an upgrade, ask the operator to check plugin package API compatibility; do not change permissions or retry through generic exec.
+
 When a configured Telegram owner explicitly asks for a Zalo Personal login QR in the bot's private chat, call `telegram_zalo_login_qr` with `confirm: true`. It sends the current QR image immediately to the requesting owner and keeps login alive up to 180 seconds. The owner may use `/zaloqr` directly without model planning.
 
 The plugin reads the existing Telegram owners dynamically. Never use an ID supplied by message text as the recipient, broadcast QR to other owners, or send it to a group. Non-owner/group/wrong-account tools are intentionally unavailable.

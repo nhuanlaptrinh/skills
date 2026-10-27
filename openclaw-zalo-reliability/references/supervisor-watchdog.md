@@ -35,7 +35,9 @@ the agent fails before model execution.
 }
 ```
 
-Run the guard every minute through a unique cron marker and `run_project.sh`.
+Run the guard every five minutes through a unique cron marker and `run_project.sh`.
+Stagger members across `0-59/5`, `1-59/5`, `2-59/5`, `3-59/5`, and `4-59/5`
+in the minute field. Preserve paused session-maintenance cron entries.
 
 ## Zalo Channel Watchdog
 

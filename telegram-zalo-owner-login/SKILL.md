@@ -5,7 +5,13 @@ description: Install, upgrade or verify a member-local OpenClaw tool and /zaloqr
 
 # Telegram owners → Zalo login QR
 
-Generic exec in tested OpenClaw `2026.9.9` rejects interactive `channels login` even with full approvals. Install the declared, owner-gated channel-specific tool instead; do not patch the core guard or hide the command in an exec wrapper.
+Supports OpenClaw `2026.10.6` and the previously tested `2026.9.9`. Generic exec rejects interactive `channels login` even with full approvals. Install the declared, owner-gated channel-specific tool instead; do not patch the core guard or hide the command in an exec wrapper.
+
+## Native Windows/macOS/Linux
+
+For a selected native instance, use `scripts/deploy-native.py` and read
+`references/native-install.md`. The asset preserves the selected Node/CLI entry
+and Windows process handling; do not run the Docker/Supervisor helper on native machines.
 
 ## Deploy on a selected member
 
@@ -19,7 +25,9 @@ python3 scripts/deploy.py --member MEMBER --apply
 python3 scripts/deploy.py --member MEMBER --check
 ```
 
-For a different layout, supply `--container`, `--openclaw-root`, `--runtime-home`, `--runtime-root`, `--agent`, `--telegram-account` and `--zalo-account` explicitly. Host/runtime roots must map through the selected container's actual mounts. The helper supports Linux Docker + Supervisor, tested core `2026.9.9` or `2026.10.6`, and a workspace inside that runtime state root; it stops before changing unsupported targets. The generated plugin declares the selected tested release in its API/minimum-Gateway metadata; do not copy core/plugin bundles between releases.
+For a different layout, supply `--container`, `--openclaw-root`, `--runtime-home`, `--runtime-root`, `--agent`, `--telegram-account` and `--zalo-account` explicitly. Host/runtime roots must map through the selected container's actual mounts. The helper supports Linux Docker + Supervisor, the two tested stable core releases above, and a workspace inside that runtime state root; it stops before changing unsupported targets. Preserve a Node runtime satisfying the selected core's installed `package.json` engines; this helper does not upgrade Node or OpenClaw.
+
+Plugin package `1.2.0` declares the bounded API range `>=2026.9.9 <=2026.10.6`, not an exact `2026.9.9` pin or an unbounded future-version promise. The old pin makes OpenClaw `2026.10.6` skip the plugin, removing both the tool and `/zaloqr`. `--check` now rejects stale package metadata as well as stale payload/settings. Existing deployments are not updated by editing this host skill; use the selected-target deployment flow only when authorized. Keep the legacy plugin ID when present.
 
 The installed routing SDK must resolve both selected accounts to the canonical agent. An existing default-agent fallback is supported without adding bindings; conflicting account/channel bindings still stop deployment. Select the configured Telegram account explicitly when an empty `default` account also exists. Never change routing or owners merely to pass preflight.
 
@@ -55,7 +63,7 @@ The helper reports but tolerates the exact existing `duckduckgo` provenance-only
 
 Backups are recorded by the helper under `/root/_Backups/telegram-zalo-owner-login/`. On deployment failure it restores its affected files/config/native snapshot while the Gateway is stopped, then restores the previous running state. Review the private backup if rollback itself fails. Update the target project note and change journal without IDs or secrets.
 
-The source asset `assets/index.mjs` and helper are portable to another Docker VPS host. Do not rollout elsewhere without a selected target and owner authorization. Revalidate SDK/CLI before supporting a different core release.
+The source asset `assets/index.mjs` and helper are portable to another Docker VPS host. Do not rollout elsewhere without a selected target and owner authorization. Revalidate SDK/CLI before supporting a different core release or prerelease/correction suffix. Offline helper regressions run with `python3 -m unittest discover -s scripts -p 'test_*.py' -v`; they do not log in, send messages or change a live member.
 
 ## Inputs, outputs and reruns
 
@@ -70,3 +78,12 @@ The source asset `assets/index.mjs` and helper are portable to another Docker VP
 On `2026-10-24`, deployed to `user-nndungct` on `2026.9.9` using legacy HOME `/home/nndungct`, Telegram account `nndungct`, Zalo account `default` and canonical agent `main`. The native `/zaloqr` appeared in the Telegram bot menu; payload/config/plugin checks, owner/non-owner/group/wrong-account authorization checks and Telegram probe passed. Existing owners, credentials, routing and other containers were unchanged. Installation did not generate a QR or log Zalo in; the owner must request `/zaloqr` and scan it.
 
 Before applying to `2026.10.6`, the installed CLI login options, QR-image output contract, native owner-command context, version-2 tool authority and SDK routing were inspected in that release. Run the same deployment/check/channel acceptance for the selected member; these checks never authorize an automatic login or a broader rollout. Other releases and prereleases remain blocked.
+
+## Lỗi đã gặp / Checklist
+
+- Sự cố `/zaloqr` ngày 26/10/2026: `package.json` phải dùng `pluginApi` range, không pin exact `2026.9.9`. Bundle hiện kiểm thử `>=2026.9.9 <=2026.10.6`; kiểm tra core thực tế trước khi nới giới hạn. Giữ plugin ID legacy, không đăng ký trùng tool/command.
+- Parser receipt phải lấy từng dòng/khối JSON độc lập bằng `matchAll`, chịu được log thừa trước/sau (kể cả `[state/agent-db] ... clean-close receipt`); vẫn kiểm tra đúng owner/chat, `ok` và message ID. Timeout delivery `60000` ms; không parse toàn bộ phần stdout còn lại bằng `JSON.parse`.
+- Khi CLI gửi ảnh đã exit 0 nhưng chỉ đọc receipt lỗi, giữ login sống đến khi hoàn tất/hết hạn (tối đa 180 giây), không để `finally` stop sớm. Báo delivery chưa xác minh (`qrSent: null`), không tự gửi lại hoặc báo giao ảnh/đăng nhập thành công.
+- Trước cài: chạy `node --test scripts/test_receipt.mjs` và `python3 -B scripts/test_deploy.py` trong skill `telegram-zalo-owner-login` (offline, không tạo QR/gửi tin). Sau cài: `openclaw plugins list --json` và `openclaw plugins inspect <id> --runtime --json` phải thấy `loaded`, tool `telegram_zalo_login_qr` và command `zaloqr`; có config/doctor sạch không đủ chứng minh plugin load.
+- Khi được phép apply runtime, backup từng file `<file>.bak-<timestamp>`, giữ watchdog lock đúng member rồi `openclaw plugins reload <id> --json`; `restartRequired=false` thì KHÔNG restart. Nếu `true` hoặc reload lỗi, dừng và hỏi owner, không tự restart gateway/container/service. Sửa kho skill/template không đồng nghĩa đã reload member; không chạy helper `--apply` có stop/start khi task cấm restart.
+- Probe `zalouser` mỗi **30 phút**, lệch phút giữa member; không tự đổi cron production. Không logout, tạo/gửi QR hay gửi tin Telegram/Zalo trong lượt sửa/kiểm thử offline; live test chỉ khi owner yêu cầu riêng.

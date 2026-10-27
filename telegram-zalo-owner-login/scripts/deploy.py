@@ -15,9 +15,27 @@ import tempfile
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "telegram-zalo-owner-login"
 LEGACY_ID = "vuhoainam-telegram-zalo-login"
+PLUGIN_VERSION = "1.2.0"
+SUPPORTED_CORE_VERSIONS = ("2026.9.9", "2026.10.6")
 START_MARKER = "<!-- telegram-zalo-owner-login:start -->"
 END_MARKER = "<!-- telegram-zalo-owner-login:end -->"
 SUPPORTED_VERSIONS = {"2026.9.9", "2026.10.6"}
+
+
+def supported_core_version(output):
+    match = re.fullmatch(r"(?:OpenClaw )?(\d{4}\.\d+\.\d+)(?: \([0-9a-f]+\))?", output.strip())
+    if not match or match.group(1) not in SUPPORTED_CORE_VERSIONS:
+        supported = ", ".join(SUPPORTED_CORE_VERSIONS)
+        raise RuntimeError(f"Only tested OpenClaw releases {supported} are supported; validate SDK/CLI before porting.")
+    return match.group(1)
+
+
+def package_metadata(plugin_id):
+    return {"name": plugin_id, "version": PLUGIN_VERSION, "type": "module",
+            "files": ["index.mjs", "settings.json", "openclaw.plugin.json"],
+            "openclaw": {"extensions": ["./index.mjs"], "compat": {
+                "pluginApi": f">={SUPPORTED_CORE_VERSIONS[0]} <={SUPPORTED_CORE_VERSIONS[-1]}",
+                "minGatewayVersion": SUPPORTED_CORE_VERSIONS[0]}}}
 
 
 def execute(arguments, log_path=None, timeout=120):
@@ -90,6 +108,22 @@ def validate_runtime(base, backup=None):
         if doctor.returncode not in (0, 1):
             raise RuntimeError("Plugin doctor failed unexpectedly; inspect the private log.")
         print("WARNING: existing duckduckgo provenance diagnostic; no plugin errors. Trust/config unchanged.")
+
+
+def validate_loaded_plugin(run, plugin_id):
+    listed = cli_json(run(["plugins", "list", "--json"]), "plugins")
+    inspected = cli_json(run(["plugins", "inspect", plugin_id, "--runtime", "--json"]), "plugin")
+    matches = [plugin for plugin in listed["plugins"] if plugin.get("id") == plugin_id]
+    plugin = inspected["plugin"]
+    if len(matches) != 1 or matches[0].get("status") != "loaded" or matches[0].get("enabled") is not True:
+        raise RuntimeError("QR plugin is not loaded/enabled in plugins list.")
+    if plugin.get("id") != plugin_id or plugin.get("status") != "loaded" or plugin.get("enabled") is not True:
+        raise RuntimeError("QR plugin runtime inspection did not confirm loading.")
+    tools = set(plugin.get("toolNames") or [])
+    for tool in inspected.get("tools") or []:
+        tools.update(tool.get("names") or [])
+    if "telegram_zalo_login_qr" not in tools or "zaloqr" not in (inspected.get("commands") or []):
+        raise RuntimeError("QR plugin loaded without telegram_zalo_login_qr or zaloqr registration.")
 
 
 def select_account(accounts, requested, label):
@@ -187,7 +221,7 @@ def main():
     zalo_account = select_account(zalo_accounts, args.zalo_account, "Zalo")
     base = ["docker", "exec", "-e", f"HOME={runtime_home}", "-e", f"OPENCLAW_STATE_DIR={runtime_root}",
             "-e", f"OPENCLAW_CONFIG_PATH={runtime_root}/openclaw.json", "-e", "OPENCLAW_PROFILE=", container]
-    version = tested_version(execute(base + ["openclaw", "--version"]))
+    version = supported_core_version(execute(base + ["openclaw", "--version"]))
     for channel, account in [("telegram", telegram_account), ("zalouser", zalo_account)]:
         routes = {entry.get("agentId") for entry in config.get("bindings", [])
                   if entry.get("match", {}).get("channel") == channel
@@ -214,13 +248,17 @@ def main():
     settings = {"pluginId": plugin_id, "telegramAccount": telegram_account, "zaloAccount": zalo_account,
                 "agentId": args.agent, "runtimeHome": str(runtime_home), "runtimeRoot": str(runtime_root)}
     runtime_directory = runtime_root / plugin_directory.relative_to(root)
-    print(f"Target={container}; version={version}; agent={args.agent}; configured Telegram owners={len(owners)}; plugin={plugin_id}")
+    print(f"Target={container}; core={version}; agent={args.agent}; configured Telegram owners={len(owners)}; plugin={plugin_id}")
     if args.dry_run:
         print("DRY RUN: mapped roots/accounts verified; no config/owner change, login or delivery.")
         return
     runtime_skill = workspace / "skills" / PLUGIN_ID / "SKILL.md"
     instructions = workspace / "AGENTS.md"
     if args.check:
+        deployed_package = json.loads((plugin_directory / "package.json").read_text())
+        expected_package = package_metadata(plugin_id)
+        if any(deployed_package.get(key) != expected_package[key] for key in ["name", "version", "openclaw"]):
+            raise RuntimeError("Deployed package version or compatibility metadata is outdated; review --dry-run before --apply.")
         if json.loads((plugin_directory / "settings.json").read_text()) != settings:
             raise RuntimeError("Deployed settings differ from the selected runtime.")
         if (plugin_directory / "index.mjs").read_bytes() != (SKILL_ROOT / "assets" / "index.mjs").read_bytes():
@@ -230,7 +268,8 @@ def main():
         if not runtime_skill.is_file() or START_MARKER not in instructions.read_text():
             raise RuntimeError("Runtime skill or managed guidance missing.")
         validate_runtime(base)
-        print("CHECK PASS: deployed payload/settings, guidance, config and plugin doctor. No login/send.")
+        validate_loaded_plugin(lambda arguments: execute(base + ["openclaw", *arguments]), plugin_id)
+        print("CHECK PASS: package/payload, config/doctor, plugin loaded, telegram_zalo_login_qr and zaloqr. No login/send.")
         return
     backup = Path("/root/_Backups/telegram-zalo-owner-login") / container / datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     backup.mkdir(parents=True, mode=0o700)
@@ -265,9 +304,7 @@ def main():
                 snapshot_database(state, backup / "state-before.sqlite")
             write_json(plugin_directory / "settings.json", settings)
             atomic_write(plugin_directory / "index.mjs", (SKILL_ROOT / "assets" / "index.mjs").read_text())
-            write_json(plugin_directory / "package.json", {"name": plugin_id, "version": "1.1.0", "type": "module",
-                "files": ["index.mjs", "settings.json", "openclaw.plugin.json"],
-                "openclaw": {"extensions": ["./index.mjs"], "compat": {"pluginApi": version, "minGatewayVersion": version}}})
+            write_json(plugin_directory / "package.json", package_metadata(plugin_id))
             write_json(plugin_directory / "openclaw.plugin.json", {"id": plugin_id, "name": "Telegram Owner Zalo QR Login",
                 "description": "Private Zalo QR login for every configured Telegram owner.", "categories": ["other"],
                 "activation": {"onStartup": True}, "contracts": {"tools": ["telegram_zalo_login_qr"]},
@@ -291,6 +328,7 @@ def main():
             execute(base + ["node", "--check", str(runtime_directory / "index.mjs")], backup / "syntax.log")
             execute(base + ["openclaw", "plugins", "install", "--link", str(runtime_directory), "--force", "--accept-capabilities"], backup / "install.log")
             validate_runtime(base, backup)
+            validate_loaded_plugin(lambda arguments: execute(base + ["openclaw", *arguments]), plugin_id)
             if was_running:
                 execute(base + ["supervisorctl", "start", "openclaw-gateway"], backup / "start.log")
                 stopped = False

@@ -255,6 +255,7 @@ function runOfficialZaloLogin(accountId, timeoutSeconds, onQrReady) {
     );
     let output = "";
     let qrHandled = false;
+    let receiptError;
     let settled = false;
 
     const finish = (error) => {
@@ -263,8 +264,8 @@ function runOfficialZaloLogin(accountId, timeoutSeconds, onQrReady) {
       }
       settled = true;
       clearTimeout(timer);
-      if (error) {
-        reject(error);
+      if (error || receiptError) {
+        reject(error ?? receiptError);
       } else {
         resolve();
       }
@@ -284,8 +285,13 @@ function runOfficialZaloLogin(accountId, timeoutSeconds, onQrReady) {
         onQrReady(qrSourcePath);
         qrHandled = true;
       } catch (error) {
-        child.kill("SIGTERM");
-        finish(error);
+        if (error.deliveryUnconfirmed) {
+          receiptError = error;
+          qrHandled = true;
+        } else {
+          child.kill("SIGTERM");
+          finish(error);
+        }
       }
     };
 
@@ -312,6 +318,25 @@ function runOfficialZaloLogin(accountId, timeoutSeconds, onQrReady) {
   });
 }
 
+function parseTelegramReceipt(output, target) {
+  for (const candidate of output.matchAll(/^\{[^\r\n]*\}[ \t]*$|^\{\r?\n[\s\S]*?^\}[ \t]*$/gm)) {
+    try {
+      const result = JSON.parse(candidate[0]);
+      const payload = result.payload ?? result;
+      const destination = String(payload.to ?? payload.chatId ?? payload.target ?? payload.result?.to
+        ?? payload.result?.chatId ?? payload.result?.chat?.id ?? result.target ?? "");
+      const messageId = result.messageId ?? payload.messageId ?? payload.result?.messageId
+        ?? payload.result?.message_id ?? payload.receipt?.primaryPlatformMessageId
+        ?? payload.result?.receipt?.primaryPlatformMessageId;
+      if (result.channel === "telegram" && result.ok !== false && payload.ok !== false
+        && String(messageId ?? "").trim() && [target, `telegram:${target}`].includes(destination)) return result;
+    } catch {}
+  }
+  const error = new Error("Telegram delivery receipt is unconfirmed; do not resend or stop login early");
+  error.deliveryUnconfirmed = true;
+  throw error;
+}
+
 function sendTelegram(accountId, target, message, mediaPath) {
   const args = [
     "message",
@@ -329,7 +354,7 @@ function sendTelegram(accountId, target, message, mediaPath) {
   if (mediaPath) {
     args.push("--media", mediaPath);
   }
-  const result = JSON.parse(runOpenClaw(args, 60_000));
+  const result = parseTelegramReceipt(runOpenClaw(args, 60_000), target);
   // OpenClaw 2026.8.x plugin sends expose chatId instead of payload.to.
   const destination = String(
     result?.payload?.to ??

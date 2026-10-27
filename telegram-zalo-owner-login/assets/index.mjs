@@ -44,8 +44,8 @@ function cliProcess(args, { signal, timeoutMs, logPath }) {
   const environment = { ...process.env, HOME: settings.runtimeHome, OPENCLAW_STATE_DIR: stateRoot, OPENCLAW_CONFIG_PATH: `${stateRoot}/openclaw.json` };
   delete environment.OPENCLAW_PROFILE;
   delete environment.OPENCLAW_HOME;
-  const child = spawn("/usr/bin/openclaw", args, {
-    detached: true,
+  const child = spawn(settings.cliCommand ?? "/usr/bin/openclaw", [...(settings.cliPrefix ?? []), ...args], {
+    detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
     env: environment,
   });
@@ -54,9 +54,15 @@ function cliProcess(args, { signal, timeoutMs, logPath }) {
   let killTimer;
   const stop = () => {
     if (closed || !child.pid) return;
-    try { process.kill(-child.pid, "SIGTERM"); } catch {}
+    try {
+      if (process.platform === "win32") child.kill("SIGTERM");
+      else process.kill(-child.pid, "SIGTERM");
+    } catch {}
     killTimer ??= setTimeout(() => {
-      try { process.kill(-child.pid, "SIGKILL"); } catch {}
+      try {
+        if (process.platform === "win32") child.kill("SIGKILL");
+        else process.kill(-child.pid, "SIGKILL");
+      } catch {}
     }, 1500);
   };
   const collect = (chunk) => {
@@ -85,9 +91,9 @@ function cliProcess(args, { signal, timeoutMs, logPath }) {
 }
 
 function parseReceipt(output, ownerId) {
-  for (let offset = output.indexOf("{"); offset >= 0; offset = output.indexOf("{", offset + 1)) {
+  for (const candidate of output.matchAll(/^\{[^\r\n]*\}[ \t]*$|^\{\r?\n[\s\S]*?^\}[ \t]*$/gm)) {
     try {
-      const value = JSON.parse(output.slice(offset).trim());
+      const value = JSON.parse(candidate[0]);
       const payload = value.payload ?? value;
       const messageId = value.messageId ?? payload.messageId;
       if (payload.ok === true && String(payload.chatId) === ownerId && messageId) return String(messageId);
@@ -103,6 +109,7 @@ export async function loginAndSendQr(ownerId, assertCurrent, signal) {
   let login;
   let mediaDirectory;
   let receipt;
+  let receiptError;
   let lockDirectory;
   let lockToken;
   try {
@@ -160,11 +167,15 @@ export async function loginAndSendQr(ownerId, assertCurrent, signal) {
     const delivery = cliProcess(["message", "send", "--channel", "telegram", "--account", settings.telegramAccount,
       "--target", ownerId, "--media", mediaPath, "--message",
       "Anh/chị quét QR bằng Zalo trên điện thoại và xác nhận đăng nhập ngay nhé. Em đang chờ kết quả; mã có thời hạn ngắn.", "--json"],
-    { signal, timeoutMs: 30000, logPath: path.join(privateDirectory, "delivery.log") });
+    { signal, timeoutMs: 60000, logPath: path.join(privateDirectory, "delivery.log") });
     const deliveryResult = await delivery.done;
     assertCurrent();
     if (deliveryResult.code !== 0) throw new Error("Gửi ảnh Telegram chưa thành công; không tự gửi lại khi biên nhận chưa rõ.");
-    receipt = parseReceipt(deliveryResult.output, ownerId);
+    try {
+      receipt = parseReceipt(deliveryResult.output, ownerId);
+    } catch (error) {
+      receiptError = error;
+    }
     while (!login.closed && Date.now() - startedAt < 180000) {
       assertCurrent();
       if (signal?.aborted) throw new Error("Lượt đăng nhập đã bị hủy sau khi gửi QR.");
@@ -172,6 +183,14 @@ export async function loginAndSendQr(ownerId, assertCurrent, signal) {
     }
     const outcome = await login.done;
     assertCurrent();
+    if (receiptError) {
+      return {
+        status: "qr_delivery_unconfirmed",
+        qrSent: null,
+        loginCompleted: outcome.code === 0,
+        message: receiptError.message + " Đã giữ phiên login đến khi CLI kết thúc hoặc hết hạn; không tự gửi lại QR hay khẳng định giao ảnh thành công.",
+      };
+    }
     return {
       status: outcome.code === 0 ? "login_completed" : "qr_sent_not_logged_in",
       telegramMessageId: receipt,
