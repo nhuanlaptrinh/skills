@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw And Codex Fast"
+  short_description: "Bật fast cho OpenClaw hoặc Codex"
+  default_prompt: "Bật fast cho model OpenClaw đang dùng qua nhà cung cấp hiện tại, giữ nguyên model và API key."
