@@ -5,9 +5,9 @@ description: Kiểm tra, sửa và mở rộng file openclaw.json cho hệ thố
 
 # Skill: Kiểm Tra & Sửa File openclaw.json
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -17,7 +17,7 @@ Khi user yêu cầu kiểm tra hoặc sửa file `openclaw.json`, hãy đọc sk
 
 ## File mẫu tham khảo (BẮT BUỘC ĐỌC TRƯỚC)
 
-Các file `examples/` là snapshot tham khảo schema, không phải danh sách model được phép. Không copy model chat/alias cũ từ mẫu sang cấu hình mới; áp dụng chính sách bốn model ở đầu skill. Không sửa snapshot lịch sử để giả lập trạng thái production.
+Các file `examples/` là snapshot tham khảo schema, không phải danh sách model được phép. Không copy model chat/alias cũ từ mẫu sang cấu hình mới; áp dụng chính sách ba model ở đầu skill. Không sửa snapshot lịch sử để giả lập trạng thái production.
 
 **Bước đầu tiên:** Liệt kê tất cả file trong thư mục `examples/` của skill này, rồi đọc **TỪNG file** để nắm được các mẫu cấu hình khác nhau.
 
@@ -272,7 +272,7 @@ Không được báo agent mới đã hoàn tất nếu checklist còn mục ch�
 Xóa khỏi cả 3 chỗ: `agents.list`, `bindings`, `channels.telegram.accounts`.
 
 ### Đổi model
-Sửa `agents.defaults.model.primary` thành `<provider-hien-tai>/<model-id>` với một trong bốn ID được phép, mặc định `GPT-6.1-sol`. Nếu được yêu cầu đổi fallback thì chỉ dùng các ID trong cùng danh sách và kiểm tra provider thực tế hỗ trợ. Kiểm tra cả override của agent/session; không thay provider, credential hoặc model media không liên quan.
+Sửa `agents.defaults.model.primary` thành `<provider-hien-tai>/<model-id>` với một trong ba ID được phép, mặc định `GPT-6.1-sol`. Nếu được yêu cầu đổi fallback thì chỉ dùng các ID trong cùng danh sách và kiểm tra provider thực tế hỗ trợ. Kiểm tra cả override của agent/session; không thay provider, credential hoặc model media không liên quan.
 
 ### Đổi port gateway
 Sửa `gateway.port` (phải 1-65535).

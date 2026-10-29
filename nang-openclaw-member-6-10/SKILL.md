@@ -160,4 +160,29 @@ docker exec -e HOME="$MEMBER_HOME" "$CONTAINER" python3 -c 'import os,sqlite3; p
 
 ## An toàn và giới hạn
 
+### Kết quả danh sách sáu member riêng ngày 2026-10-24
+
+Hoàn tất cả sáu vào `19:53 UTC`, sau đó hậu kiểm live toàn danh sách đạt. Tất cả từ core `2026.9.9` lên `2026.10.6`, Node `24.22.1`; backup thủ công được tạo mặc định, không dùng miễn trừ `--no-backup` của batch cũ. Config fingerprint trước nâng khớp hậu kiểm, Gateway singleton/PID vẫn giữ từ acceptance, Telegram probe và model smoke no-delivery đạt; không gửi tin thử thật.
+
+Receipt nằm dưới `/root/_Backups/openclaw-members-2026.10.6/<member>/<timestamp>/SUCCESS.json`:
+
+| Member | Timestamp nâng | HOME |
+|---|---|---|
+| nndungct | `20261024T183253Z` | `/home/nndungct` |
+| tranvanminh | `20261024T184842Z` | `/root` |
+| nguyentienvinh | `20261024T190040Z` | `/home/nguyentienvinh` |
+| daomac | `20261024T191959Z` | `/home/daomac` |
+| avata | `20261024T193309Z` | `/root` |
+| anhtuan | `20261024T194413Z` | `/root` |
+
+Riêng `nndungct` có receipt verify-only sau triển khai lại `/zaloqr` tại timestamp `20261024T184651Z`; Zalo vẫn unlinked từ trước. `daomac` giữ Zalo linked/running/connected/probe OK, không đăng nhập lại. Không replay core/text-delivery guard bundle 9.9 sang 6.10 và không suy rằng probe đã kiểm thử mọi hành vi custom. Không sửa cron/nginx/Compose, image hoặc recreate container/member ngoài scope.
+
+### Member có plugin owner `/zaloqr`
+
+- Đã nâng `nndungct` từ `2026.9.9` lên `2026.10.6` ngày `2026-10-24`, runtime HOME `/home/nndungct`. Receipt nâng: `/root/_Backups/openclaw-members-2026.10.6/nndungct/20261024T183253Z/SUCCESS.json`. Telegram/model smoke đạt; Zalo `default` đã `linked=false` trước nâng nên chỉ member này dùng `--allow-unlinked-zalo`, không coi Zalo đã đăng nhập.
+- Trước nâng, lưu riêng plugin liên kết trong `<state>/tools/telegram-zalo-owner-login`; archive mặc định của driver không bao gồm toàn bộ `tools`. Bản sao của lượt này: `/root/_Backups/nndungct-qr-before-2026.10.6-20261024T183253Z/telegram-zalo-owner-login.tar.gz`.
+- Sau khi core đạt target, dùng đúng global skill `telegram-zalo-owner-login` chạy `--dry-run`, `--apply`, `--check` cho chính member, runtime/state/account đã xác minh. Helper sinh lại metadata API/minGateway đúng release `2026.10.6`, giữ nguyên payload đã kiểm chứng, owners và routing; không mở range tương thích rộng hoặc chép core bundle giữa phiên bản. Không tạo QR, login hoặc gửi tin trong quá trình này.
+- Sau lần reload của helper, chạy driver `--verify-only` và kiểm tra Telegram/Gateway ổn định trước member kế tiếp. Không dùng runner danh sách 13 member cũ để thực hiện danh sách khác; chạy riêng từng member được chủ VPS chỉ định, giữ resource gate và dừng khi lỗi.
+- Scope yêu cầu riêng ngày `2026-10-24` gồm `nndungct`, `tranvanminh`, `nguyentienvinh`, `daomac`, `avata`, `anhtuan`. HOME đã xác minh lần lượt `/home/nndungct`, `/root`, `/home/nguyentienvinh`, `/home/daomac`, `/root`, `/root`; `anhtuan` có state active trong container `/root/.openclaw`, không suy HOME từ bind mount `/home/anhtuan`. Không coi việc có trong danh sách là bằng chứng đã nghiệm thu; xem receipt từng member.
+
 Không sửa `.env`, credential, Chrome profile, cron/nginx/compose, các member khác hay bot sidecar chỉ vì nâng OpenClaw. Không xóa sessions/database hoặc dùng `docker system prune`. Trước khi lưu/cập nhật skill, quét secret; không đưa token/API key/cookie/password/private key thật vào tài liệu, log công khai hoặc câu trả lời.

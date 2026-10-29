@@ -10,6 +10,7 @@ description: Operate, verify, repair, or update the Django dashboard at altcp.an
 - Project: `/root/Apps/9router_usage_dashboard`
 - Usage and API-name input: `/root/.9router/db/data.sqlite`
 - Service: `altcp-dashboard.service`
+- Incremental report worker: `altcp-usage-summary.service` (read-only 9Router input; derived Django summaries only).
 - Bulk email worker: `altcp-bulk-email-worker.service`
 - Telegram bot service: `altcp-telegram-bot.service`
 - Nginx: `/etc/nginx/sites-available/altcp.anhlaptrinh.vn` and `/etc/nginx/sites-available/codex.anhlaptrinh.vn`
@@ -22,7 +23,7 @@ description: Operate, verify, repair, or update the Django dashboard at altcp.an
 
 The public route `/` presents Token Codex pricing and benefits before authentication. A red/gold holiday offer strip immediately below navigation must emphasize `ƯU ĐÃI ĐẶC BIỆT NHÂN DỊP LỄ – Mua 1 Credit nhận 20 Credits`, state that the standard ×20 rate is automatic for new purchases without a promotion code, and link authenticated users to `/mua-token/` or anonymous visitors to `/dang-ky/`. Keep the responsive styles in `static/css/app.css` and update the landing stylesheet cache-busting query whenever the landing CSS changes. All customer-facing commercial copy uses Credits, including `1 Credit paid = 20 Credits provider-equivalent usage credit`; do not display USD labels in package selection, previews, promotion feedback, purchase history, or QR order details. Historical internal field and setting names ending in `_usd` remain unchanged for database and webhook compatibility. The page shows the corresponding 95% saving and concrete VND examples, explains that Credits are internal usage units rather than cash or a provider-sold account, and offers separate registration and login actions. Use the Anh Lập Trình logo at `static/img/logo-anh-lap-trinh.png`. The authenticated dashboard route is `/bang-dieu-khien/`.
 
-The public route `/huong-dan-tich-hop/` documents the OpenAI-compatible Base URL `https://codex.anhlaptrinh.vn/v1`. Keep examples for OpenClaw, ChatGPT Codex in Antigravity, NousResearch Hermes Agent, Python, and Node.js. Token Codex currently accepts the exact model IDs `GPT-6-sol`, `GPT-6-terra`, `GPT-6-luna`, and `GPT-6-astra`. Use SOL as the default in short code examples, list all four in the guide and OpenClaw provider configuration, and remind users that model IDs are case-sensitive. Examples must use placeholders or environment-variable names rather than real keys. Keep backward compatibility for existing requests using `GPT-5.6-sol`, `GPT-5.6-terra`, and `GPT-5.6-luna`; the four `GPT-6-*` IDs are the current recommended list. Users may query `/v1/models` with their own key to confirm the current list, and must not append `/v1` twice. Keep links to this guide on both the public landing page and authenticated dashboard.
+The public route `/huong-dan-tich-hop/` documents the OpenAI-compatible Base URL `https://codex.anhlaptrinh.vn/v1`. Keep examples for OpenClaw, ChatGPT Codex in Antigravity, NousResearch Hermes Agent, Python, and Node.js. Token Codex currently accepts the exact model IDs `GPT-6.1-sol`, `GPT-6.1-terra`, and `GPT-6-astra`. Use `GPT-6.1-sol` as the default in short code examples, list all three in the guide and OpenClaw provider configuration, keep the landing and dashboard model lists aligned, and remind users that model IDs are case-sensitive. Examples must use placeholders or environment-variable names rather than real keys. Keep backward compatibility for existing requests using `GPT-5.6-sol`, `GPT-5.6-terra`, and `GPT-5.6-luna`; the three IDs above are the current documented list. At the owner's request, omit `GPT-6-terra` and `GPT-6-luna` from the public model lists and configuration examples; this documentation change does not disable upstream models. Users may query `/v1/models` with their own key to confirm the current list, and must not append `/v1` twice. Keep links to this guide on both the public landing page and authenticated dashboard.
 
 ## Behavior
 
@@ -35,6 +36,38 @@ Customer-facing usage cost for provider `deepseek` uses `DEEPSEEK_CUSTOMER_COST_
 For provider `codex`, customer-facing cost uses `CODEX_CUSTOMER_COST_MULTIPLIER` only when the usage row timestamp is at or after `CODEX_CUSTOMER_COST_EFFECTIVE_AT`; earlier rows retain the prior customer calculation. Keep the source `usageHistory.cost` unchanged and compare the effective timestamp against the request timestamp, not page-view time. `gpt-6.1-sol` uses a read-time OpenAI API-equivalent fallback when `usageHistory.cost=0`: `$2.00/M` input, `$0.10/M` cached input, `$2.50/M` cache writes, and `$10.00/M` output. Prompts above 272K tokens apply 2x input/cache and 1.5x output before the Codex customer multiplier. The fallback reads `usageHistory.tokens`, preserves nonzero router-reported costs, keeps the source SQLite read-only, and must be applied consistently to dashboard, member reports, admin/Telegram usage, key close-out totals, and credit enforcement. Other providers, including DeepSeek's separate effective-dated multiplier, remain unchanged.
 
 The authenticated dashboard includes a request activity ledger using the same date filter. Each row may show the internal usage row ID, Vietnam timestamp to the second, assigned API name, provider/model, endpoint, status, prompt/completion token counts, and USD cost. Keep at most the 100 newest raw requests available for display; the request table returns no more than 100 rows. On the customer dashboard only, mask the upstream DeepSeek identity in the presentation layer: provider `deepseek` displays as `alt`, and a leading model prefix such as `deepseek-v4-flash` displays as `alt-v4-flash`. Keep raw provider/model values for superuser/admin history and all billing, source, and audit logic. Never expose the complete API key in usage reports, connection ID, prompt, response, `meta`, or other request content.
+
+### Query Optimization And Incremental Reporting
+
+- Source: `dashboard/services.py`, `dashboard/usage_summaries.py`, `dashboard/management/commands/refresh_usage_summaries.py`, and `deploy/altcp-usage-summary.service` in the project above.
+- Use this path for slow dashboard/member reports, incremental report rebuilds, cache checks, and correctness/performance audits. It is not a replacement for financial enforcement or raw retention.
+- Dated raw reports push date/API conditions into SQLite using the existing timestamp index only when raw timestamps use the canonical fixed-millisecond UTC format. Mixed formats fall back to the original Python date filtering. Preserve Vietnamese day boundaries, original cost helpers, search normalization, raw activity, and the globally latest raw timestamp within the allowed API scope.
+- Migration `dashboard.0024_usage_live_summaries` adds only Django `UsageLiveDaily` and `UsageSummaryState`; never migrate, add indexes to, or write the production 9Router source for reporting. Test proposed `(apiKey, timestamp)` indexes only on an isolated database copy.
+- `UsageArchiveDaily` remains the aggregate for pruned records. `UsageLiveDaily` separately totals raw records still present, by API UUID/Vietnamese day, using exact Decimal strings rather than the archive's six-place monetary field. Never copy live totals into the archive, which would double-count raw usage.
+- `UsageSummaryState` tracks the source/pricing/API-map fingerprints, first/raw/high-water IDs, row count, prefix checksum, publication generation, and confirmation timestamps. No full key, prompt, response, cookie, token, or credential is stored in these tables.
+- `altcp-usage-summary.service` runs every 10 seconds at lower CPU/I/O priority, with `--verify`. The first pass builds the raw summary; subsequent passes calculate customer cost only for new row IDs and checksum the old prefix to catch billing corrections. Rebuild atomically when the source, pricing, API map, retained prefix, row count, or checksum changes. The source is read-only; writes affect only the two new Django tables.
+- The per-project `.usage-summary.lock` prevents overlapping refreshes. Summary updates and watermark publication share one Django transaction. Pause this worker along with dashboard/9Router before the separately approved raw-retention command; on completion rebuild summaries before resuming it. No automatic pruning or source deletion is added by reporting optimization.
+- HTML views explicitly opt into `use_summary=True`. A separate process-local `usage_reports` cache has TTL 10 seconds and at most 128 entries; keys include API scope, dates, source/pricing/API-map fingerprints, high-water row count/ID, and summary generation. Cache only safe aggregate data, never complete HTML, credentials, revealed API keys, or payment responses.
+- Every summary read validates source metadata and adds the unprocessed raw tail in a read snapshot. New request IDs invalidate the display cache immediately, so new activity need not wait for the worker's next pass. More than 5,000 pending rows, a missing/invalid summary, deletion/reset, policy/key-map change, source errors, or more than 30 seconds without worker confirmation cause a direct-query fallback. Old-row billing edits are reconciled at the next worker verification; use an immediate rebuild after approved maintenance.
+- `customer_spent`, `all_time_cost`, `usage_totals_by_api_id`, and `member_cost_report` default to `use_summary=False`. Do not change this default or opt credit enforcement, reactivation, provisioning, revocation close-out, payments, or Telegram quota decisions into display summaries/cache. Their decisions must calculate from fresh raw usage plus the existing archive/closed costs.
+
+Dry-run, tests, run, and rebuild:
+
+```bash
+cd /root/Apps/9router_usage_dashboard
+set -a; . ./.env; set +a
+.venv/bin/python manage.py refresh_usage_summaries --dry-run
+.venv/bin/python manage.py test dashboard.tests_query_optimization dashboard.tests_usage_summaries
+.venv/bin/python manage.py refresh_usage_summaries --verify
+.venv/bin/python manage.py refresh_usage_summaries --rebuild
+systemctl status altcp-usage-summary.service --no-pager
+```
+
+- Dry-run reads source metadata only: no lock/table/source writes, no API/Sheet/email/messages. Live refresh/rebuild writes only derived Django summary tables. Outputs are safe row/group counts and mode; there are no Sheet/API destinations, uploads, posts, or renders.
+- For an isolated first deployment, apply the additive migration to a consistent copy of Django SQLite and build against a consistent copy of 9Router SQLite. Load only the production nonsecret pricing settings for parity tests. Compare complete report contexts, customer spent totals, and rendered HTML (ignoring only random CSRF masking), including date/search/empty-scope/archive-boundary cases. Never use a DEV database as the production database.
+- Backup production Django SQLite with SQLite's backup API immediately before migration. Deploy only reviewed source files, run migration, build summaries, start the unit, and gracefully reload dashboard workers. Do not restart 9Router/member containers or send real payment/email/Telegram tests.
+- Rollback: stop/disable only `altcp-usage-summary.service`, restore the reviewed pre-change source/config, and reload dashboard workers. Leave the two additive tables unused. Never restore an old full Django database or reverse/drop tables as a routine rollback, because that could lose customer transactions created since backup.
+- Audit receipts for the initial deployment: `/root/_Backups/9router_usage_dashboard/20261024T185745Z_query_optimization/`. `verify_query_parity.py` compares direct-query optimization; `verify_summary_parity.py` compares the opt-in summary path on isolated snapshots. These audit scripts use only local snapshots, emit aggregate timings/pass counts, and never write production. Rebuild copied summaries before rerunning after changed pricing; the locked snapshots retain customer data and must remain root-only. Do not copy them to the employee DEV account.
 
 ### Raw Usage Retention
 
@@ -242,7 +275,13 @@ The dashboard calculates from the current SQLite database on every page request,
 
 ## Safety
 
-- Do not edit `/root/.9router/db/data.sqlite`, its WAL/SHM files, legacy JSON files, or provider credentials.
+- A separately authorized historical Terra billing correction is prepared in
+  `/root/.agents/skills/9router-terra-usage-backfill/SKILL.md`. As of 2026-10-29 it
+  has only been applied to isolated snapshots, not production. This is an explicit
+  maintenance exception to normal read-only reporting: live use requires the
+  owner's interruption approval and a paused 9Router writer. Do not charge the
+  same correction in Django archives, credit limits or closed costs.
+- Outside an explicitly approved maintenance procedure, do not edit `/root/.9router/db/data.sqlite`. Never edit its WAL/SHM files, legacy JSON files, or provider credentials.
 - Do not expose `.env`, the credentials file, API keys, tokens, prompts, or responses.
 - Do not accept an unauthenticated SePay webhook and do not test production with a fake valid incoming payment, because a valid webhook intentionally changes customer credit.
 - Keep the dashboard behind Django login and HTTPS.

@@ -5,9 +5,9 @@ description: Change the default chat model and image input model for OpenClaw ag
 
 # OpenClaw Member Model Switch
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -25,7 +25,7 @@ The defaults requested for the current fleet are:
 - Chat: `9r/GPT-6.1-sol`
 - Image input: `9r/GPT-6.1-sol`, only after confirming image input on this route.
 
-The supported IDs are `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, and `GPT-6-astra`. Verify availability through the target provider's `/v1/models` endpoint before applying. Keep the existing provider prefix in OpenClaw references. Image understanding is not image generation: the updater does not change `agents.defaults.mediaModels.image`.
+The supported IDs are `GPT-6.1-sol`, `GPT-6.1-terra`, and `GPT-6-astra`. Verify availability through the target provider's `/v1/models` endpoint before applying. Keep the existing provider prefix in OpenClaw references. Image understanding is not image generation: the updater does not change `agents.defaults.mediaModels.image`.
 
 ## Required workflow
 

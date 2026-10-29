@@ -5,9 +5,9 @@ description: Tạo và kiểm tra Member VPS OpenClaw từ template sạch bằn
 
 # ALT Member VPS Factory
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -125,7 +125,7 @@ Profile hiện tại:
 
 Profile giữ CPU `2`, RAM `4g`, swap `6g`, PID `1024`, OpenClaw `2026.9.4` với
 Node.js `>=24.16.0 <25` (hoặc `>=26.1.0`),
-endpoint mặc định `https://codex.anhlaptrinh.vn/v1` và image hiện hành. Không dựa vào model mặc định lưu trong profile production: luôn truyền `--primary-model GPT-6.1-sol` hoặc một trong ba ID còn lại theo chính sách. Cập nhật skill không tự sửa profile đang chạy. Profile được chuẩn hóa từ runtime sạch của
+endpoint mặc định `https://codex.anhlaptrinh.vn/v1` và image hiện hành. Không dựa vào model mặc định lưu trong profile production: luôn truyền `--primary-model GPT-6.1-sol` hoặc một trong hai ID còn lại theo chính sách. Cập nhật skill không tự sửa profile đang chạy. Profile được chuẩn hóa từ runtime sạch của
 `/root/Apps/member_vps/docker-users/data/minhvuong`; không sao chép volume,
 session, workspace cá nhân hoặc credential. Chỉ đổi image sau khi đã
 build/kiểm tra image versioned.

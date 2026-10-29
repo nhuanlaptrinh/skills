@@ -1,20 +1,20 @@
 ---
 name: bo-sung-codex-openclaw
-description: Cấu hình primary/fallback Codex cho OpenClaw chỉ với GPT-6.1-sol, GPT-6-terra, GPT-6-luna, GPT-6-astra; giữ provider hiện có. Chỉ bổ sung OpenAI OAuth làm fallback khi provider đó thực sự công bố model được phép, không tự dùng model ngoài danh sách.
+description: Cấu hình primary/fallback Codex cho OpenClaw chỉ với GPT-6.1-sol, GPT-6.1-terra, GPT-6-astra; giữ provider hiện có. Chỉ bổ sung OpenAI OAuth làm fallback khi provider đó thực sự công bố model được phép, không tự dùng model ngoài danh sách.
 ---
 
 # Bổ sung Codex/OpenAI fallback cho OpenClaw
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
 
 ## Mục tiêu
 
-Giữ provider chính đang dùng và chọn primary/fallback từ đúng bốn model được phép. Mặc định cho cấu hình mới là `GPT-6.1-sol`. OAuth đăng nhập thành công không đồng nghĩa provider OpenAI có các model alias của gateway; nếu catalog không công bố đúng ID được phép thì không thêm OpenAI fallback.
+Giữ provider chính đang dùng và chọn primary/fallback từ đúng ba model được phép. Mặc định cho cấu hình mới là `GPT-6.1-sol`. OAuth đăng nhập thành công không đồng nghĩa provider OpenAI có các model alias của gateway; nếu catalog không công bố đúng ID được phép thì không thêm OpenAI fallback.
 
 ## An toàn và input/output
 
@@ -45,12 +45,11 @@ Ví dụ dưới đây chỉ dùng khi provider thực tế là `9r` và đã c�
     "defaults": {
       "model": {
         "primary": "9r/GPT-6.1-sol",
-        "fallbacks": ["9r/GPT-6-terra", "9r/GPT-6-luna", "9r/GPT-6-astra"]
+        "fallbacks": ["9r/GPT-6.1-terra", "9r/GPT-6-astra"]
       },
       "models": {
         "9r/GPT-6.1-sol": {},
-        "9r/GPT-6-terra": {},
-        "9r/GPT-6-luna": {},
+        "9r/GPT-6.1-terra": {},
         "9r/GPT-6-astra": {}
       }
     }
@@ -75,9 +74,9 @@ Trên VPS/headless, mở URL OAuth bằng trình duyệt local rồi paste redir
 ```bash
 openclaw config validate
 openclaw models status
-bash /root/.agents/skills/bo-sung-codex-openclaw/scripts/test_openclaw_codex_fallback.sh 9r/GPT-6-terra
+bash /root/.agents/skills/bo-sung-codex-openclaw/scripts/test_openclaw_codex_fallback.sh 9r/GPT-6.1-terra
 ```
 
-Thay `9r/GPT-6-terra` bằng tham chiếu provider/model đã xác minh. Script bắt buộc nhận tham chiếu rõ ràng, từ chối ID ngoài danh sách và không tự chọn model OpenAI cũ. Test inference có thể tiêu tốn quota nhưng không gửi tin nhắn qua channel.
+Thay `9r/GPT-6.1-terra` bằng tham chiếu provider/model đã xác minh. Script bắt buộc nhận tham chiếu rõ ràng, từ chối ID ngoài danh sách và không tự chọn model OpenAI cũ. Test inference có thể tiêu tốn quota nhưng không gửi tin nhắn qua channel.
 
 Chỉ báo hoàn tất khi config hợp lệ, primary/fallback đúng model được phép, auth usable cho route cần dùng và inference trả `OpenAI fallback OK`. Nếu provider không có model phù hợp hoặc auth không usable thì dừng và báo đúng nguyên nhân, không tự đổi sang model khác.

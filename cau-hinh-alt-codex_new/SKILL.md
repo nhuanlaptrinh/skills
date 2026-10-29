@@ -1,6 +1,6 @@
 ---
 name: cau-hinh-alt-codex
-description: Cài đặt Codex Extension trong Antigravity qua ALT/9Router với GPT-6.1-sol mặc định trên Windows, Linux, macOS hoặc VPS; sửa/đồng bộ model Codex CLI và OpenClaw khi được yêu cầu. Use khi cần bắt lỗi 401 hoặc request `/v1/responses` thiếu Authorization, bắt buộc `requires_openai_auth = true` cho custom provider, xác minh OPENAI_API_KEY/auth.json và đúng CODEX_HOME, restart rồi chạy test thật bằng `codex exec` trước khi bàn giao, chọn GPT-6.1-sol/GPT-6-terra/GPT-6-luna/GPT-6-astra, khắc phục lỗi "The extension couldn't load its resources", phân loại Webview timeout/CSP với app-server hoặc plugin manifest, đổi model OpenClaw, backup config hoặc xử lý provider/model mà không làm lộ API key.
+description: Cài đặt Codex Extension trong Antigravity qua ALT/9Router với GPT-6.1-sol mặc định trên Windows, Linux, macOS hoặc VPS; sửa/đồng bộ model Codex CLI và OpenClaw khi được yêu cầu. Use khi cần bắt lỗi 401 hoặc request `/v1/responses` thiếu Authorization, bắt buộc `requires_openai_auth = true` cho custom provider, xác minh OPENAI_API_KEY/auth.json và đúng CODEX_HOME, restart rồi chạy test thật bằng `codex exec` trước khi bàn giao, chọn GPT-6.1-sol/GPT-6.1-terra/GPT-6-astra, khắc phục lỗi "The extension couldn't load its resources", phân loại Webview timeout/CSP với app-server hoặc plugin manifest, đổi model OpenClaw, backup config hoặc xử lý provider/model mà không làm lộ API key.
 ---
 
 # Cấu Hình Codex Qua ALT Gateway Đa Nền Tảng
@@ -12,9 +12,9 @@ description: Cài đặt Codex Extension trong Antigravity qua ALT/9Router với
 - Trước khi chạy script cài đặt/đồng bộ hoặc gửi request, xác nhận base URL của provider đích đúng giá trị trên. Kiểm tra model tại `https://codex.anhlaptrinh.vn/v1/models`, kiểm tra Responses tại `https://codex.anhlaptrinh.vn/v1/responses`; không ghép lặp `/v1`. Nếu gateway lỗi, dừng và báo nguyên nhân, không tự đổi base URL.
 - Nếu chỉ được yêu cầu đổi model mà base URL hiện tại khác giá trị bắt buộc, dừng và báo cần được yêu cầu sửa endpoint trước; không âm thầm đổi endpoint hoặc tiếp tục dùng URL khác. Nếu chỉ cập nhật skill, không áp dụng quy tắc này vào runtime/config đang chạy.
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích tại `https://codex.anhlaptrinh.vn/v1/models`; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -91,45 +91,42 @@ Không đánh dấu hoàn tất nếu mới chỉ gọi `curl /v1/models`, tự 
 
 ## Model Được Hỗ Trợ
 
-Skill hỗ trợ bốn model sau:
+Skill hỗ trợ ba model sau:
 
 - `GPT-6.1-sol`: model mặc định khi cài mới Codex Extension trong Antigravity hoặc khi người dùng không yêu cầu model cụ thể.
-- `GPT-6-terra`: dùng khi người dùng yêu cầu model này hoặc một cách viết tương đương.
-- `GPT-6-luna`: dùng khi người dùng yêu cầu model này hoặc một cách viết tương đương.
+- `GPT-6.1-terra`: dùng khi người dùng yêu cầu model này hoặc một cách viết tương đương.
 - `GPT-6-astra`: dùng khi người dùng yêu cầu model này hoặc một cách viết tương đương.
 
 Nhận diện tên model không phân biệt chữ hoa/chữ thường. Chấp nhận dấu gạch ngang hoặc khoảng trắng giữa các phần của tên model, đồng thời bỏ khoảng trắng thừa trước khi so khớp. Ví dụ:
 
-- `GPT-6-luna`, `gpt-6-luna`, `GPT-6-LUNA` và `gpt 6 luna` đều phải được hiểu là `GPT-6-luna`.
-- `GPT-6-terra`, `gpt-6-terra` và `gpt 6 terra` đều phải được hiểu là `GPT-6-terra`.
+- `GPT-6.1-terra`, `gpt-6.1-terra` và `gpt 6.1 terra` đều phải được hiểu là `GPT-6.1-terra`.
 - `GPT-6.1-sol`, `gpt-6.1-sol` và `gpt 6.1 sol` đều phải được hiểu là `GPT-6.1-sol`.
 - `GPT-6-astra`, `gpt-6-astra` và `gpt 6 astra` đều phải được hiểu là `GPT-6-astra`.
 
-Sau khi nhận diện, luôn chuẩn hóa và ghi tên chính thức vào `config.toml`: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra`. Không ghi nguyên cách viết chữ thường hoặc cách viết có khoảng trắng của người dùng vào file.
+Sau khi nhận diện, luôn chuẩn hóa và ghi tên chính thức vào `config.toml`: `GPT-6.1-sol`, `GPT-6.1-terra` hoặc `GPT-6-astra`. Không ghi nguyên cách viết chữ thường hoặc cách viết có khoảng trắng của người dùng vào file.
 
-Khi người dùng yêu cầu một model trong bốn model trên, cập nhật khóa `model` trong `config.toml` thành tên chính thức tương ứng. Nếu dùng bộ file mẫu đi kèm skill, copy file theo workflow rồi chỉ đổi khóa `model`, không thay đổi các cấu hình không liên quan.
+Khi người dùng yêu cầu một model trong ba model trên, cập nhật khóa `model` trong `config.toml` thành tên chính thức tương ứng. Nếu dùng bộ file mẫu đi kèm skill, copy file theo workflow rồi chỉ đổi khóa `model`, không thay đổi các cấu hình không liên quan.
 
-Nếu người dùng yêu cầu bất kỳ model nào ngoài bốn model trên, không cập nhật cấu hình và không tự động thay thế bằng model gần giống. Hãy thông báo rằng hiện tại chỉ hỗ trợ `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` và `GPT-6-astra`, rồi yêu cầu họ chọn một trong bốn model này.
+Nếu người dùng yêu cầu bất kỳ model nào ngoài ba model trên, không cập nhật cấu hình và không tự động thay thế bằng model gần giống. Hãy thông báo rằng hiện tại chỉ hỗ trợ `GPT-6.1-sol`, `GPT-6.1-terra` và `GPT-6-astra`, rồi yêu cầu họ chọn một trong ba model này.
 
 ## Chính Sách Chọn Model
 
 - `GPT-6.1-sol`: model mặc định cho cài đặt mới, ưu tiên dùng cho Codex Extension trong Antigravity.
-- `GPT-6-terra`: lựa chọn cân bằng tốc độ và chất lượng cho công việc hằng ngày.
-- `GPT-6-luna`: ưu tiên tốc độ và chi phí cho tác vụ nhẹ.
+- `GPT-6.1-terra`: lựa chọn Terra 6.1 khi người dùng yêu cầu.
 - `GPT-6-astra`: model reasoning cao cấp cho workflow cần suy luận sâu; chỉ chọn khi người dùng yêu cầu hoặc cấu hình hiện tại đã dùng model này.
-- Codex ghi model theo đúng tên chính thức trong danh sách bốn model được hỗ trợ.
+- Codex ghi model theo đúng tên chính thức trong danh sách ba model được hỗ trợ.
 - OpenClaw dùng provider/model dạng `<provider-hien-tai>/<model-id>`. Prefix provider có thể là `9r`, `9k`, `8r`, `8k` hoặc tên khác; phải đọc cấu hình hiện tại, không được hardcode.
 - Khi cài mới, sửa provider hoặc đồng bộ VPS/OpenClaw, xác minh model xuất hiện tại `https://codex.anhlaptrinh.vn/v1/models`. Riêng yêu cầu chỉ đổi model trên máy tính thì không test gateway trừ khi người dùng yêu cầu, nhưng vẫn phải xác nhận base URL trong config đúng quy tắc bắt buộc.
 - Tên model cũ chỉ còn trong logic nhận diện cấu hình cần migrate của script; không được chấp nhận làm đầu vào `--model` hoặc lựa chọn mới. Khi `--all-agents`, giữ nguyên agent không dùng model thuộc phạm vi quản lý.
 
 ## Chỉ Đổi Model Trên Máy Tính
 
-Áp dụng workflow này khi người dùng chỉ yêu cầu đổi model Codex trên máy tính, ví dụ “đổi sang GPT-6-terra”, mà không yêu cầu đồng bộ VPS, đổi OpenClaw, copy bộ file mẫu, đổi API key hoặc kiểm tra gateway. Khi cài mới bằng bộ file mẫu mà không chỉ định model, luôn dùng `GPT-6.1-sol`.
+Áp dụng workflow này khi người dùng chỉ yêu cầu đổi model Codex trên máy tính, ví dụ “đổi sang GPT-6.1-terra”, mà không yêu cầu đồng bộ VPS, đổi OpenClaw, copy bộ file mẫu, đổi API key hoặc kiểm tra gateway. Khi cài mới bằng bộ file mẫu mà không chỉ định model, luôn dùng `GPT-6.1-sol`.
 
-1. Chuẩn hóa model theo mục **Model Được Hỗ Trợ**. Nếu model không nằm trong bốn model được hỗ trợ, dừng trước khi sửa file.
+1. Chuẩn hóa model theo mục **Model Được Hỗ Trợ**. Nếu model không nằm trong ba model được hỗ trợ, dừng trước khi sửa file.
 2. Resolve `config.toml` của user hiện tại bằng `$CODEX_HOME` hoặc thư mục `.codex` trong home; không dùng file `config.toml` nằm cạnh `SKILL.md` nếu người dùng không yêu cầu copy bộ file mẫu. Xác nhận provider đang chọn có `base_url = "https://codex.anhlaptrinh.vn/v1"`; nếu khác hoặc thiếu thì dừng, báo cần sửa endpoint và không tự mở rộng phạm vi thay đổi.
 3. Backup `config.toml` hiện tại với timestamp trước khi ghi nếu file đã tồn tại.
-4. Chỉ cập nhật khóa top-level `model` thành tên chính thức `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra`; giữ nguyên `model_provider`, `model_reasoning_effort`, `[model_providers.*]`, `[projects.*]`, MCP và mọi cấu hình khác.
+4. Chỉ cập nhật khóa top-level `model` thành tên chính thức `GPT-6.1-sol`, `GPT-6.1-terra` hoặc `GPT-6-astra`; giữ nguyên `model_provider`, `model_reasoning_effort`, `[model_providers.*]`, `[projects.*]`, MCP và mọi cấu hình khác.
 5. Không đọc/sửa `auth.json`, không copy file, không sửa OpenClaw, không restart gateway/Antigravity và không test `/v1/models` trừ khi người dùng yêu cầu riêng.
 6. Sau khi ghi, chỉ xác nhận `config.toml` tồn tại và khóa `model` đã nhận đúng giá trị; báo cáo đường dẫn thực tế và model mới, không in secret.
 
@@ -138,7 +135,7 @@ Ví dụ resolve và sửa trực tiếp trên Linux/macOS/VPS:
 ```bash
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 config_path="$codex_home/config.toml"
-selected_model="GPT-6-terra"
+selected_model="GPT-6.1-terra"
 stamp=$(date +%Y%m%d-%H%M%S)
 
 test -f "$config_path" || { echo "Không tìm thấy: $config_path" >&2; exit 1; }
@@ -168,14 +165,16 @@ bash "$ALT_CODEX_SKILL_DIR/scripts/set_alt_model.sh" \
 
 Script thực hiện:
 
-1. Chỉ chấp nhận `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra` và cách viết tương đương.
+1. Chỉ chấp nhận `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra` và cách viết tương đương.
 2. Backup file vào `${ALT_CODEX_BACKUP_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/cau-hinh-alt-codex/backups}` trước khi ghi; cho phép đổi bằng `ALT_CODEX_BACKUP_DIR` hoặc `--backup-dir`.
 3. Chỉ đổi khóa `model` cấp cao trong Codex config; giữ nguyên provider, projects, MCP và cấu hình khác.
-4. Tự phát hiện provider từ `agents.defaults.model.primary`, xác nhận provider đó tồn tại trong `models.providers`, rồi đăng ký đủ bốn model vào đúng provider.
+4. Tự phát hiện provider từ `agents.defaults.model.primary`, xác nhận provider đó tồn tại trong `models.providers`, rồi đăng ký đủ ba model vào đúng provider.
 5. Đổi `agents.defaults.model.primary` và thêm model vào `agents.defaults.models`.
-6. Khi có `--all-agents`, chỉ thay các agent đang ghim `codex` hoặc một trong bốn model được quản lý thuộc đúng provider vừa phát hiện; không đụng agent dùng provider khác.
+6. Khi có `--all-agents`, chỉ thay các agent đang ghim model được quản lý hoặc alias cũ được script nhận diện thuộc đúng provider vừa phát hiện; không đụng agent dùng provider khác.
 7. Validate JSON/OpenClaw sau khi ghi; nếu validation lỗi thì khôi phục backup vừa tạo.
 8. Tự động chạy `openclaw gateway restart` và kiểm tra `openclaw gateway status` sau khi sửa config OpenClaw đang hoạt động.
+
+Khi cập nhật thành công, cả `--codex-only` và `--openclaw-only` phải trả mã thoát `0`; kiểm tra bằng file cấu hình giả để tránh đổi runtime khi chỉ bảo trì skill.
 
 Mặc định script dùng:
 
@@ -189,7 +188,7 @@ Khi đổi model OpenClaw, gateway sẽ restart tự động sau bước validat
 
 ```bash
 bash scripts/set_alt_model.sh \
-  --model GPT-6-terra \
+  --model GPT-6.1-terra \
   --openclaw-only \
   --no-restart-gateway
 ```
@@ -200,8 +199,8 @@ Script ưu tiên lấy prefix từ model mặc định hiện tại. Ví dụ:
 
 - `9r/codex` sẽ đổi thành `9r/GPT-6.1-sol`.
 - `9k/codex` sẽ đổi thành `9k/GPT-6.1-sol`.
-- `8r/GPT-6-luna` sẽ đổi thành `8r/GPT-6-terra` khi chọn terra.
-- `8k/codex` sẽ đổi thành `8k/GPT-6-luna` khi chọn luna.
+- `8r/codex` sẽ đổi thành `8r/GPT-6.1-terra` khi chọn terra.
+- `8k/codex` sẽ đổi thành `8k/GPT-6-astra` khi chọn astra.
 
 Nếu cấu hình không có model mặc định hợp lệ hoặc có nhiều provider không thể xác định duy nhất, script phải dừng và yêu cầu chỉ rõ provider, không được tự đoán:
 
@@ -215,13 +214,13 @@ bash scripts/set_alt_model.sh \
 ### Chỉ đổi Codex
 
 ```bash
-bash scripts/set_alt_model.sh --model GPT-6-terra --codex-only
+bash scripts/set_alt_model.sh --model GPT-6.1-terra --codex-only
 ```
 
 ### Chỉ đổi OpenClaw
 
 ```bash
-bash scripts/set_alt_model.sh --model GPT-6-luna --openclaw-only --all-agents
+bash scripts/set_alt_model.sh --model GPT-6-astra --openclaw-only --all-agents
 ```
 
 ### Kiểm tra sau thay đổi
@@ -241,7 +240,7 @@ Không in `auth.json`, API key hoặc toàn bộ `openclaw.json` trong báo cáo
 - Đồng bộ cách cấu hình từ user config Codex trên VPS sang máy khác.
 - Sửa lỗi provider, model, endpoint, biến môi trường hoặc lỗi `401`/không kết nối.
 - Cấu hình Codex CLI và extension dùng chung user-level config.
-- Đổi model giữa `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` và `GPT-6-astra` theo yêu cầu của người dùng.
+- Đổi model giữa `GPT-6.1-sol`, `GPT-6.1-terra` và `GPT-6-astra` theo yêu cầu của người dùng.
 - Khi người dùng chỉ nói đổi model trên máy tính, sửa trực tiếp khóa `model` trong user `config.toml` theo mục **Chỉ Đổi Model Trên Máy Tính**.
 - Đổi cùng một model cho Codex và OpenClaw trên VPS, bao gồm các agent đang ghim model cũ khi người dùng yêu cầu áp dụng toàn bộ.
 
@@ -331,7 +330,7 @@ Sau khi chạy, xác nhận script báo `OPENAI_API_KEY: present`, gateway HTTP 
 9. Thoát hoàn toàn và mở lại Antigravity/Codex Extension để app-server nhận đúng `CODEX_HOME`, provider config và credential.
 10. Chạy một request thật bằng `codex exec`, xác nhận model trả lời thành công và log mới nhất không còn `401` hoặc request `/v1/responses` thiếu Authorization. Nếu test thất bại, dừng bàn giao, giữ lại backup và xử lý nguyên nhân trước.
 
-Khi đổi model, chuẩn hóa cách viết không phân biệt hoa/thường và chấp nhận dấu gạch ngang hoặc khoảng trắng như mô tả ở mục **Model Được Hỗ Trợ**. Chỉ ghi tên chính thức `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra` vào khóa `model`. Nếu không thể chuẩn hóa yêu cầu thành một trong bốn model này, thông báo danh sách model được hỗ trợ và dừng trước khi sửa cấu hình.
+Khi đổi model, chuẩn hóa cách viết không phân biệt hoa/thường và chấp nhận dấu gạch ngang hoặc khoảng trắng như mô tả ở mục **Model Được Hỗ Trợ**. Chỉ ghi tên chính thức `GPT-6.1-sol`, `GPT-6.1-terra` hoặc `GPT-6-astra` vào khóa `model`. Nếu không thể chuẩn hóa yêu cầu thành một trong ba model này, thông báo danh sách model được hỗ trợ và dừng trước khi sửa cấu hình.
 
 ## Windows PowerShell
 
@@ -447,7 +446,7 @@ Nếu file đã có nhiều cấu hình, không thay toàn bộ file bằng mộ
 
 - Đảm bảo `model_provider` trùng với ID của custom provider đang sửa; bộ file mẫu của skill dùng `model_provider = "router"` và `[model_providers.router]`.
 - Đảm bảo `model` là model người dùng đã chọn trong danh sách hỗ trợ; mặc định cài mới là `GPT-6.1-sol`.
-- Chuẩn hóa cách viết của người dùng về `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra`; không ghi model khác, tên chữ thường hoặc tên có khoảng trắng vào config.
+- Chuẩn hóa cách viết của người dùng về `GPT-6.1-sol`, `GPT-6.1-terra` hoặc `GPT-6-astra`; không ghi model khác, tên chữ thường hoặc tên có khoảng trắng vào config.
 - Đảm bảo `model_reasoning_effort = "medium"`, trừ khi người dùng yêu cầu mức khác.
 - Đảm bảo `preferred_auth_method = "apikey"` và `cli_auth_credentials_store = "file"` để Extension/app-server đọc `auth.json` trong đúng `CODEX_HOME`.
 - Tạo hoặc cập nhật `[model_providers.router]` với `name`, `base_url = "https://codex.anhlaptrinh.vn/v1"`, `wire_api = "responses"` và `requires_openai_auth = true`; chỉ thêm `env_key = "OPENAI_API_KEY"` khi người dùng chọn workflow biến môi trường CLI, không thêm để thay thế `auth.json` của Extension.
@@ -512,7 +511,7 @@ Extension có thể chạy trong môi trường GUI khác terminal. Kiểm tra b
 
 - `config.toml` và `auth.json` được copy đúng vào thư mục `.codex` của user chạy Antigravity (`%USERPROFILE%\.codex` hoặc `$CODEX_HOME`).
 - `auth.json` chứa `OPENAI_API_KEY` hợp lệ, không cần tạo biến môi trường hệ thống khi cấu hình extension.
-- Provider trong `config.toml` chỉ tới `https://codex.anhlaptrinh.vn/v1`, dùng `wire_api = "responses"`, có `requires_openai_auth = true`, và model là một trong `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` hoặc `GPT-6-astra`.
+- Provider trong `config.toml` chỉ tới `https://codex.anhlaptrinh.vn/v1`, dùng `wire_api = "responses"`, có `requires_openai_auth = true`, và model là một trong `GPT-6.1-sol`, `GPT-6.1-terra` hoặc `GPT-6-astra`.
 - Không có API key thật xuất hiện trong file log hay chat response.
 - Antigravity/Codex Extension đã restart và `codex exec` thực tế trả phản hồi thành công, không còn `401`/thiếu Authorization.
 
@@ -521,7 +520,7 @@ Extension có thể chạy trong môi trường GUI khác terminal. Kiểm tra b
 ```text
 Đã cấu hình Codex Extension/Codex CLI dùng ALT Gateway trên <Windows|Linux|macOS>.
 File cấu hình: <đường dẫn config.toml>.
-Model: <GPT-6.1-sol|GPT-6-terra|GPT-6-luna|GPT-6-astra>.
+Model: <GPT-6.1-sol|GPT-6.1-terra|GPT-6-astra>.
 Provider auth: requires_openai_auth=true.
 Base URL: https://codex.anhlaptrinh.vn/v1.
 API key được lưu trong `auth.json` dưới khóa `OPENAI_API_KEY`, không ghi vào config hoặc báo cáo.
@@ -542,7 +541,7 @@ Phần này bổ sung cho workflow cũ, không thay thế các quy tắc phía t
 
 ### Phân Biệt Model Và Runtime
 
-- `Current`/`Selected` là model được chọn, ví dụ `9r/GPT-6-luna`.
+- `Current`/`Selected` là model được chọn, ví dụ `9r/GPT-6-astra`.
 - `Active` là runtime thực thi, ví dụ `9r/codex` hoặc runtime `openclaw`.
 - Câu trả lời tự nhận model cũ trên Telegram không đủ để kết luận. Phải đối chiếu log request thực tế có dạng `model-fetch ... provider=9r ... model=<model>`.
 - Nếu muốn dùng runtime OpenClaw, đặt policy ở provider/model scope, không chỉ đổi `agents.defaults.model.primary`:
@@ -552,7 +551,7 @@ Phần này bổ sung cho workflow cũ, không thay thế các quy tắc phía t
   "agents": {
     "defaults": {
       "models": {
-        "9r/GPT-6-luna": {
+        "9r/GPT-6-astra": {
           "agentRuntime": { "id": "openclaw" }
         }
       }

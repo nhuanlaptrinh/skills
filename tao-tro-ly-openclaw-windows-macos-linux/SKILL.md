@@ -5,9 +5,9 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 
 # Tạo Trợ Lý OpenClaw Trên Windows, macOS Và Linux
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -77,7 +77,7 @@ Việc áp dụng này chỉ lưu skill dưới `workspace/skills` và policy tr
 - Gateway mặc định: mode `local`, bind `loopback`, port `18789`, auth `token`.
 - Token `chatbot` chỉ được dùng cho máy local bind loopback; VPS/public/member phải dùng token ngẫu nhiên riêng.
 - Chuẩn bị Codex CLI dùng đăng nhập tài khoản ChatGPT bằng `forced_login_method = "chatgpt"`; không tự chạy login và không copy auth cache.
-- Không tự bật DeepSeek hoặc model hội thoại ngoài bốn ID được phép, kể cả khi môi trường đã có key; không sửa/xóa credential sẵn có.
+- Không tự bật DeepSeek hoặc model hội thoại ngoài ba ID được phép, kể cả khi môi trường đã có key; không sửa/xóa credential sẵn có.
 
 ### Windows
 
@@ -282,7 +282,7 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 - Chạy gateway bằng root runtime của member và luôn nạp `/root/.openclaw/token-codex.env` trước khi chạy; nếu không, `${TOKEN_CODEX_API_KEY}` sẽ rỗng khi Gateway reload hoặc khởi động lại.
 - `/root/.openclaw` phải là thư mục thật trên volume `/root`; không tạo symlink sang `/home`, `/workspace` hoặc đường dẫn khác vì exec approvals có thể từ chối traversal qua symlink.
 - Mọi `docker exec ... openclaw` trong automation phải truyền `-e HOME=/root` hoặc chạy qua wrapper đã khóa `HOME`.
-- **Cấu hình Custom Provider cho Token Codex (BẮT BUỘC KHI DÙNG VPS THÀNH VIÊN):** Token Codex là provider duy nhất cho member đầy đủ. Khi cấu hình thủ công vào `openclaw.json`, bắt buộc dùng đúng base URL, API, biến môi trường và bốn model sau; không tự thêm `/v1` lần thứ hai hoặc thuộc tính lạ như `enabled`. Mọi model phải khai báo `input: ["text", "image"]` để member luôn nhận được ảnh input:
+- **Cấu hình Custom Provider cho Token Codex (BẮT BUỘC KHI DÙNG VPS THÀNH VIÊN):** Token Codex là provider duy nhất cho member đầy đủ. Khi cấu hình thủ công vào `openclaw.json`, bắt buộc dùng đúng base URL, API, biến môi trường và ba model sau; không tự thêm `/v1` lần thứ hai hoặc thuộc tính lạ như `enabled`. Mọi model phải khai báo `input: ["text", "image"]` để member luôn nhận được ảnh input:
 ```json
 "models": {
   "providers": {
@@ -298,14 +298,8 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
           "maxTokens": 4096
         },
         {
-          "id": "GPT-6-terra",
-          "name": "GPT-6-terra",
-          "input": ["text", "image"],
-          "maxTokens": 4096
-        },
-        {
-          "id": "GPT-6-luna",
-          "name": "GPT-6-luna",
+          "id": "GPT-6.1-terra",
+          "name": "GPT-6.1-terra",
           "input": ["text", "image"],
           "maxTokens": 4096
         },
@@ -329,14 +323,13 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
     },
     "models": {
       "token-codex/GPT-6.1-sol": {},
-      "token-codex/GPT-6-terra": {},
-      "token-codex/GPT-6-luna": {},
+      "token-codex/GPT-6.1-terra": {},
       "token-codex/GPT-6-astra": {}
     }
   }
 }
 ```
-- Mặc định cấu hình hiểu ảnh bằng `token-codex/GPT-6.1-sol`: `agents.defaults.imageModel.primary` và model chính `agents.defaults.model.primary` phải dùng model này; `agents.defaults.models` phải có đủ bốn model và model catalog phải giữ `input: ["text", "image"]` cùng `maxTokens: 4096`. Chỉ đặt `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
+- Mặc định cấu hình hiểu ảnh bằng `token-codex/GPT-6.1-sol`: `agents.defaults.imageModel.primary` và model chính `agents.defaults.model.primary` phải dùng model này; `agents.defaults.models` phải có đủ ba model và model catalog phải giữ `input: ["text", "image"]` cùng `maxTokens: 4096`. Chỉ đặt `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
 - `agents.defaults.mediaModels.image.primary` chỉ dùng cho tính năng tạo ảnh,
   không được coi là bước thay thế cho khả năng đọc ảnh input. Không gán
   `token-codex/GPT-6.1-sol` vào key này: catalog Token Codex trong workflow
@@ -454,7 +447,7 @@ Khi tạo VPS thành viên mới, thực hiện theo đúng thứ tự:
 
 ## Chuẩn bị Token Codex trước member VPS
 
-API key Token Codex là bắt buộc cho member OpenClaw đầy đủ. Ưu tiên nhận qua `TOKEN_CODEX_API_KEY`; chấp nhận `CUSTOM_PROVIDER_API_KEY` để tương thích. Không yêu cầu email nếu người dùng đã cung cấp API key hợp lệ. Bốn model được chấp nhận duy nhất là `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna` và `GPT-6-astra`; phải giữ nguyên chữ hoa, chữ thường và dấu chấm.
+API key Token Codex là bắt buộc cho member OpenClaw đầy đủ. Ưu tiên nhận qua `TOKEN_CODEX_API_KEY`; chấp nhận `CUSTOM_PROVIDER_API_KEY` để tương thích. Không yêu cầu email nếu người dùng đã cung cấp API key hợp lệ. Ba model được chấp nhận duy nhất là `GPT-6.1-sol`, `GPT-6.1-terra` và `GPT-6-astra`; phải giữ nguyên chữ hoa, chữ thường và dấu chấm.
 
 Kiểm tra key không lộ secret:
 
@@ -467,7 +460,7 @@ fetch('https://codex.anhlaptrinh.vn/v1/models', {
 }).then(async (response) => {
   const payload = response.ok ? await response.json() : {};
   const models = Array.isArray(payload.data) ? payload.data : [];
-  const required = ['GPT-6.1-sol', 'GPT-6-terra', 'GPT-6-luna', 'GPT-6-astra'];
+  const required = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
   const available = new Set(models.map((item) => String(item?.id ?? item)));
   const missing = required.filter((model) => !available.has(model));
   console.log(`models_http=${response.status} missing_count=${missing.length}`);
@@ -485,7 +478,7 @@ Nếu cần tạo tài khoản/key mới, chỉ chạy provisioning backend sau 
 
 Dùng API tương thích OpenAI cho OpenClaw, Codex trong Antigravity, Hermes Agent và mã nguồn riêng. Khi skill này cấu hình Token Codex, bắt buộc giữ nguyên các giá trị sau:
 
-- **4 MODEL ĐƯỢC CHẤP NHẬN:** `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`.
+- **3 MODEL ĐƯỢC CHẤP NHẬN:** `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`.
 - **Base URL:** `https://codex.anhlaptrinh.vn/v1`.
 - **API:** `openai-completions`.
 - **API key:** chỉ đọc từ biến môi trường `TOKEN_CODEX_API_KEY`; không ghi key thật vào source, config mẫu, log, tài liệu hoặc câu trả lời.
@@ -686,7 +679,7 @@ Provider sau khi container tồn tại phải dùng:
 - `TOKEN_CODEX_API_KEY` hoặc `CUSTOM_PROVIDER_API_KEY`: API key thật, chỉ ghi vào config member, không in ra log.
 - Provider ID: `token-codex`.
 - Base URL: `https://codex.anhlaptrinh.vn/v1`.
-- Model IDs: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`.
+- Model IDs: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`.
 - Model input: `text+image`.
 - `maxTokens`: `4096`.
 
@@ -1224,7 +1217,7 @@ config.agents.defaults.model = { primary: 'token-codex/GPT-6.1-sol' };
 config.agents.defaults.imageModel = { primary: 'token-codex/GPT-6.1-sol' };
 // Token Codex is configured for chat/vision input, not image generation.
 // Set mediaModels.image only after a real image-generation provider is ready.
-const modelIds = ['GPT-6.1-sol', 'GPT-6-terra', 'GPT-6-luna', 'GPT-6-astra'];
+const modelIds = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
 config.agents.defaults.models = Object.fromEntries(modelIds.map((id) => [`token-codex/${id}`, config.agents.defaults.models?.[`token-codex/${id}`] || {}]));
 config.models ??= {};
 config.models.mode = 'merge';
@@ -1265,12 +1258,12 @@ Khi Telegram trả `Authentication failed (provider returned HTTP 401)`, không 
 
 1. Xác định container thực sự đang chạy bot từ log có dòng `starting provider (@<bot_username>)` và `Inbound message telegram`; không tìm bằng cách in bot token.
 2. Kiểm tra file `/root/.openclaw/token-codex.env` tồn tại, quyền `600` và biến `TOKEN_CODEX_API_KEY` không rỗng; chỉ in `token_env=present` hoặc `token_env=missing`.
-3. Gọi `GET /v1/models` và kiểm tra đủ bốn model đúng case. Nếu HTTP `401`, key đã sai/hết hiệu lực hoặc đang nạp nhầm key; thay key trong file env, không ghi key thật vào `openclaw.json`.
+3. Gọi `GET /v1/models` và kiểm tra đủ ba model đúng case. Nếu HTTP `401`, key đã sai/hết hiệu lực hoặc đang nạp nhầm key; thay key trong file env, không ghi key thật vào `openclaw.json`.
 4. Nếu `/models` trả `200` nhưng Gateway vẫn dùng provider/model cũ, chuyển cache `/root/.openclaw/agents/main/agent/models.json` sang file backup có timestamp; không xóa không backup.
 5. Validate config trong shell đã source env, restart tmux bằng lệnh chuẩn ở trên, rồi xác nhận `gateway status`, `models list` và channel probe.
 6. Không sửa 401 bằng cách nối thêm `/v1`, đổi model khác case, khôi phục provider cũ, thêm fallback provider hoặc đưa key literal vào JSON.
 
-Kiểm tra endpoint chat của cả bốn model mà không in key hay nội dung phản hồi:
+Kiểm tra endpoint chat của cả ba model mà không in key hay nội dung phản hồi:
 
 ```bash
 docker exec user-<ten_user> sh -lc '
@@ -1279,7 +1272,7 @@ docker exec user-<ten_user> sh -lc '
   set +a
   HOME=/root node <<'"'"'NODE'"'"'
 const apiKey = process.env.TOKEN_CODEX_API_KEY;
-const models = ['GPT-6.1-sol', 'GPT-6-terra', 'GPT-6-luna', 'GPT-6-astra'];
+const models = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
 if (!apiKey) throw new Error('Thiếu TOKEN_CODEX_API_KEY');
 (async () => {
   let failed = false;

@@ -17,7 +17,7 @@ usage() {
   cat <<'EOF'
 Usage: set_alt_model.sh --model MODEL [options]
 
-Models: GPT-6.1-sol, GPT-6-terra, GPT-6-luna, GPT-6-astra
+Models: GPT-6.1-sol, GPT-6.1-terra, GPT-6-astra
 
 Options:
   --all-agents              Update managed model overrides in agents.list
@@ -38,8 +38,7 @@ normalize_model() {
   normalized=$(printf '%s' "$1" | tr '[:upper:]_' '[:lower:] ' | sed -E 's/[[:space:]]+/-/g; s/-+/-/g; s/^-|-$//g')
   case "$normalized" in
     gpt-6.1-sol) printf '%s' 'GPT-6.1-sol' ;;
-    gpt-6-terra) printf '%s' 'GPT-6-terra' ;;
-    gpt-6-luna) printf '%s' 'GPT-6-luna' ;;
+    gpt-6.1-terra) printf '%s' 'GPT-6.1-terra' ;;
     gpt-6-astra) printf '%s' 'GPT-6-astra' ;;
     *) return 1 ;;
   esac
@@ -69,7 +68,7 @@ if [[ -z "$MODEL" ]]; then
 fi
 
 if ! MODEL=$(normalize_model "$MODEL"); then
-  echo "Unsupported model. Choose GPT-6.1-sol, GPT-6-terra, GPT-6-luna, or GPT-6-astra." >&2
+  echo "Unsupported model. Choose GPT-6.1-sol, GPT-6.1-terra, or GPT-6-astra." >&2
   exit 2
 fi
 
@@ -100,12 +99,14 @@ detect_openclaw_provider() {
     fi
   fi
 
+  # Retired IDs identify existing providers; only current IDs are selectable.
   candidates=$(jq -r '
     .models.providers // {}
     | to_entries[]
     | select(any(.value.models[]?;
         .id == "codex" or
         .id == "GPT-6.1-sol" or
+        .id == "GPT-6.1-terra" or
         .id == "GPT-6-terra" or
         .id == "GPT-6-luna" or
         .id == "GPT-6-astra"))
@@ -173,13 +174,13 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
     def managed($provider):
       . as $reference
       | ["codex", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna",
-         "GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra"]
+         "GPT-6-terra", "GPT-6-luna", "GPT-6.1-sol", "GPT-6.1-terra", "GPT-6-astra"]
       | map($provider + "/" + .)
       | index($reference) != null;
     .models.providers[$provider].models = (
       (.models.providers[$provider].models // []) as $existing
-      | ["GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra"] as $managedIds
-      | ["codex", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna"] as $retiredIds
+      | ["GPT-6.1-sol", "GPT-6.1-terra", "GPT-6-astra"] as $managedIds
+      | ["codex", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna", "GPT-6-terra", "GPT-6-luna"] as $retiredIds
       | ($existing | map(select((.id as $id | ($managedIds + $retiredIds) | index($id)) == null))) +
         ($managedIds | map(. as $modelId | ($existing | map(select(.id == $modelId)) | first) // {
           id: ., name: .,
@@ -229,5 +230,9 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
 fi
 
 echo "Updated model to $MODEL."
-[[ $UPDATE_CODEX -eq 1 ]] && echo "Codex backup: $CODEX_BACKUP"
-[[ $UPDATE_OPENCLAW -eq 1 ]] && echo "OpenClaw backup: $OPENCLAW_BACKUP"
+if [[ $UPDATE_CODEX -eq 1 ]]; then
+  echo "Codex backup: $CODEX_BACKUP"
+fi
+if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
+  echo "OpenClaw backup: $OPENCLAW_BACKUP"
+fi

@@ -1,13 +1,13 @@
 ---
 name: cai-dat-openclaw-windows-mac-linux
-description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux với Python/pip, gateway local và Token Codex; chỉ chọn GPT-6.1-sol, GPT-6-terra, GPT-6-luna, GPT-6-astra, mặc định GPT-6.1-sol. Không tự cài/login Codex CLI hoặc bật DeepSeek."
+description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux với Python/pip, gateway local và Token Codex; chỉ chọn GPT-6.1-sol, GPT-6.1-terra, GPT-6-astra, mặc định GPT-6.1-sol. Không tự cài/login Codex CLI hoặc bật DeepSeek."
 ---
 
 # Cai Dat OpenClaw Windows, macOS, Linux
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -47,9 +47,9 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 
 ## Chọn model và kiểm tra trước khi chạy
 
-- Linux/macOS: đặt `TOKEN_CODEX_MODEL_ID` thành một trong bốn ID được phép; nếu không đặt thì dùng `GPT-6.1-sol`.
-- Windows: truyền `-Model GPT-6-terra`, `-Model GPT-6-luna` hoặc model được phép khác. Giá trị ngoài danh sách phải bị từ chối trước khi cài đặt.
-- Installer đăng ký đúng bốn model vào provider `token-codex`; không tự bật provider khác từ key trong môi trường. Tham số Windows `-SkipDeepSeek` cũ chỉ còn được chấp nhận để tương thích, không bật DeepSeek khi bỏ tham số này.
+- Linux/macOS: đặt `TOKEN_CODEX_MODEL_ID` thành một trong ba ID được phép; nếu không đặt thì dùng `GPT-6.1-sol`.
+- Windows: truyền `-Model GPT-6.1-terra` hoặc model được phép khác. Giá trị ngoài danh sách phải bị từ chối trước khi cài đặt.
+- Installer đăng ký đúng ba model vào provider `token-codex`; không tự bật provider khác từ key trong môi trường. Tham số Windows `-SkipDeepSeek` cũ chỉ còn được chấp nhận để tương thích, không bật DeepSeek khi bỏ tham số này.
 - Các installer chưa có dry-run đầy đủ. Không chạy installer chỉ để xem kế hoạch: dùng `bash -n scripts/install_openclaw_linux.sh` hoặc `bash -n scripts/install_openclaw_macos.sh` để kiểm tra cú pháp. Trên Windows, kiểm tra script bằng PowerShell parser trước khi chạy thật.
 - Kiểm tra chỉ đọc: `node --version` và `npm view openclaw@2026.10.6 version engines --json`. Nếu Node hiện có không đạt engines thì nâng Node trước rồi rerun; không dùng `--force` để bỏ qua yêu cầu. Linux Debian/Ubuntu cài Node mới qua NodeSource `24.x`, macOS dùng Homebrew `node@24`, Windows dùng Node.js LTS đạt engines.
 - Trước khi chạy thật trên máy đã có config, backup các file liên quan, kiểm tra model đích trong `/v1/models` bằng key trong bộ nhớ và không in credential.
@@ -67,8 +67,7 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
       "model": {"primary": "token-codex/GPT-6.1-sol"},
       "models": {
         "token-codex/GPT-6.1-sol": {},
-        "token-codex/GPT-6-terra": {},
-        "token-codex/GPT-6-luna": {},
+        "token-codex/GPT-6.1-terra": {},
         "token-codex/GPT-6-astra": {}
       }
     }
@@ -82,8 +81,7 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
         "api": "openai-completions",
         "models": [
           {"id": "GPT-6.1-sol", "name": "GPT-6.1-sol"},
-          {"id": "GPT-6-terra", "name": "GPT-6-terra"},
-          {"id": "GPT-6-luna", "name": "GPT-6-luna"},
+          {"id": "GPT-6.1-terra", "name": "GPT-6.1-terra"},
           {"id": "GPT-6-astra", "name": "GPT-6-astra"}
         ]
       }

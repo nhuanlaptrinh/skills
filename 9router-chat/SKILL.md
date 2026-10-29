@@ -22,6 +22,8 @@ curl "$NINEROUTER_URL/v1/models/info?id=openai/gpt-4o"
 
 Combos (e.g. `vip`, `mycodex`) auto-fallback through multiple providers.
 
+For Token Codex at `https://codex.anhlaptrinh.vn/v1`, choose exactly `GPT-6.1-sol` (default), `GPT-6.1-terra`, or `GPT-6-astra` after verifying availability in `/v1/models`. Use the chosen ID as the `model` value in the examples below; preserve its case and do not add an upstream provider prefix. With this service, set `NINEROUTER_URL=https://codex.anhlaptrinh.vn` so these examples append `/v1` only once. Other 9Router providers retain their own model catalogs.
+
 ## OpenAI format
 
 ```bash

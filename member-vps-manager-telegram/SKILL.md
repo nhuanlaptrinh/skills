@@ -5,9 +5,9 @@ description: Vận hành bot Telegram quản trị Member VPS OpenClaw tại /ro
 
 # Member VPS Manager Telegram
 
-## Chính sách model — 2026-10-19
+## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng bốn model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -48,7 +48,7 @@ có thể gọi read-only bằng token file nếu cần xác minh bot.
 4. Chọn `openclaw-standard`.
 5. Nhập owner Telegram ID đã xác minh.
 6. Chọn group, group ID và chế độ mention.
-7. Chọn endpoint và đúng một trong `GPT-6.1-sol`, `GPT-6-terra`, `GPT-6-luna`, `GPT-6-astra`; mặc định cho lượt tạo mới là `GPT-6.1-sol`. Nếu wizard triển khai chưa có lựa chọn phù hợp, dừng và báo cần cập nhật bot riêng; không chọn model cũ hoặc tự sửa service/config production.
+7. Chọn endpoint và đúng một trong `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`; mặc định cho lượt tạo mới là `GPT-6.1-sol`. Nếu wizard triển khai chưa có lựa chọn phù hợp, dừng và báo cần cập nhật bot riêng; không chọn model cũ hoặc tự sửa service/config production.
 8. Gửi API key Codex; bot xóa message sau khi đọc.
 9. Gửi token BotFather của member; bot xóa message sau khi đọc.
 10. Bấm `Xác nhận tạo`.

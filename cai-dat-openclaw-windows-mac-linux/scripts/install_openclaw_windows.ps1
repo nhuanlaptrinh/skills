@@ -2,7 +2,7 @@ param(
   [string]$Token = "chatbot",
   [int]$Port = 18789,
   [string]$Bind = "loopback",
-  [ValidateSet("GPT-6.1-sol", "GPT-6-terra", "GPT-6-luna", "GPT-6-astra")]
+  [ValidateSet("GPT-6.1-sol", "GPT-6.1-terra", "GPT-6-astra")]
   [string]$Model = "GPT-6.1-sol",
   [switch]$SkipPythonPip,
   [switch]$SkipCodex,
@@ -211,7 +211,7 @@ const baseUrl = process.env.TOKEN_CODEX_BASE_URL_RUNTIME;
 const modelId = process.env.TOKEN_CODEX_MODEL_ID_RUNTIME;
 const providerId = process.env.TOKEN_CODEX_PROVIDER_ID_RUNTIME;
 const primaryModel = `${providerId}/${modelId}`;
-const modelIds = ['GPT-6.1-sol', 'GPT-6-terra', 'GPT-6-luna', 'GPT-6-astra'];
+const modelIds = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
 if (!modelIds.includes(modelId)) throw new Error('Unsupported Token Codex model');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 

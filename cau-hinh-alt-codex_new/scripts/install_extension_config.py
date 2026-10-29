@@ -24,8 +24,7 @@ SUPPORTED_FILES = ("auth.json", "config.toml")
 SUPPORTED_MODELS = frozenset(
     {
         "GPT-6.1-sol",
-        "GPT-6-terra",
-        "GPT-6-luna",
+        "GPT-6.1-terra",
         "GPT-6-astra",
     }
 )

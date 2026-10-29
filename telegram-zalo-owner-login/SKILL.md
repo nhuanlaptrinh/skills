@@ -75,9 +75,13 @@ The source asset `assets/index.mjs` and helper are portable to another Docker VP
 
 ## Verified deployment
 
+On `2026-10-24`, `user-nndungct` was subsequently upgraded to `2026.10.6` with Node `24.22.1`. The existing linked plugin was backed up separately, then redeployed through the same helper's dry-run/apply/check sequence to generate exact `2026.10.6` compatibility metadata. Payload/settings, owner count, config and plugin doctor checks passed; no login, QR generation or message delivery occurred. Deployment receipt: `/root/_Backups/telegram-zalo-owner-login/user-nndungct/20261024T184534961539Z/result.json`. Zalo remained unlinked from before the core upgrade; do not report it as restored. Core verification-only after the reload passed, including stable singleton Gateway/PID, Telegram probe and no-delivery model smoke: `/root/_Backups/openclaw-members-2026.10.6/nndungct/20261024T184651Z/SUCCESS.json`. Repeat verification after future reloads before continuing any authorized sequential upgrade.
+
 On `2026-10-24`, deployed to `user-nndungct` on `2026.9.9` using legacy HOME `/home/nndungct`, Telegram account `nndungct`, Zalo account `default` and canonical agent `main`. The native `/zaloqr` appeared in the Telegram bot menu; payload/config/plugin checks, owner/non-owner/group/wrong-account authorization checks and Telegram probe passed. Existing owners, credentials, routing and other containers were unchanged. Installation did not generate a QR or log Zalo in; the owner must request `/zaloqr` and scan it.
 
 Before applying to `2026.10.6`, the installed CLI login options, QR-image output contract, native owner-command context, version-2 tool authority and SDK routing were inspected in that release. Run the same deployment/check/channel acceptance for the selected member; these checks never authorize an automatic login or a broader rollout. Other releases and prereleases remain blocked.
+
+Also deployed to `user-nndung` on `2026.10.6` with legacy HOME `/home/nndung`, Telegram account `nndung`, Zalo `default` and agent `main` on `2026-10-24`. Config/plugin/payload checks, 21 authorization/registration checks and Telegram menu verification passed; Telegram and Zalo were linked/running/probe-healthy after installation. No QR/login/send was triggered. Runtime naturally refreshed cookie/last-used metadata while restoring the already authenticated Zalo session; credential identity fields and all protected config sections stayed unchanged. Do not mistake normal credential refresh for an operator login or restore an older cookie solely because its raw hash changed.
 
 ## Lỗi đã gặp / Checklist
 
@@ -87,3 +91,4 @@ Before applying to `2026.10.6`, the installed CLI login options, QR-image output
 - Trước cài: chạy `node --test scripts/test_receipt.mjs` và `python3 -B scripts/test_deploy.py` trong skill `telegram-zalo-owner-login` (offline, không tạo QR/gửi tin). Sau cài: `openclaw plugins list --json` và `openclaw plugins inspect <id> --runtime --json` phải thấy `loaded`, tool `telegram_zalo_login_qr` và command `zaloqr`; có config/doctor sạch không đủ chứng minh plugin load.
 - Khi được phép apply runtime, backup từng file `<file>.bak-<timestamp>`, giữ watchdog lock đúng member rồi `openclaw plugins reload <id> --json`; `restartRequired=false` thì KHÔNG restart. Nếu `true` hoặc reload lỗi, dừng và hỏi owner, không tự restart gateway/container/service. Sửa kho skill/template không đồng nghĩa đã reload member; không chạy helper `--apply` có stop/start khi task cấm restart.
 - Probe `zalouser` mỗi **30 phút**, lệch phút giữa member; không tự đổi cron production. Không logout, tạo/gửi QR hay gửi tin Telegram/Zalo trong lượt sửa/kiểm thử offline; live test chỉ khi owner yêu cầu riêng.
+
