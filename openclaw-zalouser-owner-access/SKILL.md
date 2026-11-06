@@ -114,6 +114,11 @@ running. Rerunning `--apply` is idempotent and preserves unrelated owners,
 groups, plugin targets, and deny rules. The updater reports counts and generic
 change names only; it never prints the supplied IDs.
 
+OpenClaw `2026.10.6` removed the legacy `skills.workshop.approvalPolicy`
+configuration key. Do not add that retired key while synchronizing owner
+access; current owner approval authority is represented by the supported owner,
+elevated, sender, and approval-target layers above.
+
 ## Verification
 
 Run all relevant checks with the member runtime HOME:

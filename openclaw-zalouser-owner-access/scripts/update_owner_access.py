@@ -303,12 +303,6 @@ def transform(
             sender[key] = {}
             changes.append("grant exact Zalo owner sender policy")
 
-    skills = ensure_dict(updated, "skills")
-    workshop = ensure_dict(skills, "workshop")
-    if workshop.get("approvalPolicy") != "pending":
-        workshop["approvalPolicy"] = "pending"
-        changes.append("set Skill Workshop approvalPolicy=pending")
-
     return updated, changes
 
 
