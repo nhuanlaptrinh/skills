@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw Codex Router"
+  short_description: "Apply a custom Codex-compatible API to OpenClaw safely"
+  default_prompt: "Apply the Codex router to OpenClaw with a backup, validation, and optional live probe."
