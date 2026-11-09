@@ -14,3 +14,4 @@ venv/
 *.onnx
 *.safetensors
 rvc-metal-rock-voice-changer/assets/
+auth.json
