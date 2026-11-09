@@ -15,10 +15,10 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 ## Defaults
 
 - Dashboard URL must always be `http://127.0.0.1:18789/`.
-- OpenClaw CLI must always be installed as fixed `openclaw@2026.10.6` (policy updated 2026-10-24).
-- Do not use `latest` or automatically change versions. Verify the Node engine with `npm view openclaw@2026.10.6 engines --json`, then confirm `openclaw --version` returns `2026.10.6`.
-- Node.js must satisfy `>=24.22.1 <25 || >=26.12.1`. Prefer Node.js `24.x`; do not accept an older installed Node merely because `node` and `npm` exist. The scripts stop before OpenClaw installation/configuration if Node is unsupported and verify the installed OpenClaw version before onboarding.
-- Do not use a floating latest tag or any other OpenClaw version unless the user explicitly names that version in the current request.
+- OpenClaw CLI must always be installed as fixed `openclaw@2026.11.2` (policy updated 2026-11-09).
+- Do not use `latest` or an unspecified version. Verify the Node engine with `npm view openclaw@2026.11.2 engines --json`, then confirm `openclaw --version` returns `2026.11.2`.
+- Node.js must satisfy `>=24.16.0 <25 || >=26.1.0`. Prefer Node.js `24.x`; do not accept an older installed Node merely because `node` and `npm` exist. The scripts stop before OpenClaw installation/configuration if Node is unsupported and verify the installed OpenClaw version before onboarding.
+- Do not use a floating latest tag or any other OpenClaw version unless the user explicitly names that version in the current request. If OpenClaw is already installed, update it to the exact target version; if it is absent, install the exact target version as a fresh installation.
 - Gateway port must default to `18789`.
 - Gateway bind must default to `loopback` so only the local computer can connect.
 - Gateway auth mode must default to `token`.
@@ -37,13 +37,20 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 ## Workflow
 
 1. Detect the operating system first.
-2. Always use the fixed OpenClaw version `2026.10.6`.
+2. Always use the fixed OpenClaw version `2026.11.2`.
 3. On Windows, prefer `scripts/install_openclaw_windows.ps1`.
 4. On macOS/MacBook, prefer `scripts/install_openclaw_macos.sh`.
 5. On Linux, prefer `scripts/install_openclaw_linux.sh`.
 6. If installing on a different machine, copy or reference the skill folder and run the matching script from that machine.
 7. If `TOKEN_CODEX_API_KEY` or `CUSTOM_PROVIDER_API_KEY` is present, configure Token Codex and make `token-codex/GPT-6.1-sol` the OpenClaw primary model.
-8. After install, tell the user to install/log in separately with official Codex CLI only when they also want ChatGPT/Codex account auth outside the Token Codex provider.
+8. After install/upgrade, tell the user to install/log in separately with official Codex CLI only when they also want ChatGPT/Codex account auth outside the Token Codex provider.
+
+## Cài mới hoặc nâng cấp OpenClaw
+
+- Nếu lệnh `openclaw` đã có trong `PATH`, đọc phiên bản hiện tại trước. Nếu phiên bản khác `2026.11.2`, cập nhật bằng `npm install --engine-strict -g openclaw@2026.11.2`; nếu đã đúng phiên bản thì không cài lại không cần thiết.
+- Nếu chưa có lệnh `openclaw`, cài mới bằng đúng `openclaw@2026.11.2`.
+- Cả hai trường hợp đều phải kiểm tra `openclaw --version` khớp chính xác `2026.11.2` trước khi chạy onboarding hoặc sửa provider.
+- Không xóa `~/.openclaw`; trên máy đã có cấu hình, backup file liên quan trước khi chạy thật, rồi validate và restart Gateway sau khi cập nhật.
 
 ## Chọn model và kiểm tra trước khi chạy
 
@@ -51,7 +58,7 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 - Windows: truyền `-Model GPT-6.1-terra` hoặc model được phép khác. Giá trị ngoài danh sách phải bị từ chối trước khi cài đặt.
 - Installer đăng ký đúng ba model vào provider `token-codex`; không tự bật provider khác từ key trong môi trường. Tham số Windows `-SkipDeepSeek` cũ chỉ còn được chấp nhận để tương thích, không bật DeepSeek khi bỏ tham số này.
 - Các installer chưa có dry-run đầy đủ. Không chạy installer chỉ để xem kế hoạch: dùng `bash -n scripts/install_openclaw_linux.sh` hoặc `bash -n scripts/install_openclaw_macos.sh` để kiểm tra cú pháp. Trên Windows, kiểm tra script bằng PowerShell parser trước khi chạy thật.
-- Kiểm tra chỉ đọc: `node --version` và `npm view openclaw@2026.10.6 version engines --json`. Nếu Node hiện có không đạt engines thì nâng Node trước rồi rerun; không dùng `--force` để bỏ qua yêu cầu. Linux Debian/Ubuntu cài Node mới qua NodeSource `24.x`, macOS dùng Homebrew `node@24`, Windows dùng Node.js LTS đạt engines.
+- Kiểm tra chỉ đọc: `node --version` và `npm view openclaw@2026.11.2 version engines --json`. Nếu Node hiện có không đạt engines thì nâng Node trước rồi rerun; không dùng `--force` để bỏ qua yêu cầu. Linux Debian/Ubuntu cài Node mới qua NodeSource `24.x`, macOS dùng Homebrew `node@24`, Windows dùng Node.js LTS đạt engines.
 - Trước khi chạy thật trên máy đã có config, backup các file liên quan, kiểm tra model đích trong `/v1/models` bằng key trong bộ nhớ và không in credential.
 - Input: API key qua môi trường, model và hệ điều hành. Output: config local tại `~/.openclaw/openclaw.json`, tùy chọn đăng nhập Codex trong `~/.codex/config.toml`, và log trạng thái; không ghi Google Sheet, upload hoặc gửi tin nhắn.
 - Rerun bằng cùng installer và model sau khi backup; nếu lỗi thì khôi phục đúng config đã backup rồi validate trước khi restart.
@@ -100,7 +107,7 @@ Run from PowerShell:
 powershell -ExecutionPolicy Bypass -File C:\Users\nhuan\.codex\skills\cai-dat-openclaw-windows-mac-linux\scripts\install_openclaw_windows.ps1
 ```
 
-After install, install or open official Codex CLI manually only when the teacher/student is ready, then run:
+After install/upgrade, install or open official Codex CLI manually only when the teacher/student is ready, then run:
 
 ```powershell
 codex logout
@@ -132,7 +139,7 @@ chmod +x ~/.codex/skills/cai-dat-openclaw-windows-mac-linux/scripts/install_open
 ~/.codex/skills/cai-dat-openclaw-windows-mac-linux/scripts/install_openclaw_macos.sh
 ```
 
-After install, install or open official Codex CLI manually only when the teacher/student is ready, then run:
+After install/upgrade, install or open official Codex CLI manually only when the teacher/student is ready, then run:
 
 ```bash
 codex logout
@@ -156,7 +163,7 @@ chmod +x ~/.codex/skills/cai-dat-openclaw-windows-mac-linux/scripts/install_open
 ~/.codex/skills/cai-dat-openclaw-windows-mac-linux/scripts/install_openclaw_linux.sh
 ```
 
-After install, install or open official Codex CLI manually only when the teacher/student is ready, then run:
+After install/upgrade, install or open official Codex CLI manually only when the teacher/student is ready, then run:
 
 ```bash
 codex logout
@@ -209,7 +216,7 @@ winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --acce
 winget install --id Python.Python.3.12 --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
 python -m ensurepip --upgrade
 python -m pip install --upgrade pip
-npm install --engine-strict -g openclaw@2026.10.6
+npm install --engine-strict -g openclaw@2026.11.2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart
@@ -226,7 +233,7 @@ brew install node@24 python
 export PATH="$(brew --prefix node@24)/bin:$PATH"
 python3 -m ensurepip --upgrade || true
 python3 -m pip install --upgrade pip --break-system-packages || python3 -m pip install --upgrade pip
-npm install --engine-strict -g openclaw@2026.10.6
+npm install --engine-strict -g openclaw@2026.11.2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart
@@ -240,7 +247,7 @@ sudo apt-get update
 sudo apt-get install -y curl ca-certificates python3 python3-pip
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
-sudo npm install --engine-strict -g openclaw@2026.10.6
+sudo npm install --engine-strict -g openclaw@2026.11.2
 openclaw onboard --non-interactive --accept-risk --mode local --auth-choice skip --skip-channels --skip-search --skip-skills --install-daemon --skip-health --gateway-bind loopback --gateway-auth token --gateway-port 18789 --gateway-token chatbot
 openclaw config set gateway.auth.token chatbot
 openclaw gateway restart

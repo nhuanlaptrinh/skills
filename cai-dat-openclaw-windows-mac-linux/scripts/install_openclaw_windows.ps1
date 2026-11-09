@@ -11,7 +11,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $DashboardUrl = "http://127.0.0.1:$Port/"
-$OpenClawVersion = "2026.10.6"
+$OpenClawVersion = "2026.11.2"
 $TokenCodexBaseUrl = "https://codex.anhlaptrinh.vn/v1"
 $TokenCodexModelId = $Model
 $TokenCodexProviderId = "token-codex"
@@ -74,10 +74,10 @@ function Ensure-Node {
 function Assert-SupportedNode {
   node -e '
 const [major, minor, patch] = process.versions.node.split(".").map(Number);
-const supported = (major === 24 && (minor > 22 || (minor === 22 && patch >= 1))) ||
-  major > 26 || (major === 26 && (minor > 12 || (minor === 12 && patch >= 1)));
+const supported = (major === 24 && minor >= 16) ||
+  major > 26 || (major === 26 && minor >= 1);
 if (!supported) {
-  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.10.6 requires >=24.22.1 <25 || >=26.12.1. Install a supported Node.js release, then rerun.`);
+  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.11.2 requires >=24.16.0 <25 || >=26.1.0. Install a supported Node.js release, then rerun.`);
   process.exit(1);
 }
 '
@@ -130,10 +130,25 @@ function Ensure-OpenClaw {
   Add-UserPath (Join-Path $env:APPDATA "npm")
   Refresh-Path
 
-  Write-Step "Installing OpenClaw CLI $OpenClawVersion"
-  npm install --engine-strict -g "openclaw@$OpenClawVersion"
-  if ($LASTEXITCODE -ne 0) {
-    throw "OpenClaw $OpenClawVersion installation failed; stopping before configuration."
+  $needsInstall = $true
+  $existingCommand = Get-Command openclaw -ErrorAction SilentlyContinue
+  if ($existingCommand) {
+    $existingVersion = (& openclaw --version 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -eq 0 -and $existingVersion -match "(^|\s)$([regex]::Escape($OpenClawVersion))(\s|$)") {
+      $needsInstall = $false
+      Write-Step "OpenClaw CLI $OpenClawVersion already installed"
+    } else {
+      Write-Step "Updating OpenClaw CLI from $existingVersion to $OpenClawVersion"
+    }
+  } else {
+    Write-Step "Installing OpenClaw CLI $OpenClawVersion"
+  }
+
+  if ($needsInstall) {
+    npm install --engine-strict -g "openclaw@$OpenClawVersion"
+    if ($LASTEXITCODE -ne 0) {
+      throw "OpenClaw $OpenClawVersion installation failed; stopping before configuration."
+    }
   }
   Refresh-Path
 
@@ -258,7 +273,7 @@ function Configure-CodexAccount {
 
   Write-Step "Codex/OpenAI account login is manual"
   Write-Host "This installer does not install/run Codex login or OpenClaw Codex provider login."
-  Write-Host "After install, install/open official Codex CLI when ready, then run:"
+  Write-Host "After install/upgrade, install/open official Codex CLI when ready, then run:"
   Write-Host "  codex logout"
   Write-Host "  codex login"
   Write-Host "For headless/device flow:"

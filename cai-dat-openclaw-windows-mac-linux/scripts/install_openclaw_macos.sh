@@ -5,7 +5,7 @@ TOKEN="${TOKEN:-chatbot}"
 PORT="${PORT:-18789}"
 BIND="${BIND:-loopback}"
 SKIP_CODEX="${SKIP_CODEX:-0}"
-OPENCLAW_VERSION="2026.10.6"
+OPENCLAW_VERSION="2026.11.2"
 DASHBOARD_URL="http://127.0.0.1:${PORT}/"
 TOKEN_CODEX_BASE_URL="https://codex.anhlaptrinh.vn/v1"
 TOKEN_CODEX_MODEL_ID="${TOKEN_CODEX_MODEL_ID:-GPT-6.1-sol}"
@@ -70,10 +70,10 @@ ensure_node() {
 require_supported_node() {
   node -e '
 const [major, minor, patch] = process.versions.node.split(".").map(Number);
-const supported = (major === 24 && (minor > 22 || (minor === 22 && patch >= 1))) ||
-  major > 26 || (major === 26 && (minor > 12 || (minor === 12 && patch >= 1)));
+const supported = (major === 24 && minor >= 16) ||
+  major > 26 || (major === 26 && minor >= 1);
 if (!supported) {
-  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.10.6 requires >=24.22.1 <25 || >=26.12.1. Install a supported Node.js release, then rerun.`);
+  console.error(`Unsupported Node.js ${process.versions.node}. OpenClaw 2026.11.2 requires >=24.16.0 <25 || >=26.1.0. Install a supported Node.js release, then rerun.`);
   process.exit(1);
 }
 '
@@ -93,10 +93,28 @@ ensure_python_pip() {
 }
 
 ensure_openclaw() {
-  step "Installing OpenClaw CLI ${OPENCLAW_VERSION}"
-  npm install --engine-strict -g "openclaw@${OPENCLAW_VERSION}"
-  local installed_version
   local version_pattern="(^|[[:space:]])${OPENCLAW_VERSION//./\\.}([[:space:]]|$)"
+  local installed_version=""
+  local needs_install="1"
+  local action="Installing"
+
+  if command -v openclaw >/dev/null 2>&1; then
+    installed_version="$(openclaw --version 2>/dev/null || true)"
+    if [[ "$installed_version" =~ $version_pattern ]]; then
+      needs_install="0"
+      action="OpenClaw CLI ${OPENCLAW_VERSION} already installed"
+    else
+      action="Updating OpenClaw CLI from ${installed_version:-unknown} to ${OPENCLAW_VERSION}"
+    fi
+  else
+    action="Installing OpenClaw CLI ${OPENCLAW_VERSION}"
+  fi
+
+  step "$action"
+  if [[ "$needs_install" == "1" ]]; then
+    npm install --engine-strict -g "openclaw@${OPENCLAW_VERSION}"
+  fi
+
   installed_version="$(openclaw --version)"
   printf '%s\n' "$installed_version"
   if [[ ! "$installed_version" =~ $version_pattern ]]; then
@@ -154,7 +172,7 @@ configure_codex_account() {
 
   step "Codex/OpenAI account login is manual"
   echo "This installer does not install/run Codex login or OpenClaw Codex provider login."
-  echo "After install, install/open official Codex CLI when ready, then run:"
+  echo "After install/upgrade, install/open official Codex CLI when ready, then run:"
   echo "  codex logout"
   echo "  codex login"
   echo "For headless/device flow:"
