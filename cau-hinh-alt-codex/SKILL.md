@@ -58,6 +58,8 @@ Override it with `ALT_CODEX_PROFILE_ROOT`. On Linux/macOS use:
 
 Pass `CODEX_HOME` to the Codex process rather than setting it globally when possible. Always launch Antigravity with its dedicated `--user-data-dir`, not the customer's ChatGPT profile or the old/default Antigravity directory. After an extension update, restart through `scripts/launch_antigravity_isolated.ps1`; it continues to use both persistent paths.
 
+When launched from an Electron-hosted extension, `ELECTRON_RUN_AS_NODE` may be inherited and prevent the IDE from starting. The launcher temporarily removes it while starting Antigravity and restores the launcher's own environment afterward. It does not change User/Machine environment settings or guarantee that a provider's `env_key` is available in a later shortcut launch. Verify the actual extension process and API request before updating a shortcut; if authentication is absent, stop and configure an approved secure credential source rather than copying or exposing a key.
+
 For a customer who already has shortcuts, do not create a new one. Update the existing Antigravity shortcut in place:
 
 ```powershell

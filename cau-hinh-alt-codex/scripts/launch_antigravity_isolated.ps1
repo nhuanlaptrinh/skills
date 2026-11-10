@@ -61,11 +61,14 @@ New-Item -ItemType Directory -Force -Path $resolvedUserDataDir | Out-Null
 [void]$childArguments.Add(('--user-data-dir="{0}"' -f $resolvedUserDataDir))
 
 $oldCodexHome = $env:CODEX_HOME
+$oldElectronRunAsNode = [Environment]::GetEnvironmentVariable('ELECTRON_RUN_AS_NODE', 'Process')
 try {
     $env:CODEX_HOME = $codexHome
+    [Environment]::SetEnvironmentVariable('ELECTRON_RUN_AS_NODE', $null, 'Process')
     $process = Start-Process -FilePath $resolvedAntigravity -ArgumentList $childArguments -PassThru -Wait:$Wait
 }
 finally {
+    [Environment]::SetEnvironmentVariable('ELECTRON_RUN_AS_NODE', $oldElectronRunAsNode, 'Process')
     if ($null -eq $oldCodexHome) {
         Remove-Item Env:CODEX_HOME -ErrorAction SilentlyContinue
     }
