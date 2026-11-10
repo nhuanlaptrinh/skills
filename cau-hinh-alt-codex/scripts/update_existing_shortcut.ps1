@@ -10,7 +10,9 @@ param(
 
     [string]$ProfileRoot = $env:ALT_CODEX_PROFILE_ROOT,
 
-    [string]$UserDataDir
+    [string]$UserDataDir,
+
+    [switch]$ReplaceReviewedShortcutArguments
 )
 
 Set-StrictMode -Version Latest
@@ -20,13 +22,16 @@ if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
     $ProfileRoot = Join-Path $env:LOCALAPPDATA 'YourProduct\codex-profiles'
 }
 
-if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
+if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\x00-\x1f\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
     throw 'ProfileId is invalid. Use a simple profile name without a path or special characters.'
 }
 
 $resolvedShortcutPath = [System.IO.Path]::GetFullPath($ExistingShortcutPath)
 if (-not (Test-Path -LiteralPath $resolvedShortcutPath -PathType Leaf)) {
     throw "Existing shortcut was not found: $resolvedShortcutPath"
+}
+if ((Split-Path -Leaf $resolvedShortcutPath) -match '(?i)chatgpt') {
+    throw "Refusing to modify a ChatGPT-named shortcut: $resolvedShortcutPath"
 }
 
 $resolvedProfileRoot = [System.IO.Path]::GetFullPath($ProfileRoot)
@@ -52,16 +57,38 @@ if ([string]::IsNullOrWhiteSpace($AntigravityPath)) {
     }
 }
 $resolvedAntigravity = (Resolve-Path -LiteralPath $AntigravityPath -ErrorAction Stop).Path
+if ((Split-Path -Leaf $resolvedAntigravity) -notmatch '^(?i:Antigravity(?: IDE)?\.exe)$') {
+    throw "AntigravityPath does not appear to be an Antigravity executable: $resolvedAntigravity"
+}
+
+$resolvedOriginalTarget = $null
+if (Test-Path -LiteralPath $originalTarget -PathType Leaf) {
+    $resolvedOriginalTarget = (Resolve-Path -LiteralPath $originalTarget -ErrorAction Stop).Path
+}
+$directAntigravityShortcut = $null -ne $resolvedOriginalTarget -and [System.StringComparer]::OrdinalIgnoreCase.Equals($resolvedOriginalTarget, $resolvedAntigravity)
+$managedAntigravityShortcut = $originalTarget -match '(?i)\\(powershell|pwsh)\.exe$' -and $shortcut.Arguments -match '(?i)launch_antigravity_isolated\.ps1'
+if (-not $directAntigravityShortcut -and -not $managedAntigravityShortcut) {
+    throw "Shortcut does not target the specified Antigravity executable or this skill's launcher: $resolvedShortcutPath"
+}
+if (-not [string]::IsNullOrWhiteSpace($shortcut.Arguments) -and -not $ReplaceReviewedShortcutArguments) {
+    throw 'Existing shortcut has arguments. Review their purpose and preserve required behavior; use -ReplaceReviewedShortcutArguments only with the customer consent to replace them.'
+}
 
 if ([string]::IsNullOrWhiteSpace($UserDataDir)) {
-    if ($shortcut.Arguments -match '--user-data-dir=(?:"([^"]+)"|([^\s]+))') {
-        $UserDataDir = if ($matches[1]) { $matches[1] } else { $matches[2] }
-    }
-    else {
-        $UserDataDir = Join-Path $env:LOCALAPPDATA "Antigravity-Codex\browser\$ProfileId"
-    }
+    $UserDataDir = Join-Path $env:LOCALAPPDATA "Antigravity-Codex\browser\$ProfileId"
 }
 $resolvedUserDataDir = [System.IO.Path]::GetFullPath($UserDataDir)
+
+$defaultAntigravityDataDir = $null
+if (-not [string]::IsNullOrWhiteSpace($env:APPDATA)) {
+    $defaultAntigravityDataDir = [System.IO.Path]::GetFullPath((Join-Path $env:APPDATA 'Antigravity IDE'))
+}
+if ($null -ne $defaultAntigravityDataDir -and [System.StringComparer]::OrdinalIgnoreCase.Equals(
+        $resolvedUserDataDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
+        $defaultAntigravityDataDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar))) {
+    throw "Refusing the shared Antigravity UserDataDir: $resolvedUserDataDir. Use a profile-specific directory."
+}
+
 New-Item -ItemType Directory -Force -Path $resolvedUserDataDir | Out-Null
 
 $launcherPath = Join-Path $PSScriptRoot 'launch_antigravity_isolated.ps1'
@@ -99,6 +126,9 @@ Write-Output "Updated existing shortcut: $resolvedShortcutPath"
 Write-Output "Shortcut backup: $backupPath"
 Write-Output "Target profile: $ProfileId"
 Write-Output "CODEX_HOME: $codexHome"
-Write-Output "ChatGPT UserDataDir: $resolvedUserDataDir"
+Write-Output "Antigravity UserDataDir: $resolvedUserDataDir"
 Write-Output 'The existing shortcut name, location, icon, and customer ChatGPT shortcut are preserved.'
+if ($ReplaceReviewedShortcutArguments) {
+    Write-Output 'The reviewed prior shortcut arguments were replaced; they remain in the shortcut backup.'
+}
 Write-Output 'No API key, cookie, or token is stored in the shortcut.'

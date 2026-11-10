@@ -8,6 +8,8 @@ param(
 
     [string]$CustomerChatGPTDataDir,
 
+    [string]$ExistingAntigravityUserDataDir,
+
     [string]$AntigravityUserDataDir,
 
     [ValidateSet('gpt-5.4', 'gpt-5.5', 'GPT-5.6', 'GPT-5.6-sol', 'GPT-5.6-terra', 'GPT-5.6-luna')]
@@ -27,6 +29,10 @@ param(
     [Alias('ExistingShortcutPath')]
     [string]$ShortcutPath,
 
+    [switch]$CopyReviewedAntigravitySettings,
+
+    [switch]$ReplaceReviewedShortcutArguments,
+
     [switch]$SetApiKey
 )
 
@@ -37,7 +43,7 @@ if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
     $ProfileRoot = Join-Path $env:LOCALAPPDATA 'YourProduct\codex-profiles'
 }
 
-if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
+if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\x00-\x1f\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
     throw 'ProfileId is invalid. Use a simple profile name without a path or special characters.'
 }
 
@@ -57,7 +63,34 @@ if ([string]::IsNullOrWhiteSpace($AntigravityUserDataDir)) {
     $AntigravityUserDataDir = Join-Path $env:LOCALAPPDATA "Antigravity-Codex\browser\$ProfileId"
 }
 $resolvedAntigravityUserDataDir = [System.IO.Path]::GetFullPath($AntigravityUserDataDir)
-New-Item -ItemType Directory -Force -Path $resolvedAntigravityUserDataDir | Out-Null
+
+if (-not [string]::IsNullOrWhiteSpace($CustomerChatGPTDataDir)) {
+    $resolvedChatGPTDataDir = [System.IO.Path]::GetFullPath($CustomerChatGPTDataDir).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $normalizedTarget = $resolvedAntigravityUserDataDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    if ([System.StringComparer]::OrdinalIgnoreCase.Equals($resolvedChatGPTDataDir, $normalizedTarget) -or
+        $resolvedChatGPTDataDir.StartsWith($normalizedTarget + $separator, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $normalizedTarget.StartsWith($resolvedChatGPTDataDir + $separator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'CustomerChatGPTDataDir and AntigravityUserDataDir must be different, unrelated directories.'
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ExistingAntigravityUserDataDir)) {
+    $isolateScript = Join-Path $PSScriptRoot 'isolate_antigravity_profile.ps1'
+    $isolateArguments = @{
+        ProfileId = $ProfileId
+        SourceUserDataDir = $ExistingAntigravityUserDataDir
+        TargetUserDataDir = $resolvedAntigravityUserDataDir
+        CopyReviewedSettings = $CopyReviewedAntigravitySettings
+    }
+    & $isolateScript @isolateArguments | ForEach-Object { Write-Output $_ }
+}
+else {
+    if ((Test-Path -LiteralPath $resolvedAntigravityUserDataDir) -and @(Get-ChildItem -LiteralPath $resolvedAntigravityUserDataDir -Force).Count -gt 0) {
+        throw "AntigravityUserDataDir is not empty: $resolvedAntigravityUserDataDir. Supply ExistingAntigravityUserDataDir to isolate state; do not reuse an unknown profile."
+    }
+    New-Item -ItemType Directory -Force -Path $resolvedAntigravityUserDataDir | Out-Null
+}
 
 $prepareScript = Join-Path $PSScriptRoot 'prepare_isolated_profile.ps1'
 $prepareArguments = @{
@@ -87,10 +120,12 @@ $manifest = [ordered]@{
     existing_codex_home = $resolvedExistingCodexHome
     old_config_backup = $backupPath
     customer_chatgpt_data_dir = if ($CustomerChatGPTDataDir) { [System.IO.Path]::GetFullPath($CustomerChatGPTDataDir) } else { $null }
+    existing_antigravity_user_data_dir = if ($ExistingAntigravityUserDataDir) { [System.IO.Path]::GetFullPath($ExistingAntigravityUserDataDir) } else { $null }
     antigravity_user_data_dir = $resolvedAntigravityUserDataDir
     new_codex_home = $codexHome
     auth_migration = 'not_copied'
     browser_cookie_migration = 'not_copied'
+    antigravity_state_migration = if ($ExistingAntigravityUserDataDir -and $CopyReviewedAntigravitySettings) { 'reviewed_settings_only' } else { 'fresh_profile' }
     created_utc = [DateTime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 3
 [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
@@ -103,7 +138,7 @@ Write-Output 'No auth.json, API key, OAuth token, or browser cookie was copied.'
 
 if (-not [string]::IsNullOrWhiteSpace($ShortcutPath)) {
     $shortcutScript = Join-Path $PSScriptRoot 'update_existing_shortcut.ps1'
-    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $resolvedAntigravityUserDataDir | ForEach-Object { Write-Output $_ }
+    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $resolvedAntigravityUserDataDir -ReplaceReviewedShortcutArguments:$ReplaceReviewedShortcutArguments | ForEach-Object { Write-Output $_ }
 }
 else {
     Write-Output 'No shortcut was changed. Pass -ExistingShortcutPath to update the customer existing Antigravity shortcut.'

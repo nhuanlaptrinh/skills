@@ -22,7 +22,7 @@ if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
     $ProfileRoot = Join-Path $env:LOCALAPPDATA 'YourProduct\codex-profiles'
 }
 
-if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
+if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\x00-\x1f\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
     throw 'ProfileId is invalid. Use a simple profile name without a path or special characters.'
 }
 
@@ -36,17 +36,29 @@ if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
 
 $childArguments = [System.Collections.Generic.List[string]]::new()
 foreach ($argument in $ArgumentList) {
+    if ($argument -match '^--user-data-dir(?:=|$)') {
+        throw 'Pass the dedicated directory with -UserDataDir, not through -ArgumentList.'
+    }
     [void]$childArguments.Add($argument)
 }
 
-if (-not [string]::IsNullOrWhiteSpace($UserDataDir)) {
-    $resolvedUserDataDir = [System.IO.Path]::GetFullPath($UserDataDir)
-    New-Item -ItemType Directory -Force -Path $resolvedUserDataDir | Out-Null
-    [void]$childArguments.Add("--user-data-dir=$resolvedUserDataDir")
+if ([string]::IsNullOrWhiteSpace($UserDataDir)) {
+    $UserDataDir = Join-Path $env:LOCALAPPDATA "Antigravity-Codex\browser\$ProfileId"
 }
-else {
-    Write-Warning 'No UserDataDir was supplied. Use a dedicated Antigravity/browser profile to avoid sharing ChatGPT cookies.'
+
+$resolvedUserDataDir = [System.IO.Path]::GetFullPath($UserDataDir)
+$defaultAntigravityDataDir = $null
+if (-not [string]::IsNullOrWhiteSpace($env:APPDATA)) {
+    $defaultAntigravityDataDir = [System.IO.Path]::GetFullPath((Join-Path $env:APPDATA 'Antigravity IDE'))
 }
+if ($null -ne $defaultAntigravityDataDir -and [System.StringComparer]::OrdinalIgnoreCase.Equals(
+        $resolvedUserDataDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar),
+        $defaultAntigravityDataDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar))) {
+    throw "Refusing the shared Antigravity UserDataDir: $resolvedUserDataDir. Use a profile-specific directory."
+}
+
+New-Item -ItemType Directory -Force -Path $resolvedUserDataDir | Out-Null
+[void]$childArguments.Add(('--user-data-dir="{0}"' -f $resolvedUserDataDir))
 
 $oldCodexHome = $env:CODEX_HOME
 try {
@@ -64,4 +76,5 @@ finally {
 
 Write-Output "Antigravity PID: $($process.Id)"
 Write-Output "CODEX_HOME: $codexHome"
+Write-Output "Antigravity UserDataDir: $resolvedUserDataDir"
 Write-Output 'API key and browser cookies are not printed.'

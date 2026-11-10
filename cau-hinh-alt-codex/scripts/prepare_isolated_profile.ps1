@@ -20,6 +20,8 @@ param(
     [Alias('ExistingShortcutPath')]
     [string]$ShortcutPath,
 
+    [switch]$ReplaceReviewedShortcutArguments,
+
     [switch]$SetApiKey
 )
 
@@ -97,7 +99,7 @@ Write-Output 'The API key and auth.json contents are not printed.'
 
 if (-not [string]::IsNullOrWhiteSpace($ShortcutPath)) {
     $shortcutScript = Join-Path $PSScriptRoot 'update_existing_shortcut.ps1'
-    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $UserDataDir | ForEach-Object { Write-Output $_ }
+    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $UserDataDir -ReplaceReviewedShortcutArguments:$ReplaceReviewedShortcutArguments | ForEach-Object { Write-Output $_ }
 }
 elseif (-not [string]::IsNullOrWhiteSpace($AntigravityPath)) {
     Write-Output 'No shortcut was changed. Pass -ExistingShortcutPath to update the customer existing Antigravity shortcut.'
