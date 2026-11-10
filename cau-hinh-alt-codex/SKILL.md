@@ -111,7 +111,7 @@ If ChatGPT still shows the vendor account, inspect browser profile/cookies first
 
 Use this mode when the customer already has both ChatGPT and Antigravity/Codex, and accounts are mixed or the first install used the wrong profile.
 
-1. Identify the actual customer ChatGPT data directory, old Antigravity `UserDataDir`, and target Codex `UserDataDir`; verify they are distinct and not aliases/junctions of one another. Close Antigravity before copying settings or changing its shortcut.
+1. Identify the actual customer ChatGPT data directory, old Antigravity `UserDataDir`, and target Codex `UserDataDir`; verify they are distinct and not aliases/junctions of one another. Keep Antigravity open when creating an empty profile; copying reviewed settings requires closing the source first.
 2. Do not delete, sign out of, or overwrite the customer ChatGPT browser profile.
 3. Do not replace the old `.codex` directory. Create a timestamped backup of `config.toml` only; never copy its `auth.json` into the new profile.
 4. Create a new persistent Codex profile for the vendor API identity.
@@ -143,7 +143,11 @@ On the observed Windows Antigravity build, `User/globalStorage/state.vscdb` cont
 
 For an existing profile, `scripts/isolate_antigravity_profile.ps1` prepares a new target without copying those state stores. The installed extension code normally remains in the existing extension installation directory, but profile-specific extension state, workspace history and some settings may need reconfiguration. The old mixed data remains in the source or backup; the helper cannot determine which historical entry belongs to which identity and does not automatically restore or divide it. Confirm the customer accepts this before switching the existing shortcut. Reopen desired folders manually in the appropriate instance.
 
-When identity/API isolation already works, the actual `CODEX_HOME` paths are confirmed distinct, and only Recents/Folders are mixed, do not run full provisioning or rewrite `CODEX_HOME/config.toml`. Preserve the existing `ProfileId`, `ProfileRoot`, credential and ChatGPT shortcut. After closing Antigravity and verifying its actual current user-data path, run the helper with that source and a new empty target, then update the existing Antigravity shortcut to use the same `ProfileId`/`ProfileRoot` and the new target:
+When identity/API isolation already works, the actual `CODEX_HOME` paths are confirmed distinct, and only Recents/Folders are mixed, do not run full provisioning or rewrite `CODEX_HOME/config.toml`. Preserve the existing `ProfileId`, `ProfileRoot`, credential and ChatGPT shortcut. If the user has requested the switch and accepts the fresh empty IDE state, do the work directly; do not require a separate confirmation or ask them to close the IDE just to create a fresh profile. Verify the current paths and a distinct empty target, then prepare the target with `scripts/isolate_antigravity_profile.ps1` without `-CopyReviewedSettings` while the old window stays open. Launch the isolated instance with `scripts/launch_antigravity_isolated.ps1` using the existing Codex profile and the new target. Do not close, restart, or force-terminate the old window; it may host this conversation and unsaved work.
+
+Verify a running Antigravity process actually uses the target `--user-data-dir` and that the intended Codex profile and API authentication work. If launch is redirected to the old instance, the build refuses multiple profiles, or either profile cannot be verified, stop and report that a safe restart or additional user action is needed; do not report success or change the shortcut. Once the new instance is verified, update the existing Antigravity shortcut using the same `ProfileId`/`ProfileRoot` and new target, subject to the shortcut argument safety checks. If its original arguments cannot be preserved without review, stop and explain rather than silently replacing them. Tell the user the old window remains open and can be closed after saving when convenient; the new window starts with empty local Recents/Folders and may require its own settings or login. Do not claim the current conversation will transfer automatically. Never transfer keys or account data automatically.
+
+The following commands illustrate the preparation and shortcut update; launch and verify the isolated instance between them:
 
 ```powershell
 pwsh -File .\scripts\isolate_antigravity_profile.ps1 `
@@ -151,6 +155,13 @@ pwsh -File .\scripts\isolate_antigravity_profile.ps1 `
   -SourceUserDataDir "C:\Path\To\Current\Antigravity\UserData" `
   -TargetUserDataDir "$env:LOCALAPPDATA\Antigravity-Codex\browser\customer-001-fresh"
 
+pwsh -File .\scripts\launch_antigravity_isolated.ps1 `
+  -ProfileId customer-001 `
+  -ProfileRoot "C:\Path\To\Existing\Codex\ProfileRoot" `
+  -AntigravityPath "C:\Path\To\Antigravity.exe" `
+  -UserDataDir "$env:LOCALAPPDATA\Antigravity-Codex\browser\customer-001-fresh"
+
+# Verify the actual process path, Codex profile, and API authentication before continuing.
 pwsh -File .\scripts\update_existing_shortcut.ps1 `
   -ProfileId customer-001 `
   -ProfileRoot "C:\Path\To\Existing\Codex\ProfileRoot" `

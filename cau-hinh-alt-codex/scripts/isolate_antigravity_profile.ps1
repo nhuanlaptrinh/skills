@@ -102,9 +102,11 @@ function Test-RunningAntigravityForPath {
     return $null
 }
 
-$sourceProcess = Test-RunningAntigravityForPath -Path $resolvedSource
-if ($null -ne $sourceProcess) {
-    throw "Close Antigravity before isolating its profile. Process $($sourceProcess.ProcessId) still uses $resolvedSource."
+if ($CopyReviewedSettings) {
+    $sourceProcess = Test-RunningAntigravityForPath -Path $resolvedSource
+    if ($null -ne $sourceProcess) {
+        throw "Close Antigravity before copying settings. Process $($sourceProcess.ProcessId) still uses $resolvedSource."
+    }
 }
 
 $targetParent = Split-Path -Parent $resolvedTarget
