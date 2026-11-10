@@ -13,6 +13,13 @@ param(
 
     [string]$ProfileRoot = $env:ALT_CODEX_PROFILE_ROOT,
 
+    [string]$AntigravityPath,
+
+    [string]$UserDataDir,
+
+    [Alias('ExistingShortcutPath')]
+    [string]$ShortcutPath,
+
     [switch]$SetApiKey
 )
 
@@ -87,3 +94,11 @@ Write-Output "CODEX_HOME: $codexHome"
 Write-Output "Config: $configPath"
 Write-Output "ApiKeyConfigured: $apiKeyConfigured"
 Write-Output 'The API key and auth.json contents are not printed.'
+
+if (-not [string]::IsNullOrWhiteSpace($ShortcutPath)) {
+    $shortcutScript = Join-Path $PSScriptRoot 'update_existing_shortcut.ps1'
+    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $UserDataDir | ForEach-Object { Write-Output $_ }
+}
+elseif (-not [string]::IsNullOrWhiteSpace($AntigravityPath)) {
+    Write-Output 'No shortcut was changed. Pass -ExistingShortcutPath to update the customer existing Antigravity shortcut.'
+}

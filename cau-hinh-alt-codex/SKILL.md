@@ -27,6 +27,7 @@ Always isolate identities before changing a model or copying configuration.
 5. Never modify the installed extension directory to persist configuration. Updates overwrite it. Use a launcher/profile root outside that directory.
 6. Before writing, resolve and show the destination, reject `profile_id` containing `..`, separators, or control characters, and back up existing files.
 7. If the user only asks to update this skill, edit and validate the skill only. Do not create profiles, write credentials, or restart Antigravity.
+8. Do not create, rename, or replace customer shortcuts automatically. When an existing Antigravity shortcut is supplied, update that shortcut in place; never modify the customer ChatGPT shortcut.
 
 ## Isolation Architecture
 
@@ -50,6 +51,19 @@ Override it with `ALT_CODEX_PROFILE_ROOT`. On Linux/macOS use:
 `${XDG_STATE_HOME:-$HOME/.local/state}/your-product/codex-profiles/<profile-id>/.codex`.
 
 Pass `CODEX_HOME` to the Codex process rather than setting it globally when possible. After an extension update, restart through `scripts/launch_antigravity_isolated.ps1`; it continues to use the same persistent root.
+
+For a customer who already has shortcuts, do not create a new one. Update the existing Antigravity shortcut in place:
+
+```powershell
+pwsh -File .\scripts\update_existing_shortcut.ps1 `
+  -ProfileId customer-001 `
+  -ExistingShortcutPath "$env:USERPROFILE\Desktop\Antigravity.lnk" `
+  -AntigravityPath "C:\Path\To\Antigravity.exe" `
+  -UserDataDir "$env:LOCALAPPDATA\Antigravity-Codex\browser\customer-001"
+```
+
+The script keeps the existing shortcut name, location, icon, and customer ChatGPT shortcut. It only changes the Antigravity shortcut target so the full application opens with the vendor `CODEX_HOME` and the customer `UserDataDir`; it also saves a timestamped `.bak` copy. Never pass the ChatGPT shortcut to this script.
+
 
 ## Codex Configuration
 
@@ -77,7 +91,7 @@ With `cli_auth_credentials_store = "file"`, auth data must be inside the profile
 ## Customer Already Has ChatGPT
 
 1. Do not open Antigravity with a browser profile containing the vendor ChatGPT account.
-2. Create a separate Antigravity profile/user-data directory if supported by the application.
+2. Keep the customer's existing ChatGPT shortcut and browser profile unchanged; create a dedicated Antigravity `UserDataDir` only for the Antigravity shortcut.
 3. Let the customer sign in to ChatGPT in that profile using the customer's account.
 4. Start Codex with its own `CODEX_HOME` and `forced_login_method = "api"`.
 5. If Antigravity cannot isolate browser profiles/partitions, use a separate Windows user or application instance. Renaming `.codex` alone is not enough if browser cookies remain shared.
@@ -95,7 +109,8 @@ Use this mode when the customer already has both ChatGPT and Antigravity/Codex, 
 4. Create a new persistent Codex profile for the vendor API identity.
 5. Create a separate Antigravity `UserDataDir`; the customer can sign in there with the customer's ChatGPT account. Never copy browser cookies/local storage between platforms.
 6. Run Antigravity through `scripts/launch_antigravity_isolated.ps1` with the new `CODEX_HOME` and `UserDataDir`.
-7. Test both identities after restart and after a simulated extension update.
+7. Update the existing Antigravity shortcut in place with `scripts/update_existing_shortcut.ps1`; do not create or replace the customer ChatGPT shortcut.
+8. Test both identities after restart and after a simulated extension update.
 
 Use the migration helper:
 
@@ -105,8 +120,10 @@ pwsh -File .\\scripts\\repair_existing_platforms.ps1 `
   -ExistingCodexHome "$env:USERPROFILE\\.codex" `
   -CustomerChatGPTDataDir "C:\\Path\\To\\Customer\\ChatGPT\\Profile" `
   -AntigravityUserDataDir "$env:LOCALAPPDATA\\Antigravity-Codex\\browser\\customer-001" `
-  -BaseUrl https://codex.anhlaptrinh.vn/v1
-  -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex"
+  -BaseUrl https://codex.anhlaptrinh.vn/v1 `
+  -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex" `
+  -ExistingShortcutPath "$env:USERPROFILE\\Desktop\\Antigravity.lnk" `
+  -AntigravityPath "C:\Path\To\Antigravity.exe"
 ```
 
 The helper backs up only the old Codex `config.toml`, creates the new isolated profile, creates an empty Antigravity user-data directory, and writes a non-secret migration manifest. It never copies ChatGPT cookies, `auth.json`, API keys, or OAuth tokens.
@@ -132,10 +149,12 @@ pwsh -File .\\scripts\\prepare_isolated_profile.ps1 `
   -ProfileId customer-001 `
   -Model GPT-5.6-sol `
   -BaseUrl https://codex.anhlaptrinh.vn/v1
-  -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex"
+
 ```
 
 The script creates the persistent directory, backs up an existing `config.toml`, and writes isolated configuration. It does not discover or print an API key.
+
+To update an existing Antigravity shortcut during provisioning, also pass `-ExistingShortcutPath` and `-AntigravityPath`; the skill updates that shortcut in place. If no existing shortcut is supplied, the skill creates no shortcut and leaves all customer shortcuts unchanged.
 
 If `auth.json` is required, enter the credential directly on the machine or use the OS credential store. Never accept a key in chat or as a command-line argument. Create auth data in the destination profile only.
 

@@ -22,6 +22,11 @@ param(
 
     [string]$SourceSkillPath,
 
+    [string]$AntigravityPath,
+
+    [Alias('ExistingShortcutPath')]
+    [string]$ShortcutPath,
+
     [switch]$SetApiKey
 )
 
@@ -95,3 +100,11 @@ Write-Output "New CODEX_HOME: $codexHome"
 Write-Output "Antigravity UserDataDir: $resolvedAntigravityUserDataDir"
 Write-Output "Migration manifest: $manifestPath"
 Write-Output 'No auth.json, API key, OAuth token, or browser cookie was copied.'
+
+if (-not [string]::IsNullOrWhiteSpace($ShortcutPath)) {
+    $shortcutScript = Join-Path $PSScriptRoot 'update_existing_shortcut.ps1'
+    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $resolvedAntigravityUserDataDir | ForEach-Object { Write-Output $_ }
+}
+else {
+    Write-Output 'No shortcut was changed. Pass -ExistingShortcutPath to update the customer existing Antigravity shortcut.'
+}
