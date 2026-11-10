@@ -20,6 +20,8 @@ param(
 
     [string]$ProviderName = 'router',
 
+    [string]$ProviderEnvKey,
+
     [string]$ProfileRoot = $env:ALT_CODEX_PROFILE_ROOT,
 
     [string]$SourceSkillPath,
@@ -45,6 +47,38 @@ if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
 
 if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\x00-\x1f\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
     throw 'ProfileId is invalid. Use a simple profile name without a path or special characters.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ShortcutPath)) {
+    throw 'Do not change the shortcut during migration. Verify both identities and API access first, then update the existing shortcut separately.'
+}
+if ($SetApiKey -or [string]::IsNullOrWhiteSpace($ProviderEnvKey) -or $ProviderEnvKey -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+    throw 'Supply only the provider credential environment variable name with -ProviderEnvKey; file-based key setup is not supported.'
+}
+
+$targetCodexHome = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $ProfileRoot $ProfileId) '.codex')).TrimEnd('\', '/')
+$sourceCodexHome = [System.IO.Path]::GetFullPath($ExistingCodexHome).TrimEnd('\', '/')
+$defaultCodexHome = [System.IO.Path]::GetFullPath((Join-Path $env:USERPROFILE '.codex')).TrimEnd('\', '/')
+foreach ($profilePathToCheck in @($targetCodexHome, $sourceCodexHome)) {
+    $candidate = $profilePathToCheck
+    while (-not [string]::IsNullOrWhiteSpace($candidate)) {
+        if ((Test-Path -LiteralPath $candidate) -and ((Get-Item -LiteralPath $candidate -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+            throw 'A source or target profile path contains a junction or symbolic link; inspect it before migration.'
+        }
+        $parent = Split-Path -Parent $candidate
+        if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $candidate) { break }
+        $candidate = $parent
+    }
+}
+$separator = [System.IO.Path]::DirectorySeparatorChar
+if ([System.StringComparer]::OrdinalIgnoreCase.Equals($targetCodexHome, $sourceCodexHome) -or
+    $targetCodexHome.StartsWith($sourceCodexHome + $separator, [System.StringComparison]::OrdinalIgnoreCase) -or
+    $sourceCodexHome.StartsWith($targetCodexHome + $separator, [System.StringComparison]::OrdinalIgnoreCase) -or
+    [System.StringComparer]::OrdinalIgnoreCase.Equals($targetCodexHome, $defaultCodexHome) -or
+    $targetCodexHome.StartsWith($defaultCodexHome + $separator, [System.StringComparison]::OrdinalIgnoreCase) -or
+    $defaultCodexHome.StartsWith($targetCodexHome + $separator, [System.StringComparison]::OrdinalIgnoreCase) -or
+    (Test-Path -LiteralPath (Join-Path $targetCodexHome 'config.toml'))) {
+    throw 'Target Codex profile overlaps a customer profile or already has a config. Preserve it and inspect before continuing.'
 }
 
 $resolvedExistingCodexHome = [System.IO.Path]::GetFullPath($ExistingCodexHome)
@@ -98,10 +132,8 @@ $prepareArguments = @{
     Model = $Model
     BaseUrl = $BaseUrl
     ProviderName = $ProviderName
+    ProviderEnvKey = $ProviderEnvKey
     ProfileRoot = $ProfileRoot
-}
-if ($SetApiKey) {
-    $prepareArguments.SetApiKey = $true
 }
 & $prepareScript @prepareArguments | ForEach-Object { Write-Output $_ }
 
@@ -136,10 +168,4 @@ Write-Output "Antigravity UserDataDir: $resolvedAntigravityUserDataDir"
 Write-Output "Migration manifest: $manifestPath"
 Write-Output 'No auth.json, API key, OAuth token, or browser cookie was copied.'
 
-if (-not [string]::IsNullOrWhiteSpace($ShortcutPath)) {
-    $shortcutScript = Join-Path $PSScriptRoot 'update_existing_shortcut.ps1'
-    & $shortcutScript -ProfileId $ProfileId -ExistingShortcutPath $ShortcutPath -AntigravityPath $AntigravityPath -ProfileRoot $ProfileRoot -UserDataDir $resolvedAntigravityUserDataDir -ReplaceReviewedShortcutArguments:$ReplaceReviewedShortcutArguments | ForEach-Object { Write-Output $_ }
-}
-else {
-    Write-Output 'No shortcut was changed. Pass -ExistingShortcutPath to update the customer existing Antigravity shortcut.'
-}
+Write-Output 'No shortcut was changed. Verify both identities and API access before updating the existing shortcut separately.'
