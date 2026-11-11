@@ -27,6 +27,7 @@ Always isolate identities before changing a model or copying configuration.
 5. Never modify the installed extension directory to persist configuration. Updates overwrite it. Use a launcher/profile root outside that directory.
 6. Before writing, resolve and show the destination, reject `profile_id` containing `..`, separators, or control characters, and back up existing files.
 7. If the user only asks to update this skill, edit and validate the skill only. Do not create profiles, write credentials, or restart Antigravity.
+8. Reuse the customer's original Antigravity shortcuts; never create an additional shortcut for this workflow. Back up each shortcut before modifying it in place. Preserve the original Antigravity icon, working directory, relevant arguments, and existing user data. If a shortcut targets PowerShell or a launcher, explicitly set its icon to the installed Antigravity executable so Start search does not show the launcher icon. Start the installed application independently of the terminal without exposing credentials.
 
 ## Isolation Architecture
 
@@ -83,12 +84,10 @@ With `cli_auth_credentials_store = "file"`, auth data must be inside the profile
 
 ## Customer Already Has ChatGPT
 
-1. Do not open Antigravity with a browser profile containing the vendor ChatGPT account.
-2. Create a separate Antigravity profile/user-data directory if supported by the application.
-3. Let the customer sign in to ChatGPT in that profile using the customer's account.
-4. Start Codex with its own `CODEX_HOME` and `forced_login_method = "api"`.
-5. If Antigravity cannot isolate browser profiles/partitions, use a separate Windows user or application instance. Renaming `.codex` alone is not enough if browser cookies remain shared.
-6. After an extension update, restart through the same launcher. Do not sign in through ChatGPT when the target is API auth.
+1. Do not use a browser profile containing the vendor ChatGPT account. Preserve the customer's existing sessions and user-data directory when safe.
+2. Start Antigravity's Codex extension with its own `CODEX_HOME` and `forced_login_method = "api"`; keep the customer's ChatGPT or Codex desktop authentication separate.
+3. `CODEX_HOME` does not isolate browser cookies. If browser session isolation is required, use a separate user-data directory when supported, or a separate Windows user or application instance; disclose the tradeoff before changing user data.
+4. After an extension update, restart through the same launcher. Do not sign in through ChatGPT when the target is API auth.
 
 If ChatGPT still shows the vendor account, inspect browser profile/cookies first. An API key is not a ChatGPT cookie. Do not delete customer browser data.
 
@@ -101,7 +100,7 @@ Use this mode when the customer already has both ChatGPT and Antigravity/Codex, 
 3. Do not replace the old `.codex` directory. Back up `config.toml` only. When the user authorizes API key reuse for the same provider and endpoint, use `-ReuseExistingApiKey` to transfer only an API key from the explicitly selected local home, not the whole `auth.json` or a ChatGPT login.
 4. Create a new persistent Codex profile for the vendor API identity.
 5. Preserve the existing Antigravity user-data directory when the user wants its settings and projects retained. Use a separate `UserDataDir` only when browser/session isolation is actually needed or requested. Never copy browser cookies/local storage between platforms.
-6. Run Antigravity through the platform's isolated launcher with the new `CODEX_HOME`. If the user wants the existing shortcut, back it up and update that shortcut to call the launcher instead of creating another; retain the original user-data directory. Check pinned shortcuts or alternate launch paths too, and clearly identify any that still bypass the launcher.
+6. Run Antigravity through the platform's isolated launcher with the new `CODEX_HOME`. Back up and update the existing shortcut in place to call the launcher; do not create another shortcut. Check pinned shortcuts and alternate launch paths separately, and report any that still bypass the launcher; do not assume changing one shortcut changes the others.
 7. Fully close existing Antigravity processes before reopening: an existing single-instance process can take over the launch without inheriting the new `CODEX_HOME`. Do not force-close an editor with unsaved work; ask the user to close it. Test both identities after restart and, if feasible, after an extension update.
 
 ### Codex desktop and Antigravity
@@ -123,17 +122,17 @@ pwsh -File .\\scripts\\repair_existing_platforms.ps1 `
 
 The helper backs up the old `config.toml`, creates the profile and writes a non-secret manifest. It creates an Antigravity user-data directory only when `-AntigravityUserDataDir` is explicitly supplied. With `-ReuseExistingApiKey`, it creates a destination `auth.json` containing only the existing local API key. It rejects OAuth/token sources and never overwrites existing destination authentication; check `AuthStatus` rather than assuming the credential is usable. Without the switch it does not transfer a key. Never copy ChatGPT cookies or OAuth tokens.
 
+### Windows shortcut without a terminal
+
+For an environment-backed API provider, `scripts/antigravity_gui_launcher.cs` can be compiled as a Windows GUI executable outside the extension and skill directories. Use it only when the configured `env_key` already exists in the launch environment or the current Windows user's environment; do not create a global variable or write its value to the launcher, config, logs, or shortcut. Verify the actual application path, isolated profile, and variable name first. Place `AntigravityLauncher.config` beside the compiled executable as three UTF-8 lines: the installed application path, the isolated `CODEX_HOME`, and the environment variable name. Never put the key itself in the file.
+
+Compile with PowerShell `Add-Type -Path <source.cs> -OutputAssembly <launcher.exe> -OutputType WindowsApplication -ReferencedAssemblies 'System.dll','System.Windows.Forms.dll'`. Back up existing launcher files and the customer's original Desktop and Start Menu shortcuts before editing. Retarget each existing shortcut to this executable and set the shortcut icon to the original Antigravity executable; preserve working directory and applicable original arguments. Do not create extra shortcuts. The launcher passes the profile and existing key only to the child, removes `ELECTRON_RUN_AS_NODE`, and requests both detached console and job breakaway. If breakaway is prohibited, report the Windows error instead of claiming independence.
+
+`DETACHED_PROCESS` alone does not break inheritance of a terminal job. Verify the actual application survives closing the launching terminal and that its Codex extension receives the expected profile; a test process surviving only its immediate PowerShell parent is insufficient. Preserve the active editor and ask the user to close it before retesting if a single-instance process could take over. Test taskbar pins, Windows Search and file associations separately; never assume they use a modified shortcut. If an alternate path bypasses the launcher, report it rather than changing global `CODEX_HOME` or touching ChatGPT authentication.
+
 ## Install the Skill Into a Persistent Profile
 
-The skill is installed globally on the development machine, but a customer machine using a separate `CODEX_HOME` must also receive a sanitized copy. Install it under `<CODEX_HOME>\\skills\\cau-hinh-alt-codex`, never inside the Antigravity extension directory.
-
-```powershell
-pwsh -File .\\scripts\\install_skill_into_profile.ps1 `
-  -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex" `
-  -CodexHome "$env:LOCALAPPDATA\\Antigravity-Codex\\profiles\\customer-001\\.codex"
-```
-
-The installer backs up an existing skill directory and excludes `auth.json`, `.env`, PEM files, and key files. This keeps the skill available after extension updates without distributing credentials.
+Maintain one authoritative, sanitized skill directory per machine, outside the Antigravity extension directory. If a separate `CODEX_HOME` needs to discover that same skill, link its `skills/cau-hinh-alt-codex` directory to the authoritative directory when the OS and skill discovery support it; do not maintain a second live copy. Back up any existing profile skill before replacing it with a link, verify the link target, and never follow it recursively when deleting or updating. If linking or discovery does not work, report the limitation rather than silently creating divergent copies. On a different customer machine, install one sanitized copy there; never distribute credentials.
 
 ## Provision a Profile
 
@@ -165,6 +164,7 @@ Report completion only after checking:
 - `config.toml` has the expected provider/model and `forced_login_method = "api"`.
 - Credential state is reported as set/missing without printing its value.
 - When requested, Codex desktop shows the customer's ChatGPT identity; browser ChatGPT remains unchanged.
+- The original shortcuts and Windows Search retain the Antigravity icon and launch the isolated profile; the application remains open after its launching terminal closes. Test each pinned or alternate entry point separately.
 - Restarting Antigravity preserves both identities.
 - Updating/reinstalling the extension does not remove profile data.
 - No API key, cookie, `auth.json`, or token appears in logs or reports.
