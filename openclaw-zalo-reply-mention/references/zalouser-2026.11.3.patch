@@ -1,0 +1,134 @@
+--- a/monitor-Cc1OOIE-.mjs
++++ b/monitor-Cc1OOIE-.mjs
+@@ -539,7 +539,10 @@
+ 					}))
+ 				};
+ 			},
+-			durable: () => ({ to: normalizedTo }),
++			durable: () => ({
++				to: normalizedTo,
++				...isGroup ? { identity: { zalouserReplyMention: { id: senderId, name: senderName, threadId: chatId, accountId: account.accountId } } } : {}
++			}),
+ 			deliver: async (payload) => {
+ 				return await deliverZalouserReply({
+ 					payload,
+@@ -547,6 +550,8 @@
+ 					mediaMaxBytes: account.mediaMaxBytes,
+ 					chatId,
+ 					isGroup,
++					senderId,
++					senderName,
+ 					runtime,
+ 					core,
+ 					config,
+@@ -593,6 +598,7 @@
+ 	const sendReplyPart = async (text, mediaUrl) => {
+ 		await sendMessageZalouser(chatId, text, {
+ 			profile,
++			...isGroup ? { mentionTarget: { id: params.senderId, name: params.senderName } } : {},
+ 			mediaMaxBytes: params.mediaMaxBytes,
+ 			...mediaUrl ? { mediaUrl } : {},
+ 			isGroup,
+--- a/send-B24acSlE.mjs
++++ b/send-B24acSlE.mjs
+@@ -637,21 +637,44 @@
+ const ZALO_TEXT_LIMIT = 2e3;
+ async function sendMessageZalouser(threadId, text, options = {}) {
+ 	const { onDeliveryResult, ...transportOptions } = options;
+-	const prepared = transportOptions.textMode === "markdown" ? parseZalouserTextStyles(text) : {
++	let prepared = transportOptions.textMode === "markdown" ? parseZalouserTextStyles(text) : {
+ 		text,
+ 		styles: transportOptions.textStyles
+ 	};
+ 	const textChunkLimit = transportOptions.textChunkLimit ?? ZALO_TEXT_LIMIT;
+-	const chunks = splitStyledText(prepared.text, (prepared.styles?.length ?? 0) > 0 ? prepared.styles : void 0, textChunkLimit, transportOptions.textChunkMode);
++	let mentions;
++	const target = transportOptions.mentionTarget;
++	if (transportOptions.isGroup && typeof target?.id === "string" && /^\d+$/.test(target.id) && typeof target.name === "string") {
++		const name = target.name.replace(/[\x00-\x1f\x7f]/g, " ").replace(/\s+/g, " ").trim().replace(/^@+/, "");
++		let label = "";
++		for (const character of Array.from(name).slice(0, 80)) {
++			if (label.length + character.length > textChunkLimit - 3) break;
++			label += character;
++		}
++		if (label) {
++			const mentionText = `@${label}`;
++			const prefix = `${mentionText} `;
++			prepared = {
++				text: prefix + prepared.text,
++				styles: prepared.styles?.map((style) => ({ ...style, start: style.start + prefix.length }))
++			};
++			mentions = [{ uid: target.id, pos: 0, len: mentionText.length }];
++		}
++	}
++	const styles = (prepared.styles?.length ?? 0) > 0 ? prepared.styles : void 0;
++	let chunks = splitStyledText(prepared.text, styles, textChunkLimit, transportOptions.textChunkMode);
++	if (mentions && (chunks[0]?.text.length ?? 0) < mentions[0].len) chunks = splitStyledText(prepared.text, styles, textChunkLimit, "hard");
+ 	let lastResult = null;
+ 	const accepted = [];
+ 	try {
+ 		for (const [index, chunk] of chunks.entries()) {
+ 			const chunkOptions = index === 0 ? {
+ 				...transportOptions,
++				mentions,
+ 				textStyles: chunk.styles
+ 			} : {
+ 				...transportOptions,
++				mentions: void 0,
+ 				caption: void 0,
+ 				mediaLocalRoots: void 0,
+ 				mediaUrl: void 0,
+--- a/zalo-js-Bu9ojNUf.mjs
++++ b/zalo-js-Bu9ojNUf.mjs
+@@ -616,11 +616,13 @@
+ 		}
+ 		const payloadText = truncateUtf16Safe(media ? text || options.caption || "" : text, 2e3);
+ 		const textStyles = sliceTextStyles(options.textStyles, 0, payloadText.length);
++		const mentions = options.isGroup && Array.isArray(options.mentions) ? options.mentions : void 0;
+ 		if (media?.kind === "audio") {
+ 			if (payloadText) {
+-				textMessageId = extractSendMessageId(await api.sendMessage(textStyles ? {
++				textMessageId = extractSendMessageId(await api.sendMessage(textStyles || mentions ? {
+ 					msg: payloadText,
+-					styles: textStyles
++					...textStyles ? { styles: textStyles } : {},
++					...mentions ? { mentions } : {}
+ 				} : payloadText, trimmedThreadId, type));
+ 				await onDeliveryResult?.({
+ 					ok: true,
+@@ -648,10 +650,12 @@
+ 		const messageId = extractSendMessageId(await api.sendMessage(media ? {
+ 			msg: payloadText,
+ 			...textStyles ? { styles: textStyles } : {},
++			...mentions ? { mentions } : {},
+ 			attachments
+-		} : textStyles ? {
++		} : textStyles || mentions ? {
+ 			msg: payloadText,
+-			styles: textStyles
++			...textStyles ? { styles: textStyles } : {},
++			...mentions ? { mentions } : {}
+ 		} : payloadText, trimmedThreadId, type));
+ 		return {
+ 			ok: true,
+--- a/channel-D90hoq2j.mjs
++++ b/channel-D90hoq2j.mjs
+@@ -177,15 +177,17 @@
+ 		allowNameMatching: isDangerousNameMatchingEnabled(account.config)
+ 	}));
+ }
+-async function sendZalouserFromContext({ to, text, mediaUrl, accountId, cfg, mediaLocalRoots, mediaReadFile, signal, assertDirectAdapterHandoff, onPlatformSendDispatch, onDeliveryResult }) {
++async function sendZalouserFromContext({ to, text, mediaUrl, accountId, cfg, mediaLocalRoots, mediaReadFile, signal, assertDirectAdapterHandoff, onPlatformSendDispatch, onDeliveryResult, identity }) {
+ 	const { sendMessageZalouser } = await loadZalouserChannelRuntime$1();
+ 	const account = resolveZalouserAccountSync({
+ 		cfg,
+ 		accountId
+ 	});
+ 	const target = parseZalouserOutboundTarget(to);
++	const mention = identity?.zalouserReplyMention;
+ 	return toZalouserMessageSendResult(await sendMessageZalouser(target.threadId, text, {
+ 		profile: account.profile,
++		...target.isGroup && mention?.threadId === target.threadId && mention.accountId === account.accountId ? { mentionTarget: { id: mention.id, name: mention.name } } : {},
+ 		signal,
+ 		assertDirectAdapterHandoff,
+ 		onPlatformSendDispatch,
