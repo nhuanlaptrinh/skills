@@ -16,7 +16,7 @@ Always isolate identities before changing a model or copying configuration.
 - Customer ChatGPT or Codex desktop uses the customer's account, not the vendor router.
 - Do not change, move, delete, or deliberately split existing chat history, Recents, or Folders when separating accounts.
 - Antigravity/extension updates do not delete the profile configuration or credential.
-- Every customer has a distinct `profile_id` and `CODEX_HOME`.
+- Each customer has a dedicated persistent `CODEX_HOME` for the extension.
 - Never write a real API key to this skill, a repository, logs, a response, or a command line.
 
 ## Mandatory Rules
@@ -40,11 +40,11 @@ Always isolate identities before changing a model or copying configuration.
 
 ```text
 Antigravity/Codex process
-  CODEX_HOME = <persistent-root>\\<profile-id>\\.codex
-  --user-data-dir = <separate-persistent-Antigravity-user-data-dir>
+  CODEX_HOME = <dedicated-Codex-directory>
+  --user-data-dir = unchanged by default; separate only if needed and approved
   config.toml = API provider + model + forced API auth
   auth.json  = profile credential only if this build needs a file auth store
-  User/globalStorage and User/workspaceStorage = isolated IDE/extension state
+  User/globalStorage and User/workspaceStorage = existing IDE state by default
 
 Customer ChatGPT browser profile
   cookies/local storage/OAuth = customer account
@@ -63,14 +63,52 @@ Default Windows root:
 Override it with `ALT_CODEX_PROFILE_ROOT`. On Linux/macOS use:
 `${XDG_STATE_HOME:-$HOME/.local/state}/your-product/codex-profiles/<profile-id>/.codex`.
 
-Pass `CODEX_HOME` to the Codex process rather than setting it globally when possible. Always launch Antigravity with its dedicated `--user-data-dir`, not the customer's ChatGPT profile or the old/default Antigravity directory. After an extension update, restart through `scripts/launch_antigravity_isolated.ps1`; it continues to use both persistent paths.
+Pass `CODEX_HOME` to the Antigravity process and its local extension rather than setting it globally. The preferred mode preserves the existing Antigravity user-data directory and only changes `CODEX_HOME`. Do not claim this alone isolates IDE extension storage, browser cookies, remote extension hosts, or cloud sessions. A separate Antigravity `--user-data-dir` remains an optional fallback if necessary for verified identity isolation and the customer accepts its consequences.
+
+## Preferred CODEX_HOME-Only Workflow
+
+1. Identify the customer-facing ChatGPT/Codex desktop identity and provider, the Antigravity executable, and the actual local or remote extension host. Inspect without exposing keys. A desktop `config.toml` already using the vendor router remains a separate problem; a new extension home does not fix desktop authentication or provider selection.
+2. Reuse an existing working dedicated `CODEX_HOME` if verified. Otherwise create a new directory such as `C:\codex-antigravity` or `~/codex-antigravity`, distinct from the customer's home and not inside an extension installation. Do not overwrite a nonempty or unknown profile. A new home has a separate, potentially empty local Codex session index; old history remains untouched and is not automatically copied or merged.
+3. Add only the reviewed provider/model/base URL configuration and the provider's `env_key` variable name if required. Do not assume entering a key into `auth.json` satisfies `env_key`. Supply the actual credential through an approved process-scoped secure mechanism; never print it, put it in the shortcut or command line, copy the customer's `auth.json`, or silently alter the customer's login. Verify the credential will be available after a normal shortcut launch.
+4. Explain that the user should save work and close all Antigravity instances normally before reusing its existing IDE data, because an already-running instance may reuse its old environment. Never force-close the application or discard unsaved work. If this conversation runs inside Antigravity, prepare the steps first; closing it can interrupt the conversation. Do not promise fully automatic completion if restarting is required.
+5. Start the installed Antigravity executable with the dedicated `CODEX_HOME` only for its process, without changing system/user environment variables or the customer's ChatGPT shortcut. Use the Windows helper below, which also removes inherited `ELECTRON_RUN_AS_NODE` for the child. Do not create a separate IDE user-data directory just to change history.
+6. Verify the actual local extension process uses the intended `CODEX_HOME`, its provider is the vendor API, and a minimal request succeeds. Verify the desktop uses the customer's intended account and provider, not the vendor router. If the extension host is remote (SSH/WSL/container), local inheritance is not proof: inspect and configure the remote host separately with user approval, or stop and report it unverified. Do not assume a PID or an open window proves authentication.
+7. Only after both surfaces work, optionally update an existing Antigravity shortcut in place using the helper below, after reviewing and preserving its arguments. Back it up first; do not create a replacement if missing or touch the customer's ChatGPT shortcut. Reopen via that shortcut after a clean exit, verify the actual provider and credential again, and restore the shortcut backup if the test fails. Do not promise that a key inherited in an interactive shell will be inherited from Explorer.
+
+The direct Windows launcher refuses to start while any Antigravity instance is still running. This prevents it from silently handing off to a process with the old environment; it does not focus an already-open window. Ask the user to save and close normally before relaunching, and do not install this shortcut behavior without explaining that limitation. In shortcut mode the helper runs hidden, so diagnose a failed launch from an interactive PowerShell rather than assuming the app started.
+
+Windows examples using an already prepared directory and the actual installed executable:
+
+```powershell
+powershell.exe -File .\scripts\launch_antigravity_isolated.ps1 `
+  -CodexHome "C:\codex-antigravity" `
+  -AntigravityPath "C:\Path\To\Antigravity IDE.exe"
+
+# Only after successful validation and with the existing shortcut identified:
+powershell.exe -File .\scripts\update_existing_shortcut.ps1 `
+  -CodexHome "C:\codex-antigravity" `
+  -ExistingShortcutPath "$env:USERPROFILE\Desktop\Antigravity IDE.lnk" `
+  -AntigravityPath "C:\Path\To\Antigravity IDE.exe"
+```
+
+On macOS and Linux, close the existing IDE first and invoke the installed app executable directly from a shell with a process-scoped environment. `open -a` is macOS-only, and Launch Services may not propagate the shell environment; do not assume it works without verifying the extension's actual home. Replace the executable with the observed installed path:
+
+```bash
+# macOS: verify the actual .app location and executable name first.
+env -u ELECTRON_RUN_AS_NODE CODEX_HOME="$HOME/codex-antigravity" "/Applications/Antigravity.app/Contents/MacOS/Antigravity"
+
+# Linux: use the verified installed executable or command.
+env -u ELECTRON_RUN_AS_NODE CODEX_HOME="$HOME/codex-antigravity" antigravity
+```
+
+These examples do not configure credentials or assert a particular executable path. Preserve all existing workspace state and settings; when the same IDE user-data directory is reused, cached extension sign-in may persist and must be checked.
 
 When launched from an Electron-hosted extension, `ELECTRON_RUN_AS_NODE` may be inherited and prevent the IDE from starting. The launcher temporarily removes it while starting Antigravity and restores the launcher's own environment afterward. It does not change User/Machine environment settings or guarantee that a provider's `env_key` is available in a later shortcut launch. Verify the actual extension process and API request before updating a shortcut; if authentication is absent, stop and configure an approved secure credential source rather than copying or exposing a key.
 
-For a customer who already has shortcuts, do not create a new one. After verifying both identities and API access, update the existing Antigravity shortcut in place:
+For the optional separate-IDE-profile fallback, after verifying both identities and API access, update the existing Antigravity shortcut in place:
 
 ```powershell
-pwsh -File .\scripts\update_existing_shortcut.ps1 `
+powershell.exe -File .\scripts\update_existing_shortcut.ps1 `
   -ProfileId customer-001 `
   -ExistingShortcutPath "$env:USERPROFILE\Desktop\Antigravity.lnk" `
   -AntigravityPath "C:\Path\To\Antigravity.exe" `
@@ -109,17 +147,17 @@ For `env_key`, configure the variable name, never the credential value. `auth.js
 ## Customer Already Has ChatGPT
 
 1. Identify whether the customer uses ChatGPT browser/app, Codex desktop, or both. Keep existing customer shortcuts, accounts, app data and history unchanged. Check the desktop's effective provider as well as its login.
-2. Create a dedicated Antigravity `UserDataDir` for the API-only Codex instance, distinct from both the customer ChatGPT profile and the old Antigravity directory.
+2. Prefer a dedicated `CODEX_HOME` while preserving the existing Antigravity `UserDataDir`. A separate IDE user-data directory is a fallback only when needed and approved.
 3. Start Codex with its own `CODEX_HOME` and `forced_login_method = "api"`; do not sign the customer's ChatGPT account into that Codex instance.
 4. Update the existing Antigravity shortcut in place only after both identities and the isolated API request are verified. Do not create a replacement ChatGPT shortcut. Verify the result after a cold shortcut launch and restore the shortcut backup on failure.
-5. If Antigravity cannot isolate its user data, use a separate application instance or OS user. Renaming `.codex` alone is insufficient.
+5. If actual identity separation cannot be verified with `CODEX_HOME` alone, stop and discuss a separate application profile or OS user; do not claim success.
 6. After an extension update, restart through the same launcher and verify both identities and provider paths again. Check history separation only if requested.
 
 If ChatGPT still shows the vendor account, inspect browser profile/cookies first. An API key is not a ChatGPT cookie. Do not delete customer browser data.
 
 ## Existing Two-Platform Migration
 
-Use this mode when the customer already has both ChatGPT and Antigravity/Codex, and accounts are mixed or the first install used the wrong profile.
+Use this optional fallback when the preferred `CODEX_HOME`-only mode does not isolate identities and the user explicitly accepts a new Antigravity IDE user-data directory.
 
 1. Identify the actual customer ChatGPT data directory, old Antigravity `UserDataDir`, and target Codex `UserDataDir`; verify they are distinct and not aliases/junctions of one another. Keep Antigravity open when creating an empty profile; copying reviewed settings requires closing the source first.
 2. Do not delete, sign out of, or overwrite the customer ChatGPT browser profile.
@@ -133,7 +171,7 @@ Use this mode when the customer already has both ChatGPT and Antigravity/Codex, 
 Use the migration helper:
 
 ```powershell
-pwsh -File .\scripts\repair_existing_platforms.ps1 `
+powershell.exe -File .\scripts\repair_existing_platforms.ps1 `
   -ProfileId customer-001 `
   -ExistingCodexHome "$env:USERPROFILE\.codex" `
   -CustomerChatGPTDataDir "C:\Path\To\Customer\ChatGPT\Profile" `
@@ -161,19 +199,19 @@ Verify a running Antigravity process actually uses the target `--user-data-dir` 
 The following commands illustrate the preparation and shortcut update; launch and verify the isolated instance between them:
 
 ```powershell
-pwsh -File .\scripts\isolate_antigravity_profile.ps1 `
+powershell.exe -File .\scripts\isolate_antigravity_profile.ps1 `
   -ProfileId customer-001 `
   -SourceUserDataDir "C:\Path\To\Current\Antigravity\UserData" `
   -TargetUserDataDir "$env:LOCALAPPDATA\Antigravity-Codex\browser\customer-001-fresh"
 
-pwsh -File .\scripts\launch_antigravity_isolated.ps1 `
+powershell.exe -File .\scripts\launch_antigravity_isolated.ps1 `
   -ProfileId customer-001 `
   -ProfileRoot "C:\Path\To\Existing\Codex\ProfileRoot" `
   -AntigravityPath "C:\Path\To\Antigravity.exe" `
   -UserDataDir "$env:LOCALAPPDATA\Antigravity-Codex\browser\customer-001-fresh"
 
 # Verify the actual process path, Codex profile, and API authentication before continuing.
-pwsh -File .\scripts\update_existing_shortcut.ps1 `
+powershell.exe -File .\scripts\update_existing_shortcut.ps1 `
   -ProfileId customer-001 `
   -ProfileRoot "C:\Path\To\Existing\Codex\ProfileRoot" `
   -ExistingShortcutPath "$env:USERPROFILE\Desktop\Antigravity.lnk" `
@@ -192,7 +230,7 @@ If entries still cross after the IDE state split, inspect the effective `CODEX_H
 The skill is installed globally on the development machine, but a customer machine using a separate `CODEX_HOME` must also receive a sanitized copy. Install it under `<CODEX_HOME>\\skills\\cau-hinh-alt-codex`, never inside the Antigravity extension directory.
 
 ```powershell
-pwsh -File .\\scripts\\install_skill_into_profile.ps1 `
+powershell.exe -File .\\scripts\\install_skill_into_profile.ps1 `
   -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex" `
   -CodexHome "$env:LOCALAPPDATA\\Antigravity-Codex\\profiles\\customer-001\\.codex"
 ```
@@ -204,7 +242,7 @@ The installer backs up an existing skill directory and excludes `auth.json`, `.e
 Use:
 
 ```powershell
-pwsh -File .\\scripts\\prepare_isolated_profile.ps1 `
+powershell.exe -File .\\scripts\\prepare_isolated_profile.ps1 `
   -ProfileId customer-001 `
   -Model GPT-5.6-sol `
   -BaseUrl https://codex.anhlaptrinh.vn/v1 `
@@ -225,7 +263,7 @@ Keep the upstream model mapping:
 - `GPT-5.6-terra`
 - `GPT-5.6-luna`
 
-Use `scripts/launch_antigravity_isolated.ps1` for every Antigravity restart/update, and use `scripts/set_alt_model.sh` for Codex/OpenClaw shell workflows. It must back up before editing, change only the requested model, validate configuration, and restart the gateway only when requested. Never use it to copy credentials.
+Use `scripts/launch_antigravity_isolated.ps1` with the verified direct `-CodexHome` mode for the preferred restart workflow, or its existing `-ProfileId` mode for the separate-IDE fallback. Use `scripts/set_alt_model.sh` for Codex/OpenClaw shell workflows. It must back up before editing, change only the requested model, validate configuration, and restart the gateway only when requested. Never use it to copy credentials.
 
 Resolve `CODEX_HOME/config.toml` from the active profile; do not fall back to the default `.codex` when the extension is launched with an isolated profile.
 
@@ -237,7 +275,7 @@ Report completion only after checking:
 - `config.toml` has the expected provider/model and `forced_login_method = "api"`.
 - Credential state is reported as set/missing without printing its value.
 - The customer-facing ChatGPT or Codex desktop shows the customer's account and uses the intended customer provider, not the vendor router.
-- The running Antigravity process actually uses the dedicated `--user-data-dir`; confirm it differs from the customer's ChatGPT and old Antigravity paths, including junctions/aliases.
+- When the separate-IDE fallback was chosen, verify its actual `--user-data-dir`; in preferred mode confirm the existing IDE data was preserved and do not require a separate IDE directory.
 - Existing customer history and folders remain intact. Only if history separation was requested, test for cross-visibility without exposing private names.
 - The Codex instance starts without copied `openai.chatgpt` or workspace state, uses API authentication, and does not silently reconnect the customer's ChatGPT session.
 - Starting Antigravity afresh from the updated shortcut preserves API authentication and both identities. The launcher inheriting a key in an interactive test does not prove the shortcut will inherit it.
