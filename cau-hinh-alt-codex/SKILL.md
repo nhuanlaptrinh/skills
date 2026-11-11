@@ -13,7 +13,7 @@ Always isolate identities before changing a model or copying configuration.
 ## Goals
 
 - Codex Extension uses the vendor API key/service account in its own Codex profile.
-- Customer ChatGPT remains in the customer's browser profile.
+- Codex desktop may sign in separately with the customer's ChatGPT account; browser ChatGPT remains untouched.
 - Antigravity/extension updates do not delete the profile configuration or credential.
 - Every customer has a distinct `profile_id` and `CODEX_HOME`.
 - Never write a real API key to this skill, a repository, logs, a response, or a command line.
@@ -21,8 +21,8 @@ Always isolate identities before changing a model or copying configuration.
 ## Mandatory Rules
 
 1. Do not use `%USERPROFILE%\\.codex` or `$HOME/.codex` for customer-distributed workflows when a dedicated profile can be created.
-2. Never copy `auth.json` from the skill, upstream repository, or another machine. Use only sanitized model/provider configuration.
-3. Never change the customer's existing ChatGPT cookies, local storage, session, or browser profile.
+2. Never copy `auth.json` from the skill, upstream repository, or another machine. When the user authorizes reuse of an existing API key on this same machine, extract only `OPENAI_API_KEY` from an explicitly selected local Codex home; never transfer OAuth tokens, cookies, or the entire source file.
+3. Never change the customer's ChatGPT browser cookies, local storage, session, or browser profile. Only sign out of Codex desktop or replace its authentication when explicitly requested; do not sign out a working ChatGPT identity merely to isolate the extension.
 4. Do not put the API key in User/System environment variables unless required. Pass `CODEX_HOME` and credential only to the Codex process that needs them.
 5. Never modify the installed extension directory to persist configuration. Updates overwrite it. Use a launcher/profile root outside that directory.
 6. Before writing, resolve and show the destination, reject `profile_id` containing `..`, separators, or control characters, and back up existing files.
@@ -39,6 +39,10 @@ Antigravity/Codex process
 Customer ChatGPT browser profile
   cookies/local storage/OAuth = customer account
 
+Codex desktop
+  CODEX_HOME = its existing independent profile
+  authentication = customer's ChatGPT login when requested
+
 Extension installation/update directory
   extension code only; no long-lived credential
 ```
@@ -49,7 +53,9 @@ Default Windows root:
 Override it with `ALT_CODEX_PROFILE_ROOT`. On Linux/macOS use:
 `${XDG_STATE_HOME:-$HOME/.local/state}/your-product/codex-profiles/<profile-id>/.codex`.
 
-Pass `CODEX_HOME` to the Codex process rather than setting it globally when possible. After an extension update, restart through `scripts/launch_antigravity_isolated.ps1`; it continues to use the same persistent root.
+Pass `CODEX_HOME` to the Codex process rather than setting it globally when possible. On Windows, restart through `scripts/launch_antigravity_isolated.ps1`; on macOS/Linux use `scripts/launch_antigravity_isolated.sh`. Both use the persistent profile after an extension update.
+
+For macOS/Linux provisioning, credentials, launch integration, and validation, follow [macOS and Linux](references/macos-linux.md). The Unix helpers do not change desktop/browser credentials, globally exported variables, shortcuts, or running processes.
 
 ## Codex Configuration
 
@@ -58,7 +64,6 @@ Preserve unrelated keys in `CODEX_HOME/config.toml` and use a shape like this:
 ```toml
 model_provider = "router"
 model = "GPT-5.6-sol"
-preferred_auth_method = "apikey"
 forced_login_method = "api"
 cli_auth_credentials_store = "file"
 
@@ -69,6 +74,8 @@ wire_api = "responses"
 ```
 
 Use only a `base_url` and provider supplied by the user or already present in active configuration. Do not replace a production endpoint by assumption.
+
+Choose the exact model supplied by the user or provider, preserving the active model if no change was requested. The example model is illustrative only. Do not infer available models from a hard-coded list. The provisioning helper accepts `-EnvKey ALT_KEY` only to reference an existing environment variable by name; it neither creates nor prints a credential. Keep an existing `env_key` when required by the provider, and note that it may take precedence over file authentication. Do not add undocumented configuration keys such as `preferred_auth_method`. Check compatibility with the installed Codex build.
 
 `forced_login_method = "api"` prevents Codex from falling back to ChatGPT login for this profile. If the installed Codex version does not support it, stop and report it; do not delete `auth.json` or replace the customer's credential.
 
@@ -91,25 +98,30 @@ Use this mode when the customer already has both ChatGPT and Antigravity/Codex, 
 
 1. Close ChatGPT, Antigravity, and the Codex extension before changing the runtime.
 2. Do not delete, sign out of, or overwrite the customer ChatGPT browser profile.
-3. Do not replace the old `.codex` directory. Create a timestamped backup of `config.toml` only; never copy its `auth.json` into the new profile.
+3. Do not replace the old `.codex` directory. Back up `config.toml` only. When the user authorizes API key reuse for the same provider and endpoint, use `-ReuseExistingApiKey` to transfer only an API key from the explicitly selected local home, not the whole `auth.json` or a ChatGPT login.
 4. Create a new persistent Codex profile for the vendor API identity.
-5. Create a separate Antigravity `UserDataDir`; the customer can sign in there with the customer's ChatGPT account. Never copy browser cookies/local storage between platforms.
-6. Run Antigravity through `scripts/launch_antigravity_isolated.ps1` with the new `CODEX_HOME` and `UserDataDir`.
-7. Test both identities after restart and after a simulated extension update.
+5. Preserve the existing Antigravity user-data directory when the user wants its settings and projects retained. Use a separate `UserDataDir` only when browser/session isolation is actually needed or requested. Never copy browser cookies/local storage between platforms.
+6. Run Antigravity through the platform's isolated launcher with the new `CODEX_HOME`. If the user wants the existing shortcut, back it up and update that shortcut to call the launcher instead of creating another; retain the original user-data directory. Check pinned shortcuts or alternate launch paths too, and clearly identify any that still bypass the launcher.
+7. Fully close existing Antigravity processes before reopening: an existing single-instance process can take over the launch without inheriting the new `CODEX_HOME`. Do not force-close an editor with unsaved work; ask the user to close it. Test both identities after restart and, if feasible, after an extension update.
 
-Use the migration helper:
+### Codex desktop and Antigravity
+
+For a request to use a ChatGPT account in Codex desktop and an API key in Antigravity, inspect the desktop's actual `CODEX_HOME` and provider separately from Antigravity's. Do not assume a browser profile determines Codex desktop authentication. Back up configuration, preserve unrelated settings, and, only if explicitly requested, sign out the desktop API identity using the installed Codex logout mechanism. Switch its provider back to the normal OpenAI provider and remove incompatible custom model overrides only when necessary; use `forced_login_method = "chatgpt"` only if the installed build supports it. Ask the user to complete their own interactive ChatGPT sign-in. Preserve the old credential securely if it must be backed up; never print or copy OAuth credentials into the API profile. Restart the desktop to clear cached state, then verify the displayed identity. Do not change the customer's browser session.
+
+On Windows, use the migration helper:
 
 ```powershell
 pwsh -File .\\scripts\\repair_existing_platforms.ps1 `
   -ProfileId customer-001 `
   -ExistingCodexHome "$env:USERPROFILE\\.codex" `
+  -Model GPT-5.6-sol `
   -CustomerChatGPTDataDir "C:\\Path\\To\\Customer\\ChatGPT\\Profile" `
-  -AntigravityUserDataDir "$env:LOCALAPPDATA\\Antigravity-Codex\\browser\\customer-001" `
-  -BaseUrl https://codex.anhlaptrinh.vn/v1
+  -BaseUrl https://codex.anhlaptrinh.vn/v1 `
+  -ReuseExistingApiKey `
   -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex"
 ```
 
-The helper backs up only the old Codex `config.toml`, creates the new isolated profile, creates an empty Antigravity user-data directory, and writes a non-secret migration manifest. It never copies ChatGPT cookies, `auth.json`, API keys, or OAuth tokens.
+The helper backs up the old `config.toml`, creates the profile and writes a non-secret manifest. It creates an Antigravity user-data directory only when `-AntigravityUserDataDir` is explicitly supplied. With `-ReuseExistingApiKey`, it creates a destination `auth.json` containing only the existing local API key. It rejects OAuth/token sources and never overwrites existing destination authentication; check `AuthStatus` rather than assuming the credential is usable. Without the switch it does not transfer a key. Never copy ChatGPT cookies or OAuth tokens.
 
 ## Install the Skill Into a Persistent Profile
 
@@ -125,32 +137,23 @@ The installer backs up an existing skill directory and excludes `auth.json`, `.e
 
 ## Provision a Profile
 
-Use:
+On Windows, use:
 
 ```powershell
 pwsh -File .\\scripts\\prepare_isolated_profile.ps1 `
   -ProfileId customer-001 `
   -Model GPT-5.6-sol `
-  -BaseUrl https://codex.anhlaptrinh.vn/v1
-  -SourceSkillPath "$HOME\\.codex\\skills\\cau-hinh-alt-codex"
+  -BaseUrl https://codex.anhlaptrinh.vn/v1 `
+  -SourceCodexHome "$env:USERPROFILE\\.codex"
 ```
 
-The script creates the persistent directory, backs up an existing `config.toml`, and writes isolated configuration. It does not discover or print an API key.
-
-If `auth.json` is required, enter the credential directly on the machine or use the OS credential store. Never accept a key in chat or as a command-line argument. Create auth data in the destination profile only.
+The script creates the persistent directory and new isolated configuration; it refuses to replace an existing `config.toml`. Use `-SourceCodexHome` only when the user has authorized reuse of that local API key and confirmed it belongs to the target provider and endpoint. The script extracts only `OPENAI_API_KEY`, rejects OAuth/token sources, and never overwrites existing destination authentication. If no reusable file key exists, use `-SetApiKey` for secure local entry or an appropriate OS credential store; report the limitation instead of extracting browser or extension secrets. Never accept a key in chat or as a command-line argument. Check `AuthStatus`; `existing_not_verified` does not prove a working key. An `env_key` setting can override file-based authentication, so check the actual active provider configuration and process environment without exposing values.
 
 ## Upstream Model Workflow
 
-Keep the upstream model mapping:
+Use the exact model ID requested or already configured. Legacy aliases are normalized by the shell helper; other valid IDs are passed through unchanged. For OpenClaw, the requested model must already be registered for its provider; do not invent model metadata. With `--all-agents`, only overrides matching the previous default are changed.
 
-- `gpt-5.4`
-- `gpt-5.5`
-- `GPT-5.6`
-- `GPT-5.6-sol`
-- `GPT-5.6-terra`
-- `GPT-5.6-luna`
-
-Use `scripts/launch_antigravity_isolated.ps1` for every Antigravity restart/update, and use `scripts/set_alt_model.sh` for Codex/OpenClaw shell workflows. It must back up before editing, change only the requested model, validate configuration, and restart the gateway only when requested. Never use it to copy credentials.
+Use the appropriate platform launcher for every Antigravity restart/update, and use `scripts/set_alt_model.sh` for Codex/OpenClaw shell workflows. It must back up before editing, change only the requested model, validate configuration, and restart the gateway only when requested. Never use it to copy credentials.
 
 Resolve `CODEX_HOME/config.toml` from the active profile; do not fall back to the default `.codex` when the extension is launched with an isolated profile.
 
@@ -161,12 +164,12 @@ Report completion only after checking:
 - Codex receives the persistent `CODEX_HOME`.
 - `config.toml` has the expected provider/model and `forced_login_method = "api"`.
 - Credential state is reported as set/missing without printing its value.
-- ChatGPT shows the customer's email/avatar in the customer's browser profile.
+- When requested, Codex desktop shows the customer's ChatGPT identity; browser ChatGPT remains unchanged.
 - Restarting Antigravity preserves both identities.
 - Updating/reinstalling the extension does not remove profile data.
 - No API key, cookie, `auth.json`, or token appears in logs or reports.
 
-If browser profile or process environment cannot be checked, report that isolation is not fully verified.
+An environment-backed provider can work even when `codex login status` says not logged in. Check the variable's presence without exposing its value and, if appropriate, make a minimal authorized API request. If identity, restart, update persistence, or the launched process environment cannot be checked, report the exact limitation rather than claiming full isolation.
 
 ## Handoff Safety
 

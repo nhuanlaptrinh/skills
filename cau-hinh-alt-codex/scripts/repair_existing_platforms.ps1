@@ -10,19 +10,26 @@ param(
 
     [string]$AntigravityUserDataDir,
 
-    [ValidateSet('gpt-5.4', 'gpt-5.5', 'GPT-5.6', 'GPT-5.6-sol', 'GPT-5.6-terra', 'GPT-5.6-luna')]
-    [string]$Model = 'GPT-5.6-sol',
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
+    [string]$Model,
 
     [Parameter(Mandatory = $true)]
     [string]$BaseUrl,
 
+    [ValidatePattern('^[A-Za-z0-9_-]+$')]
     [string]$ProviderName = 'router',
+
+    [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
+    [string]$EnvKey,
 
     [string]$ProfileRoot = $env:ALT_CODEX_PROFILE_ROOT,
 
     [string]$SourceSkillPath,
 
-    [switch]$SetApiKey
+    [switch]$SetApiKey,
+
+    [switch]$ReuseExistingApiKey
 )
 
 Set-StrictMode -Version Latest
@@ -32,8 +39,12 @@ if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
     $ProfileRoot = Join-Path $env:LOCALAPPDATA 'YourProduct\codex-profiles'
 }
 
-if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
+if ($ProfileId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or $ProfileId -match '\.\.' -or $ProfileId.EndsWith('.')) {
     throw 'ProfileId is invalid. Use a simple profile name without a path or special characters.'
+}
+
+if ($SetApiKey -and $ReuseExistingApiKey) {
+    throw 'Choose either SetApiKey or ReuseExistingApiKey, not both.'
 }
 
 $resolvedExistingCodexHome = [System.IO.Path]::GetFullPath($ExistingCodexHome)
@@ -48,11 +59,11 @@ else {
     $backupPath = $null
 }
 
-if ([string]::IsNullOrWhiteSpace($AntigravityUserDataDir)) {
-    $AntigravityUserDataDir = Join-Path $env:LOCALAPPDATA "Antigravity-Codex\browser\$ProfileId"
+$resolvedAntigravityUserDataDir = $null
+if (-not [string]::IsNullOrWhiteSpace($AntigravityUserDataDir)) {
+    $resolvedAntigravityUserDataDir = [System.IO.Path]::GetFullPath($AntigravityUserDataDir)
+    New-Item -ItemType Directory -Force -Path $resolvedAntigravityUserDataDir | Out-Null
 }
-$resolvedAntigravityUserDataDir = [System.IO.Path]::GetFullPath($AntigravityUserDataDir)
-New-Item -ItemType Directory -Force -Path $resolvedAntigravityUserDataDir | Out-Null
 
 $prepareScript = Join-Path $PSScriptRoot 'prepare_isolated_profile.ps1'
 $prepareArguments = @{
@@ -64,6 +75,12 @@ $prepareArguments = @{
 }
 if ($SetApiKey) {
     $prepareArguments.SetApiKey = $true
+}
+if ($EnvKey) {
+    $prepareArguments.EnvKey = $EnvKey
+}
+if ($ReuseExistingApiKey) {
+    $prepareArguments.SourceCodexHome = $resolvedExistingCodexHome
 }
 & $prepareScript @prepareArguments | ForEach-Object { Write-Output $_ }
 
@@ -84,7 +101,7 @@ $manifest = [ordered]@{
     customer_chatgpt_data_dir = if ($CustomerChatGPTDataDir) { [System.IO.Path]::GetFullPath($CustomerChatGPTDataDir) } else { $null }
     antigravity_user_data_dir = $resolvedAntigravityUserDataDir
     new_codex_home = $codexHome
-    auth_migration = 'not_copied'
+    auth_migration = if ($ReuseExistingApiKey) { 'api_key_reuse_requested_check_auth_status' } else { 'not_copied' }
     browser_cookie_migration = 'not_copied'
     created_utc = [DateTime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 3
@@ -94,4 +111,4 @@ Write-Output "Existing Codex config backup: $backupPath"
 Write-Output "New CODEX_HOME: $codexHome"
 Write-Output "Antigravity UserDataDir: $resolvedAntigravityUserDataDir"
 Write-Output "Migration manifest: $manifestPath"
-Write-Output 'No auth.json, API key, OAuth token, or browser cookie was copied.'
+Write-Output 'No OAuth token or browser cookie was copied. See AuthStatus for API key status.'

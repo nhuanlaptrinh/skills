@@ -10,7 +10,7 @@ Nguồn tham chiếu: `https://github.com/nhuanlaptrinh/cau-hinh-alt-codex_new`
 
 ## Cố ý không dùng
 
-- Không copy `auth.json` từ repository upstream.
+- Do not copy upstream or cross-machine `auth.json`; extract only a user-authorized local API key.
 - Không để credential trong thư mục skill.
 - Không dùng `.codex` mặc định làm kho credential chung cho nhiều khách.
 - Không sửa browser cookie hoặc ChatGPT profile của khách.
@@ -24,6 +24,6 @@ Thư mục cài đặt extension có thể bị thay thế khi update. Credentia
 Khi đồng bộ lại repository upstream:
 
 1. Đọc thay đổi trong `SKILL.md` và script model.
-2. Không chép `auth.json`, `.env`, token, cookie hoặc backup credential.
+2. Never copy entire `auth.json`, `.env`, tokens, cookies, or credential backups; reuse only user-authorized local API keys.
 3. Giữ nguyên các quy tắc cô lập trong skill này.
 4. Chạy validator của skill và kiểm tra script profile bằng một `ProfileId` tạm không chứa secret.

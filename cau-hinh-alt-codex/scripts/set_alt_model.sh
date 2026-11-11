@@ -2,15 +2,6 @@
 set -euo pipefail
 
 MODEL=""
-SUPPORTED_MODELS=(
-  "gpt-5.4"
-  "gpt-5.5"
-  "GPT-5.6"
-  "GPT-5.6-sol"
-  "GPT-5.6-terra"
-  "GPT-5.6-luna"
-)
-SUPPORTED_MODELS_TEXT="gpt-5.4, gpt-5.5, GPT-5.6, GPT-5.6-sol, GPT-5.6-terra, GPT-5.6-luna"
 CODEX_CONFIG="${CODEX_HOME:-$HOME/.codex}/config.toml"
 ACTIVE_OPENCLAW_CONFIG="${OPENCLAW_CONFIG_PATH:-$HOME/.openclaw/openclaw.json}"
 OPENCLAW_CONFIG="$ACTIVE_OPENCLAW_CONFIG"
@@ -20,23 +11,24 @@ DRY_RUN=0
 ALL_AGENTS=0
 UPDATE_CODEX=1
 UPDATE_OPENCLAW=1
-RESTART_GATEWAY=1
+RESTART_GATEWAY=0
 
 usage() {
   cat <<EOF
 Usage: set_alt_model.sh --model MODEL [options]
 
-Models: $SUPPORTED_MODELS_TEXT
+MODEL must be the exact model ID supplied by the user or provider.
 
 Options:
-  --all-agents              Update managed model overrides in agents.list
+  --all-agents              Update agent overrides matching the previous default
   --codex-only              Update only Codex config
   --openclaw-only           Update only OpenClaw config
   --codex-config PATH       Override Codex config path
   --openclaw-config PATH    Override OpenClaw config path
   --openclaw-provider ID    Override detected OpenClaw provider id
   --backup-dir PATH         Override backup directory
-  --no-restart-gateway      Do not restart OpenClaw gateway after change
+  --restart-gateway         Restart the active OpenClaw gateway after change
+  --no-restart-gateway      Do not restart the gateway (default)
   --dry-run                 Show planned changes without writing
   -h, --help                Show this help
 EOF
@@ -56,7 +48,7 @@ normalize_model() {
     gpt-5.6-sol) printf '%s' 'GPT-5.6-sol' ;;
     gpt-5.6-terra) printf '%s' 'GPT-5.6-terra' ;;
     gpt-5.6-luna) printf '%s' 'GPT-5.6-luna' ;;
-    *) return 1 ;;
+    *) [[ "$requested" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] && printf '%s' "$requested" || return 1 ;;
   esac
 }
 
@@ -70,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --openclaw-config) OPENCLAW_CONFIG=${2:-}; shift 2 ;;
     --openclaw-provider) OPENCLAW_PROVIDER=${2:-}; shift 2 ;;
     --backup-dir) BACKUP_DIR=${2:-}; shift 2 ;;
+    --restart-gateway) RESTART_GATEWAY=1; shift ;;
     --no-restart-gateway) RESTART_GATEWAY=0; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -84,7 +77,7 @@ if [[ -z "$MODEL" ]]; then
 fi
 
 if ! MODEL=$(normalize_model "$MODEL"); then
-  echo "Unsupported model. Choose one of: $SUPPORTED_MODELS_TEXT." >&2
+  echo "Invalid model ID. Use letters, numbers, dots, underscores or hyphens." >&2
   exit 2
 fi
 
@@ -115,17 +108,11 @@ detect_openclaw_provider() {
     fi
   fi
 
-  candidates=$(jq -r '
+  candidates=$(jq -r --arg model "$MODEL" '
     .models.providers // {}
     | to_entries[]
     | select(any(.value.models[]?;
-        .id == "codex" or
-        .id == "gpt-5.4" or
-        .id == "gpt-5.5" or
-        .id == "GPT-5.6" or
-        .id == "GPT-5.6-sol" or
-        .id == "GPT-5.6-terra" or
-        .id == "GPT-5.6-luna"))
+        .id == "codex" or .id == $model))
     | .key
   ' "$OPENCLAW_CONFIG")
   count=$(printf '%s\n' "$candidates" | sed '/^$/d' | wc -l)
@@ -149,6 +136,10 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   [[ -f "$OPENCLAW_CONFIG" ]] || { echo "OpenClaw config not found: $OPENCLAW_CONFIG" >&2; exit 1; }
   detect_openclaw_provider
   OPENCLAW_MODEL="$OPENCLAW_PROVIDER/$MODEL"
+  if ! jq -e --arg provider "$OPENCLAW_PROVIDER" --arg model "$MODEL" 'any(.models.providers[$provider].models[]?; .id == $model)' "$OPENCLAW_CONFIG" >/dev/null; then
+    echo "Model $MODEL is not registered for OpenClaw provider $OPENCLAW_PROVIDER; configure its metadata first." >&2
+    exit 1
+  fi
 fi
 
 echo "Selected model: $MODEL"
@@ -164,7 +155,7 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
     echo "Gateway restart: disabled by request"
   fi
 fi
-[[ $ALL_AGENTS -eq 1 ]] && echo "Agent overrides: managed models will be updated"
+[[ $ALL_AGENTS -eq 1 ]] && echo "Agent overrides: only those matching the previous default will be updated"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "Dry-run: no files changed."
@@ -177,48 +168,38 @@ if [[ $UPDATE_CODEX -eq 1 ]]; then
   [[ -f "$CODEX_CONFIG" ]] || { echo "Codex config not found: $CODEX_CONFIG" >&2; exit 1; }
   CODEX_BACKUP="$BACKUP_DIR/codex-config.toml.$STAMP"
   cp -p "$CODEX_CONFIG" "$CODEX_BACKUP"
-  MODEL_VALUE="$MODEL" perl -0pi -e 'my $m=$ENV{MODEL_VALUE}; s/^model\s*=\s*"[^"]*"/model = "$m"/m or die "Top-level model key not found\n"' "$CODEX_CONFIG"
+  CODEX_TEMP=$(mktemp "${CODEX_CONFIG}.tmp.XXXXXX")
+  trap 'rm -f "${CODEX_TEMP:-}"' EXIT
+  cp -p "$CODEX_CONFIG" "$CODEX_TEMP"
+  MODEL_VALUE="$MODEL" perl -0pi -e 'my $pos = /^[ \t]*\[/m ? $-[0] : length($_); my $top = substr($_, 0, $pos); $top =~ s/^model[ \t]*=[ \t]*"[^"]*"/model = "$ENV{MODEL_VALUE}"/m or die "Top-level model key not found\n"; substr($_, 0, $pos, $top)' "$CODEX_TEMP"
+  mv "$CODEX_TEMP" "$CODEX_CONFIG"
+  trap - EXIT
 fi
 
 if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   OPENCLAW_BACKUP="$BACKUP_DIR/openclaw.json.$STAMP"
   cp -p "$OPENCLAW_CONFIG" "$OPENCLAW_BACKUP"
-  TEMP_FILE=$(mktemp)
+  TEMP_FILE=$(mktemp "${OPENCLAW_CONFIG}.tmp.XXXXXX")
   trap 'rm -f "${TEMP_FILE:-}"' EXIT
+  cp -p "$OPENCLAW_CONFIG" "$TEMP_FILE"
 
-  jq --arg model "$MODEL" --arg ref "$OPENCLAW_MODEL" --arg provider "$OPENCLAW_PROVIDER" --argjson allAgents "$ALL_AGENTS" '
-    def managed($provider):
-      . == ($provider + "/codex") or
-      . == ($provider + "/gpt-5.4") or
-      . == ($provider + "/gpt-5.5") or
-      . == ($provider + "/GPT-5.6") or
-      . == ($provider + "/GPT-5.6-sol") or
-      . == ($provider + "/GPT-5.6-terra") or
-      . == ($provider + "/GPT-5.6-luna");
-    .models.providers[$provider].models = (
-      (.models.providers[$provider].models // []) as $existing
-      | ["gpt-5.4", "gpt-5.5", "GPT-5.6", "GPT-5.6-sol", "GPT-5.6-terra", "GPT-5.6-luna"] as $managedIds
-      | ($existing | map(select((.id as $id | $managedIds | index($id)) == null))) +
-        ($managedIds | map({
-          id: ., name: .,
-          contextWindow: 128000,
-          maxTokens: 4096
-        }))
-    )
+  jq --arg ref "$OPENCLAW_MODEL" --argjson allAgents "$ALL_AGENTS" '
+    (.agents.defaults.model.primary // "") as $previous
     | .agents.defaults.model.primary = $ref
     | .agents.defaults.models = ((.agents.defaults.models // {}) + {($ref): {}})
     | if $allAgents == 1 then
         .agents.list = ((.agents.list // []) | map(
-          if (.model? | type) == "string" and (.model | managed($provider)) then .model = $ref
-          elif (.model?.primary? | type) == "string" and (.model.primary | managed($provider)) then .model.primary = $ref
+          if $previous == "" then .
+          elif (.model? | type) == "string" then
+            if .model == $previous then .model = $ref else . end
+          elif (.model? | type) == "object" then
+            if .model.primary == $previous then .model.primary = $ref else . end
           else . end
         ))
       else . end
   ' "$OPENCLAW_CONFIG" > "$TEMP_FILE"
 
   jq -e . "$TEMP_FILE" >/dev/null
-  chmod --reference="$OPENCLAW_CONFIG" "$TEMP_FILE"
-  chown --reference="$OPENCLAW_CONFIG" "$TEMP_FILE"
   mv "$TEMP_FILE" "$OPENCLAW_CONFIG"
   trap - EXIT
 
@@ -247,3 +228,4 @@ fi
 echo "Updated model to $MODEL."
 [[ $UPDATE_CODEX -eq 1 ]] && echo "Codex backup: $CODEX_BACKUP"
 [[ $UPDATE_OPENCLAW -eq 1 ]] && echo "OpenClaw backup: $OPENCLAW_BACKUP"
+exit 0

@@ -22,7 +22,7 @@ if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
     $ProfileRoot = Join-Path $env:LOCALAPPDATA 'YourProduct\codex-profiles'
 }
 
-if ([string]::IsNullOrWhiteSpace($ProfileId) -or $ProfileId -match '[\\/:*?"<>|]' -or $ProfileId -match '\.\.') {
+if ($ProfileId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or $ProfileId -match '\.\.' -or $ProfileId.EndsWith('.')) {
     throw 'ProfileId is invalid. Use a simple profile name without a path or special characters.'
 }
 
@@ -42,18 +42,23 @@ foreach ($argument in $ArgumentList) {
 if (-not [string]::IsNullOrWhiteSpace($UserDataDir)) {
     $resolvedUserDataDir = [System.IO.Path]::GetFullPath($UserDataDir)
     New-Item -ItemType Directory -Force -Path $resolvedUserDataDir | Out-Null
-    [void]$childArguments.Add("--user-data-dir=$resolvedUserDataDir")
+    [void]$childArguments.Add("`"--user-data-dir=$resolvedUserDataDir`"")
 }
 else {
-    Write-Warning 'No UserDataDir was supplied. Use a dedicated Antigravity/browser profile to avoid sharing ChatGPT cookies.'
+    Write-Warning 'Using the existing Antigravity user-data directory; browser sessions are not isolated by CODEX_HOME.'
 }
 
 $oldCodexHome = $env:CODEX_HOME
+$oldElectronRunAsNode = $env:ELECTRON_RUN_AS_NODE
 try {
     $env:CODEX_HOME = $codexHome
+    Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $resolvedAntigravity -ArgumentList $childArguments -PassThru -Wait:$Wait
 }
 finally {
+    if ($null -ne $oldElectronRunAsNode) {
+        $env:ELECTRON_RUN_AS_NODE = $oldElectronRunAsNode
+    }
     if ($null -eq $oldCodexHome) {
         Remove-Item Env:CODEX_HOME -ErrorAction SilentlyContinue
     }
