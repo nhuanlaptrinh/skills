@@ -1,4 +1,4 @@
 interface:
   display_name: "Isolated ALT Codex"
-  short_description: "Separate vendor API and customer accounts"
-  default_prompt: "Use $cau-hinh-alt-codex to separate the vendor Codex API from the customer ChatGPT or Codex desktop account, preserving credentials, shortcuts, and history."
+  short_description: "Separate Codex API and customer ChatGPT"
+  default_prompt: "Use $cau-hinh-alt-codex to create or repair a persistent CODEX_HOME profile, keep customer ChatGPT independent, and preserve configuration after Antigravity/extension updates."
