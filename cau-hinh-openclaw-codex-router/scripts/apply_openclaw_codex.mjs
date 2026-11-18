@@ -127,7 +127,14 @@ if (!fs.existsSync(configPath)) {
 }
 
 const baseUrl = normalizeBaseUrl(options["base-url"] ?? "https://codex.anhlaptrinh.vn/v1");
-const modelId = String(options.model ?? "GPT-6.1-sol");
+let modelId = String(options.model ?? "gpt-6.2-sol");
+const endpoint = URL.canParse(baseUrl) ? new URL(baseUrl) : null;
+if (endpoint?.origin === "https://codex.anhlaptrinh.vn" && endpoint.pathname === "/v1" && !endpoint.search && !endpoint.hash) {
+  const accepted = ["gpt-6.2-sol", "GPT-6.1-terra", "gpt-6.2-astra"];
+  const alias = modelId.trim().toLowerCase().replace(/[\s_-]+/g, "-");
+  modelId = accepted.find((id) => id.toLowerCase() === alias);
+  if (!modelId) fail("Token Codex supports: " + accepted.join(", "));
+}
 const contextWindow = Number(options["context-window"] ?? 128000);
 const maxTokens = Number(options["max-tokens"] ?? 4096);
 if (!Number.isInteger(contextWindow) || contextWindow <= 0) {

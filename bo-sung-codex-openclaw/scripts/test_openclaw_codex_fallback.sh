@@ -7,8 +7,8 @@ if [[ "$MODEL" != */* ]]; then
   exit 2
 fi
 case "${MODEL##*/}" in
-  GPT-6.1-sol|GPT-6.1-terra|GPT-6-astra) ;;
-  *) echo "Unsupported model. Choose GPT-6.1-sol, GPT-6.1-terra, or GPT-6-astra." >&2; exit 2 ;;
+  gpt-6.2-sol|GPT-6.1-terra|gpt-6.2-astra) ;;
+  *) echo "Unsupported model. Choose gpt-6.2-sol, GPT-6.1-terra, or gpt-6.2-astra." >&2; exit 2 ;;
 esac
 PROMPT="Reply exactly: OpenAI fallback OK"
 

@@ -7,7 +7,7 @@ description: Cài đặt, tạo, cấu hình, vận hành hoặc sửa trợ lý
 
 ## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Với Token Codex, dùng đúng ba ID API hội thoại/suy luận: `gpt-6.2-sol`, `GPT-6.1-terra`, `gpt-6.2-astra`. Mặc định khi cài mới hoặc không chỉ định model là `gpt-6.2-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -292,8 +292,8 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
       "api": "openai-completions",
       "models": [
         {
-          "id": "GPT-6.1-sol",
-          "name": "GPT-6.1-sol",
+          "id": "gpt-6.2-sol",
+          "name": "gpt-6.2-sol",
           "input": ["text", "image"],
           "maxTokens": 4096
         },
@@ -304,8 +304,8 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
           "maxTokens": 4096
         },
         {
-          "id": "GPT-6-astra",
-          "name": "GPT-6-astra",
+          "id": "gpt-6.2-astra",
+          "name": "gpt-6.2-astra",
           "input": ["text", "image"],
           "maxTokens": 4096
         }
@@ -316,28 +316,28 @@ Khi task dùng skill này để tạo **trợ lý OpenClaw**, container nền ch
 "agents": {
   "defaults": {
     "model": {
-      "primary": "token-codex/GPT-6.1-sol"
+      "primary": "token-codex/gpt-6.2-sol"
     },
     "imageModel": {
-      "primary": "token-codex/GPT-6.1-sol"
+      "primary": "token-codex/gpt-6.2-sol"
     },
     "models": {
-      "token-codex/GPT-6.1-sol": {},
+      "token-codex/gpt-6.2-sol": {},
       "token-codex/GPT-6.1-terra": {},
-      "token-codex/GPT-6-astra": {}
+      "token-codex/gpt-6.2-astra": {}
     }
   }
 }
 ```
-- Mặc định cấu hình hiểu ảnh bằng `token-codex/GPT-6.1-sol`: `agents.defaults.imageModel.primary` và model chính `agents.defaults.model.primary` phải dùng model này; `agents.defaults.models` phải có đủ ba model và model catalog phải giữ `input: ["text", "image"]` cùng `maxTokens: 4096`. Chỉ đặt `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
+- Mặc định cấu hình hiểu ảnh bằng `token-codex/gpt-6.2-sol`: `agents.defaults.imageModel.primary` và model chính `agents.defaults.model.primary` phải dùng model này; `agents.defaults.models` phải có đủ ba model và model catalog phải giữ `input: ["text", "image"]` cùng `maxTokens: 4096`. Chỉ đặt `input: ["text"]` nếu người dùng yêu cầu rõ không hỗ trợ ảnh input (`N`).
 - `agents.defaults.mediaModels.image.primary` chỉ dùng cho tính năng tạo ảnh,
   không được coi là bước thay thế cho khả năng đọc ảnh input. Không gán
-  `token-codex/GPT-6.1-sol` vào key này: catalog Token Codex trong workflow
+  `token-codex/gpt-6.2-sol` vào key này: catalog Token Codex trong workflow
   này chỉ khai báo text/image input. Chỉ thêm `mediaModels.image` sau khi đã
   cấu hình một provider tạo ảnh thực sự, kiểm tra `openclaw infer image providers --json`
   và xác minh một lượt tạo ảnh không chứa dữ liệu riêng tư. OpenClaw 2026.9
   không hỗ trợ key legacy `agents.defaults.imageGenerationModel`.
-- **Kiểm tra bắt buộc khả năng đọc ảnh:** sau `openclaw config validate`, tạo một ảnh kiểm thử không chứa dữ liệu riêng tư rồi chạy `openclaw infer image describe` bằng `token-codex/GPT-6.1-sol`. Kết quả phải nhận diện được chữ kiểm thử `OPENCLAW_VISION_OK_2026` hoặc nội dung hình đã biết; chỉ HTTP `200` không đủ để kết luận đọc ảnh hoạt động.
+- **Kiểm tra bắt buộc khả năng đọc ảnh:** sau `openclaw config validate`, tạo một ảnh kiểm thử không chứa dữ liệu riêng tư rồi chạy `openclaw infer image describe` bằng `token-codex/gpt-6.2-sol`. Kết quả phải nhận diện được chữ kiểm thử `OPENCLAW_VISION_OK_2026` hoặc nội dung hình đã biết; chỉ HTTP `200` không đủ để kết luận đọc ảnh hoạt động.
 
 ```bash
 docker exec -i user-<ten_user> sh -lc '
@@ -354,7 +354,7 @@ image.save("/tmp/openclaw-vision-smoke.png")
 PY
   HOME=/root openclaw infer image describe \
     --file /tmp/openclaw-vision-smoke.png \
-    --model token-codex/GPT-6.1-sol \
+    --model token-codex/gpt-6.2-sol \
     --prompt "Đọc chính xác dòng chữ trong ảnh và trả lời nguyên văn." \
     --json
   rm -f /tmp/openclaw-vision-smoke.png
@@ -447,7 +447,7 @@ Khi tạo VPS thành viên mới, thực hiện theo đúng thứ tự:
 
 ## Chuẩn bị Token Codex trước member VPS
 
-API key Token Codex là bắt buộc cho member OpenClaw đầy đủ. Ưu tiên nhận qua `TOKEN_CODEX_API_KEY`; chấp nhận `CUSTOM_PROVIDER_API_KEY` để tương thích. Không yêu cầu email nếu người dùng đã cung cấp API key hợp lệ. Ba model được chấp nhận duy nhất là `GPT-6.1-sol`, `GPT-6.1-terra` và `GPT-6-astra`; phải giữ nguyên chữ hoa, chữ thường và dấu chấm.
+API key Token Codex là bắt buộc cho member OpenClaw đầy đủ. Ưu tiên nhận qua `TOKEN_CODEX_API_KEY`; chấp nhận `CUSTOM_PROVIDER_API_KEY` để tương thích. Không yêu cầu email nếu người dùng đã cung cấp API key hợp lệ. Ba model được chấp nhận duy nhất là `gpt-6.2-sol`, `GPT-6.1-terra` và `gpt-6.2-astra`; phải giữ nguyên chữ hoa, chữ thường và dấu chấm.
 
 Kiểm tra key không lộ secret:
 
@@ -460,7 +460,7 @@ fetch('https://codex.anhlaptrinh.vn/v1/models', {
 }).then(async (response) => {
   const payload = response.ok ? await response.json() : {};
   const models = Array.isArray(payload.data) ? payload.data : [];
-  const required = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
+  const required = ['gpt-6.2-sol', 'GPT-6.1-terra', 'gpt-6.2-astra'];
   const available = new Set(models.map((item) => String(item?.id ?? item)));
   const missing = required.filter((model) => !available.has(model));
   console.log(`models_http=${response.status} missing_count=${missing.length}`);
@@ -478,7 +478,7 @@ Nếu cần tạo tài khoản/key mới, chỉ chạy provisioning backend sau 
 
 Dùng API tương thích OpenAI cho OpenClaw, Codex trong Antigravity, Hermes Agent và mã nguồn riêng. Khi skill này cấu hình Token Codex, bắt buộc giữ nguyên các giá trị sau:
 
-- **3 MODEL ĐƯỢC CHẤP NHẬN:** `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`.
+- **3 MODEL ĐƯỢC CHẤP NHẬN:** `gpt-6.2-sol`, `GPT-6.1-terra`, `gpt-6.2-astra`.
 - **Base URL:** `https://codex.anhlaptrinh.vn/v1`.
 - **API:** `openai-completions`.
 - **API key:** chỉ đọc từ biến môi trường `TOKEN_CODEX_API_KEY`; không ghi key thật vào source, config mẫu, log, tài liệu hoặc câu trả lời.
@@ -679,7 +679,7 @@ Provider sau khi container tồn tại phải dùng:
 - `TOKEN_CODEX_API_KEY` hoặc `CUSTOM_PROVIDER_API_KEY`: API key thật, chỉ ghi vào config member, không in ra log.
 - Provider ID: `token-codex`.
 - Base URL: `https://codex.anhlaptrinh.vn/v1`.
-- Model IDs: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`.
+- Model IDs: `gpt-6.2-sol`, `GPT-6.1-terra`, `gpt-6.2-astra`.
 - Model input: `text+image`.
 - `maxTokens`: `4096`.
 
@@ -1213,11 +1213,11 @@ const apiKey = process.env.TOKEN_CODEX_API_KEY || process.env.CUSTOM_PROVIDER_AP
 if (!apiKey) throw new Error('Thiếu TOKEN_CODEX_API_KEY hoặc CUSTOM_PROVIDER_API_KEY');
 config.agents ??= {};
 config.agents.defaults ??= {};
-config.agents.defaults.model = { primary: 'token-codex/GPT-6.1-sol' };
-config.agents.defaults.imageModel = { primary: 'token-codex/GPT-6.1-sol' };
+config.agents.defaults.model = { primary: 'token-codex/gpt-6.2-sol' };
+config.agents.defaults.imageModel = { primary: 'token-codex/gpt-6.2-sol' };
 // Token Codex is configured for chat/vision input, not image generation.
 // Set mediaModels.image only after a real image-generation provider is ready.
-const modelIds = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
+const modelIds = ['gpt-6.2-sol', 'GPT-6.1-terra', 'gpt-6.2-astra'];
 config.agents.defaults.models = Object.fromEntries(modelIds.map((id) => [`token-codex/${id}`, config.agents.defaults.models?.[`token-codex/${id}`] || {}]));
 config.models ??= {};
 config.models.mode = 'merge';
@@ -1272,7 +1272,7 @@ docker exec user-<ten_user> sh -lc '
   set +a
   HOME=/root node <<'"'"'NODE'"'"'
 const apiKey = process.env.TOKEN_CODEX_API_KEY;
-const models = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
+const models = ['gpt-6.2-sol', 'GPT-6.1-terra', 'gpt-6.2-astra'];
 if (!apiKey) throw new Error('Thiếu TOKEN_CODEX_API_KEY');
 (async () => {
   let failed = false;

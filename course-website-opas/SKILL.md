@@ -66,15 +66,32 @@ Entrypoint migrate, collectstatic rồi chạy Gunicorn. WhiteNoise phục vụ 
 - Form đăng ký nhận tên, email, điện thoại; tạo `Registration` và `Order` trong `db.sqlite3` riêng, mã chuyển khoản `OPAS<digits>`.
 - Học phí, VAT, coupon, tài khoản ngân hàng, video, logo và Whop plan giữ theo mẫu khi tạo bản copy. OPAS không tặng tài khoản Google AI Pro/Gemini; các mention Gemini còn lại chỉ là mô tả lựa chọn API kỹ thuật. Không đổi giá hoặc ưu đãi nếu chưa được yêu cầu rõ.
 - Chatbot `/api/course-advisor/` dùng `COURSE_CODE=37_domain_opas`; đọc knowledge OPAS nhưng tái sử dụng Bridge backend `oplw` của mẫu, không có agent mới.
-- Docker Compose chỉ đọc `.env` riêng của OPAS. Credential là placeholder an toàn cho tới khi chủ VPS cấp cấu hình riêng; không copy/in secret và không sửa `.env` nguồn.
+- Docker Compose chỉ đọc `.env` riêng của OPAS. Cấu hình SePay/Whop đã được chủ VPS cho kế thừa từ OPLW ngày 2026-10-20; kiểm tra trạng thái runtime, không suy luận vẫn là placeholder từ ghi chú lúc tạo website. Không in secret hoặc sửa `.env` nguồn.
 - Các thông báo đăng ký/kích hoạt gọi webhook n8n giống mẫu. Email/Zalo/Sheet được xử lý downstream; website không ghi trực tiếp Google Sheet. Không suy luận đã ghi Sheet/gửi tin thành công chỉ vì n8n nhận request.
 
 ## Callback và giới hạn nghiệm thu
 
-- Payment IPN mới: `/payment/ipn/`, chỉ nhận sự kiện có `X-Secret-Key` đúng cấu hình; cần SePay/Bank Hub chuyển giao dịch prefix OPAS tới domain mới.
+- Payment IPN: `/payment/ipn/`. Theo yêu cầu rõ ràng của chủ VPS ngày 2026-11-04, nhận giống OPLW: thiếu/rỗng `X-Secret-Key` vẫn xử lý; chỉ từ chối HTTP 401 nếu bên gửi cung cấp key không khớp. Không tự khôi phục bắt buộc header khi sửa việc khác. Đây là chế độ tương thích, không xác thực nguồn cho callback thiếu header.
+- SePay/Bank Hub phải chuyển giao dịch prefix OPAS tới domain OPAS. Giữ kiểm tra giao dịch tiền vào và tổng phải trả gồm VAT/làm tròn; thiếu tiền không kích hoạt. Thông báo lặp tuần tự cho đơn đã paid không gửi lại n8n.
 - Whop webhook: `/api/whop/webhook/`; muốn xác nhận kích hoạt bằng webhook phải cấu hình endpoint và secret tương ứng ở provider.
 - Khi tạo website chưa thay đổi cấu hình SePay/Bank Hub/Whop ở bên ngoài và không thực hiện thanh toán thật. Xem project note trước khi thông báo auto-confirm/kích hoạt đã hoạt động end-to-end.
 - Bộ test kế thừa từ mẫu có hai assertion không khớp template hiện hành: kỳ vọng đếm ngược tự redirect và kỳ vọng trang payment success trả 200 thay vì redirect. Không sửa logic khóa học chỉ để làm các test cũ xanh; các test mới OPAS phải qua.
+
+## Kiểm tra và khôi phục thông báo thanh toán
+
+- Chẩn đoán ngày 2026-11-04: các POST IPN trước sửa trả 401, chưa có đơn paid. Đã đồng bộ điều kiện kiểm tra key trong `trolyai/views.py:payment_ipn` với OPLW và restart riêng `opas-django`.
+- Dry-run không gửi thông báo thật, dùng database test riêng và mock HTTP:
+
+```bash
+docker exec opas-django python manage.py test trolyai.test_opas.OpasPaymentWebhookTests trolyai.test_opas.OpasRegistrationTests trolyai.tests.ActivationNotificationTests trolyai.tests.ManualActivationNotificationTests --noinput
+docker exec opas-django python manage.py check
+```
+
+- 29 test trên đã đạt: thiếu header vẫn nhận, đúng key nhận, sai key từ chối, hỗ trợ hai kiểu payload ngân hàng, đủ tiền mới paid/tạo link, polling/redirect và không gửi lặp n8n trong ca kiểm thử. Không dùng toàn bộ assertion nội dung landing cũ để đánh giá sửa IPN.
+- Chạy thật/rerun đơn bị bỏ lỡ: đối soát giao dịch ngân hàng thật với mã OPAS và số tiền, kiểm tra trạng thái đơn cùng execution n8n, rồi resend đúng callback giao dịch từ SePay/Bank Hub. Không tự đặt paid, tạo giao dịch giả hoặc gửi lại thông báo khách hàng khi chưa có yêu cầu rõ ràng. Callback phải gửi đến `https://opas.anhlaptrinh.vn/payment/ipn/`.
+- Output vẫn là cập nhật `Order`/`Registration`, tạo link `/activate/` và gửi webhook n8n hiện hữu; không thêm file dữ liệu, cron, Sheet/API mới. Không cần render/rerender.
+- `WHOP_WEBHOOK_SECRET` đang chưa cấu hình ở lần kiểm tra này; việc xác nhận `activated` qua webhook Whop chưa được nghiệm thu. Sửa IPN không thay đổi cấu hình/logic Whop hiện hữu; khách vẫn mở link để hoàn tất bước Whop.
+- Backup source/test/tài liệu: `/root/_Backups/opas_payment_oplw_compat_20261104T055702Z`. Không sửa `.env`, database đơn thật, OPLW hoặc N8N trong lần triển khai này.
 
 ## An toàn và bàn giao
 

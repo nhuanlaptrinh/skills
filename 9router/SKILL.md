@@ -20,7 +20,7 @@ Verify: `curl $NINEROUTER_URL/api/health` → `{"ok":true}`
 
 ## Discover models
 
-For the local Token Codex service at `https://codex.anhlaptrinh.vn/v1`, the current chat-model choices are `GPT-6.1-sol` (default), `GPT-6.1-terra`, and `GPT-6-astra`. Keep these exact case-sensitive IDs in new instructions and configurations, and verify the selected model through `/v1/models`. This list applies to Token Codex; other providers and media capabilities use their own discovered catalogs. Updating this skill does not change existing runtime configuration.
+For the local Token Codex service at `https://codex.anhlaptrinh.vn/v1`, the current chat-model choices are `gpt-6.2-sol` (default), `GPT-6.1-terra`, and `gpt-6.2-astra`. Keep these exact case-sensitive IDs in new instructions and configurations, and verify the selected model through `/v1/models`. This list applies to Token Codex; other providers and media capabilities use their own discovered catalogs. Updating this skill does not change existing runtime configuration. The site displays GPT-6.2-sol and GPT-6.2-astra as names; use the lowercase gpt prefix for their request IDs, as returned by the gateway.
 
 ```bash
 curl $NINEROUTER_URL/v1/models                  # chat/LLM (default)
@@ -61,3 +61,7 @@ When the user needs a specific capability, fetch that skill's `SKILL.md` from it
 - 401 → set/refresh `NINEROUTER_KEY` (Dashboard → Keys)
 - 400 `Invalid model format` → check `model` exists in `/v1/models/<kind>`
 - 503 `All accounts unavailable` → wait `retry-after` or add another provider account
+
+## GPT-6.2 pricing on this VPS (2026-11-18)
+
+Native Standard overrides: codex/openai GPT-6.2 Astra and Sol plus openai/text-embedding-3-small. Source: https://developers.openai.com/api/docs/pricing. See /root/_Backups/9router_pricing_20261118T095104Z/README.md for 0.5.119's non-duplicating reasoning override. Native long-context correction installed on disk in /usr/lib/node_modules/9router/app/.next-cli-build/server/chunks/9100.js after checking the vendor hash and isolated raw/daily writes. It takes effect on the next normal process start; no restart is required or scheduled for the billing portals. A package upgrade may replace this file: verify against the new version rather than reapplying an old bundle. Historical native raw/daily costs were left unchanged. The ALT and partner portals already account for successful zero-cost rows and short-priced calls above 272,000 input tokens; do not bill customers twice. For dry-run/verification, maintenance and rollback evidence see /root/_Backups/9router62_billing_20261118T095846Z/README.md. No Fast/Ultrafast or 12h write surcharges without actual usage evidence.

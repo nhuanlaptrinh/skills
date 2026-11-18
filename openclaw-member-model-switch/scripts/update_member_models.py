@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SUPPORTED_MODELS = ("GPT-6.1-sol", "GPT-6.1-terra", "GPT-6-astra")
+SUPPORTED_MODELS = ("gpt-6.2-sol", "GPT-6.1-terra", "gpt-6.2-astra")
 CONTEXT_WINDOW = 128_000
 MAX_TOKENS = 4096
 

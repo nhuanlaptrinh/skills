@@ -155,7 +155,7 @@ def configured_provider():
     selected = selected.get('primary', '') if isinstance(selected, dict) else selected
     provider, _, model = selected.partition('/')
     cfg = conf.get('models', {}).get('providers', {}).get(provider, {})
-    return cfg.get('baseUrl', 'https://codex.anhlaptrinh.vn/v1'), model or 'GPT-5.6-sol'
+    return cfg.get('baseUrl', 'https://codex.anhlaptrinh.vn/v1'), model or 'gpt-6.2-sol'
 
 
 def load_secret():

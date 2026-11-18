@@ -3,8 +3,6 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ProfileId,
 
-    [Parameter(Mandatory = $true)]
-    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
     [string]$Model,
 
     [Parameter(Mandatory = $true)]
@@ -37,6 +35,19 @@ if ($ProfileId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or $ProfileId -match '\
 $baseUri = $null
 if (-not [Uri]::TryCreate($BaseUrl, [UriKind]::Absolute, [ref]$baseUri) -or $baseUri.Scheme -notin @('http', 'https') -or $baseUri.UserInfo -or $BaseUrl -match '["\x00-\x1f]') {
     throw 'BaseUrl must be an absolute HTTP(S) URL without embedded credentials or control characters.'
+}
+
+if ($baseUri.Scheme -eq 'https' -and $baseUri.Host -eq 'codex.anhlaptrinh.vn' -and $baseUri.IsDefaultPort -and $baseUri.AbsolutePath.TrimEnd('/') -ceq '/v1' -and !$baseUri.Query -and !$baseUri.Fragment) {
+    $accepted = @('gpt-6.2-sol', 'GPT-6.1-terra', 'gpt-6.2-astra')
+    if (!$PSBoundParameters.ContainsKey('Model')) {
+        $Model = $accepted[0]
+    } else {
+        $alias = $Model.Trim() -replace '[\s_-]+', '-'
+        $Model = $accepted | Where-Object { $_ -eq $alias }
+        if (!$Model) { throw ('Token Codex supports: ' + ($accepted -join ', ')) }
+    }
+} elseif ($Model -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+    throw 'A valid model ID is required for this provider.'
 }
 
 $resolvedRoot = [System.IO.Path]::GetFullPath($ProfileRoot)

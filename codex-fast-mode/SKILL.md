@@ -18,6 +18,6 @@ Phân biệt nơi cần bật: **OpenClaw chat** và **Codex CLI/Extension** có
 
 ## Codex CLI/Extension
 
-1. Xác định máy, tài khoản và `CODEX_HOME` (mặc định `~/.codex`); giữ nguyên model trừ khi người dùng chỉ định model khác. Chạy `python <skill-dir>/scripts/switch_fast.py`; thêm `--model GPT-6.1-terra` chỉ khi được yêu cầu. Dùng `--config <đường-dẫn>` nếu cần.
+1. Xác định máy, tài khoản và `CODEX_HOME` (mặc định `~/.codex`); giữ nguyên model trừ khi người dùng chỉ định model khác. Với Token Codex, các ID hiện hành là `gpt-6.2-sol`, `GPT-6.1-terra` và `gpt-6.2-astra`; kiểm tra khả năng Fast riêng cho model được chọn. Chạy `python <skill-dir>/scripts/switch_fast.py`; thêm `--model GPT-6.1-terra` chỉ khi được yêu cầu. Dùng `--config <đường-dẫn>` nếu cần.
 2. Chạy `python <skill-dir>/scripts/ensure_fast_catalog.py` với đúng CLI (`--codex-bin <đường-dẫn>` khi cần). Nếu gateway dùng `GPT-6.1-terra` nhưng catalog chỉ có `gpt-6.1-terra`, helper tạo alias từ model đã quảng bá `priority`. Thiếu hỗ trợ thì báo và dừng; catalog riêng là snapshot cần đồng bộ về sau.
 3. Tạo phiên Codex mới hoặc tải lại Extension; kiểm tra profile/đối số có thể ghi đè. Script sao lưu config và giữ provider, URL, profile, MCP, credentials, model không được yêu cầu đổi và `model_reasoning_effort`. Không in token hoặc chép `auth.json`. Codex ánh xạ fast sang `service_tier: priority`; chỉ xác nhận backend thực thi khi có bằng chứng.

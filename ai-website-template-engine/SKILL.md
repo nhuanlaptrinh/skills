@@ -50,10 +50,12 @@ Hệ thống tự động chuyển đổi yêu cầu ngôn ngữ tự nhiên c�
 
 ## 💻 Cách gọi sinh mã nguồn qua Token Codex LLM
 
+Khi chọn model cho cấu hình Token Codex mới, dùng `gpt-6.2-sol` (mặc định), `GPT-6.1-terra` hoặc `gpt-6.2-astra`. Ví dụ bên dưới dùng model đã cấu hình của HostingManager.
+
 ```python
 from hosting_manager import HostingManager
 
-# Sinh mã nguồn HTML5/CSS3 lộng lẫy bằng GPT-5.6-sol
+# Sinh mã nguồn HTML5/CSS3 với model đã cấu hình
 html = HostingManager.generate_rich_html_css(
     specification="Tạo website shop giày thể thao sneaker",
     website_id="WEB-001",

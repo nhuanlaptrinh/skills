@@ -26,8 +26,9 @@ python3 /root/Automation/watchdog/shared_self_healing/scripts/check_member_resou
   --account daomac --dry-run
 ```
 
-The output contains RAM/swap/PSI/OOM counts and a severity. It never sends an
-alert in dry-run mode, but it updates only the sanitized cooldown state.
+The output contains RAM/swap/PSI/OOM counts and a severity. Dry-run does not
+write state or send alerts. Always pass a member-specific `--state-file` for
+members other than daomac; the script's default state path belongs to daomac.
 
 ## Scheduled Run
 
@@ -56,7 +57,7 @@ log and state file, then run the shared launcher normally. Zalo recovery remains
 the responsibility of `openclaw-zalo-reliability`; this guard only reports
 resource pressure.
 
-On this host, the three member resource guards may run with `--no-notify` so
+On this host, member resource guards may run with `--no-notify` so
 critical host/OOM conditions are retained in logs without sending Telegram
 alerts. Re-enable notifications only by removing that flag from the relevant
 registry entries after owner approval.
@@ -70,3 +71,79 @@ registry entries after owner approval.
   SQLite state as part of this guard.
 - If host memory remains critical, investigate the high-memory workload or
   increase host capacity; do not hide the incident by deleting state.
+
+## Cat Minh OOM recovery (2026-10-30)
+
+Target: `user-trolyketoancatminh`, runtime HOME `/home/trolyketoancatminh`,
+persistent config on host:
+`/root/Apps/member_vps/docker-users/data/trolyketoancatminh/.openclaw/openclaw.json`.
+Three Telegram accounts share one Gateway. Kernel cgroup OOM kills repeatedly
+interrupted work; native `main-session-restart-recovery` sent the English
+"continuing your interrupted request" notice after each automatic restart.
+Suppressing the notice would not fix the OOM.
+
+Recovery applied without recreating the container:
+
+- Docker memory limit: 2 GiB -> 4 GiB; combined RAM+swap: 3 GiB -> 6 GiB.
+  These settings persist in Docker across container restart. Do not recreate
+  this legacy container; preserve these limits in any future migration.
+- `agents.defaults.maxConcurrent=2` and
+  `agents.defaults.subagents.maxConcurrent=1`, applied through native config
+  patch and verified by a hot-reload receipt. The main concurrency default in
+  2026.10.6 is CPU-derived and can substantially exceed member capacity.
+- Separate embedding errors on `main` and `aictycatminh` were confirmed with
+  `memory status --deep`: their OpenAI embedding backend had no credentials.
+  Both were moved to per-agent FTS-only using `openclaw-memory-fts-only`, with
+  SQLite Backup API snapshots first. `ai_catminh` already used FTS-only.
+  This stops failed background embedding sync; it is not proof that embedding
+  was the sole source of the Gateway's memory consumption.
+- Passive guard `member_trolyketoancatminh_resource_guard` runs every five
+  minutes through the shared launcher, with `ai_on_failure=false` and
+  `--no-notify`. It records pressure; it does not restart the Gateway or
+  guarantee prevention of host-wide resource exhaustion.
+
+Dry-run (read-only, no delivery):
+
+```bash
+python3 /root/Automation/watchdog/shared_self_healing/scripts/check_member_resource_guard.py \
+  --container user-trolyketoancatminh --member-home /home/trolyketoancatminh \
+  --member-label trolyketoancatminh --account trolyketoancatminh \
+  --state-file /root/Automation/watchdog/shared_self_healing/state/member_trolyketoancatminh_resource_guard.json \
+  --dry-run --no-notify
+```
+
+Scheduled/manual run:
+
+```bash
+/root/Automation/watchdog/shared_self_healing/run_project.sh member_trolyketoancatminh_resource_guard
+```
+
+Output: `logs/member_trolyketoancatminh_resource_guard.log` and
+`state/member_trolyketoancatminh_resource_guard.json` beneath the shared center.
+No Sheet writes, API publishing, or Telegram notifications. Rerun the dry-run
+for inspection or the launcher to record the latest state. The state file stores
+severity/reasons; detailed metrics are in the log.
+
+Backups: `/root/_Backups/member_vps/trolyketoancatminh/oom-recovery/20261030T051023Z`.
+Before another resource update, snapshot Docker resource settings and check host
+RAM headroom. Increasing `--memory-swap` is an allowance, not additional host
+swap capacity. Use the following only for this diagnosed target:
+
+```bash
+docker update --memory 4g --memory-swap 6g user-trolyketoancatminh
+```
+
+Validate config patch
+with `--dry-run` first and wait for the hot-reload log receipt. Do not edit tokens,
+provider credentials, session SQLite, or browser profiles.
+
+Rollback only this member's concurrency keys, Docker resource values from
+`resources.before.json`, this registry entry and its marked cron block. Preserve
+subsequent/unrelated edits; do not restore the whole shared registry or crontab.
+For the two per-agent FTS overrides, follow the memory skill's rollback and
+restore semantic search only after its embedding provider works. Keep new
+session data; database snapshots are not routine rollback inputs.
+Returning to the old 2 GiB limit can immediately reintroduce the OOM incident.
+Acceptance: one stable Gateway PID, all three configured Telegram accounts probe
+successfully, no increasing `memory.events` OOM counter, and an isolated model
+smoke without `--deliver`. A probe is not proof of completed accounting work.

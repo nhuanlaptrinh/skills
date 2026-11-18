@@ -1,19 +1,19 @@
 ---
 name: cau-hinh-openclaw-codex-router
-description: Apply a custom Codex-compatible API to OpenClaw on another machine, set GPT-6.1-sol as the default model, and verify it without storing or exposing API keys in the skill.
+description: Apply a custom Codex-compatible API to OpenClaw on another machine, set gpt-6.2-sol as the default model, and verify it without storing or exposing API keys in the skill.
 ---
 
 # OpenClaw Codex Router
 
-Use this skill when a user wants to reuse the custom Codex API configuration on another OpenClaw installation. It configures OpenClaw only; use `cau-hinh-alt-codex_new` for Codex CLI or IDE extension files.
+Use this skill when a user wants to reuse the custom Codex API configuration on another OpenClaw installation. It configures OpenClaw only; use [cau-hinh-alt-codex](../cau-hinh-alt-codex/SKILL.md) for Codex CLI or IDE extension files.
 
 ## Defaults
 
 - Provider: `codex-router`
 - Base URL: `https://codex.anhlaptrinh.vn/v1`
 - API mode: `openai-completions`
-- Model: `GPT-6.1-sol`
-- Default reference: `codex-router/GPT-6.1-sol`
+- Token Codex API IDs: `gpt-6.2-sol` (default), `GPT-6.1-terra`, `gpt-6.2-astra`
+- Default reference: `codex-router/gpt-6.2-sol`
 
 Do not name this provider `codex`: OpenClaw may route that reserved name through its Codex plugin and ignore the custom base URL. Keep the provider name `codex-router` unless the target installation has a documented non-conflicting provider name.
 
@@ -50,7 +50,7 @@ Do not name this provider `codex`: OpenClaw may route that reserved name through
    openclaw models status --probe --probe-provider codex-router
    ```
 
-   A successful probe must show `codex-router/GPT-6.1-sol`, status `ok`, and the custom gateway URL in the transport log. Never use a real Telegram/Zalo delivery as the smoke test.
+   A successful probe must show the selected model (by default `codex-router/gpt-6.2-sol`), status `ok`, and the custom gateway URL in the transport log. Never use a real Telegram/Zalo delivery as the smoke test.
 7. Remove the temporary API-key environment variable after the run.
 
 ## Variants
@@ -60,7 +60,7 @@ Override only when the user asks for a different target:
 ```bash
 node scripts/apply_openclaw_codex.mjs \
   --base-url https://example.invalid/v1 \
-  --model GPT-6.1-sol \
+  --model MODEL_FROM_PROVIDER \
   --provider codex-router \
   --apply
 ```

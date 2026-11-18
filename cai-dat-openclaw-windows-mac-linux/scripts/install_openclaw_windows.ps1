@@ -2,8 +2,8 @@ param(
   [string]$Token = "chatbot",
   [int]$Port = 18789,
   [string]$Bind = "loopback",
-  [ValidateSet("GPT-6.1-sol", "GPT-6.1-terra", "GPT-6-astra")]
-  [string]$Model = "GPT-6.1-sol",
+  [ValidateSet("gpt-6.2-sol", "GPT-6.1-terra", "gpt-6.2-astra")]
+  [string]$Model = "gpt-6.2-sol",
   [switch]$SkipPythonPip,
   [switch]$SkipCodex,
   [switch]$SkipDeepSeek
@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 $DashboardUrl = "http://127.0.0.1:$Port/"
 $OpenClawVersion = "2026.11.2"
 $TokenCodexBaseUrl = "https://codex.anhlaptrinh.vn/v1"
-$TokenCodexModelId = $Model
+$TokenCodexModelId = @{ "gpt-6.2-sol" = "gpt-6.2-sol"; "gpt-6.1-terra" = "GPT-6.1-terra"; "gpt-6.2-astra" = "gpt-6.2-astra" }[$Model.ToLowerInvariant()]
 $TokenCodexProviderId = "token-codex"
 
 function Write-Step {
@@ -226,7 +226,7 @@ const baseUrl = process.env.TOKEN_CODEX_BASE_URL_RUNTIME;
 const modelId = process.env.TOKEN_CODEX_MODEL_ID_RUNTIME;
 const providerId = process.env.TOKEN_CODEX_PROVIDER_ID_RUNTIME;
 const primaryModel = `${providerId}/${modelId}`;
-const modelIds = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
+const modelIds = ['gpt-6.2-sol', 'GPT-6.1-terra', 'gpt-6.2-astra'];
 if (!modelIds.includes(modelId)) throw new Error('Unsupported Token Codex model');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 

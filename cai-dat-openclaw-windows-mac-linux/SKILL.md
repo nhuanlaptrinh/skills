@@ -1,13 +1,13 @@
 ---
 name: cai-dat-openclaw-windows-mac-linux
-description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux với Python/pip, gateway local và Token Codex; chỉ chọn GPT-6.1-sol, GPT-6.1-terra, GPT-6-astra, mặc định GPT-6.1-sol. Không tự cài/login Codex CLI hoặc bật DeepSeek."
+description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux với Python/pip, gateway local và Token Codex; chỉ chọn gpt-6.2-sol, GPT-6.1-terra, gpt-6.2-astra, mặc định gpt-6.2-sol. Không tự cài/login Codex CLI hoặc bật DeepSeek."
 ---
 
 # Cai Dat OpenClaw Windows, macOS, Linux
 
 ## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Với Token Codex, dùng đúng ba ID API hội thoại/suy luận: `gpt-6.2-sol`, `GPT-6.1-terra`, `gpt-6.2-astra`. Mặc định khi cài mới hoặc không chỉ định model là `gpt-6.2-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -24,10 +24,10 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 - Gateway auth mode must default to `token`.
 - Gateway token must default to `chatbot` unless the user explicitly requests another value.
 - Install or repair Python/pip by default because classroom machines often do not have pip.
-- When setting an API-backed model in OpenClaw, always default to provider ID `token-codex`, Base URL `https://codex.anhlaptrinh.vn/v1`, exact case-sensitive model ID `GPT-6.1-sol`, and primary model `token-codex/GPT-6.1-sol`.
+- When setting an API-backed model in OpenClaw, always default to provider ID `token-codex`, Base URL `https://codex.anhlaptrinh.vn/v1`, exact case-sensitive model ID `gpt-6.2-sol`, and primary model `token-codex/gpt-6.2-sol`.
 - The user may supply the API key through `TOKEN_CODEX_API_KEY`; also accept `CUSTOM_PROVIDER_API_KEY` as a compatibility fallback. Never invent a key, print it, or put a real key in the skill repository.
 - If neither API-key variable exists, leave Token Codex unconfigured and clearly tell the user what variable to set before rerunning. Do not replace the missing key with a placeholder inside the live OpenClaw config.
-- Although a user may write `GPT-6.1-SOL`, normalize the live configuration to `GPT-6.1-sol` because the API model ID is case-sensitive.
+- Although a user may write `GPT-6.2-sol`, normalize the live configuration to `gpt-6.2-sol` because the API model ID is case-sensitive.
 - Prepare Codex/OpenAI for ChatGPT/Codex account login, not OpenAI API key, unless the user explicitly asks for API billing.
 - Do not install or run Codex login automatically. The teacher/student must install official Codex CLI and run login manually after OpenClaw install.
 - Force Codex CLI to prefer ChatGPT account login by setting `forced_login_method = "chatgpt"` in `~/.codex/config.toml`.
@@ -42,7 +42,7 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 4. On macOS/MacBook, prefer `scripts/install_openclaw_macos.sh`.
 5. On Linux, prefer `scripts/install_openclaw_linux.sh`.
 6. If installing on a different machine, copy or reference the skill folder and run the matching script from that machine.
-7. If `TOKEN_CODEX_API_KEY` or `CUSTOM_PROVIDER_API_KEY` is present, configure Token Codex and make `token-codex/GPT-6.1-sol` the OpenClaw primary model.
+7. If `TOKEN_CODEX_API_KEY` or `CUSTOM_PROVIDER_API_KEY` is present, configure Token Codex and make `token-codex/gpt-6.2-sol` the OpenClaw primary model.
 8. After install/upgrade, tell the user to install/log in separately with official Codex CLI only when they also want ChatGPT/Codex account auth outside the Token Codex provider.
 
 ## Cài mới hoặc nâng cấp OpenClaw
@@ -54,7 +54,7 @@ description: "Cài đặt hoặc sửa OpenClaw trên Windows, macOS và Linux v
 
 ## Chọn model và kiểm tra trước khi chạy
 
-- Linux/macOS: đặt `TOKEN_CODEX_MODEL_ID` thành một trong ba ID được phép; nếu không đặt thì dùng `GPT-6.1-sol`.
+- Linux/macOS: đặt `TOKEN_CODEX_MODEL_ID` thành một trong ba ID được phép; nếu không đặt thì dùng `gpt-6.2-sol`.
 - Windows: truyền `-Model GPT-6.1-terra` hoặc model được phép khác. Giá trị ngoài danh sách phải bị từ chối trước khi cài đặt.
 - Installer đăng ký đúng ba model vào provider `token-codex`; không tự bật provider khác từ key trong môi trường. Tham số Windows `-SkipDeepSeek` cũ chỉ còn được chấp nhận để tương thích, không bật DeepSeek khi bỏ tham số này.
 - Các installer chưa có dry-run đầy đủ. Không chạy installer chỉ để xem kế hoạch: dùng `bash -n scripts/install_openclaw_linux.sh` hoặc `bash -n scripts/install_openclaw_macos.sh` để kiểm tra cú pháp. Trên Windows, kiểm tra script bằng PowerShell parser trước khi chạy thật.
@@ -71,11 +71,11 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
 {
   "agents": {
     "defaults": {
-      "model": {"primary": "token-codex/GPT-6.1-sol"},
+      "model": {"primary": "token-codex/gpt-6.2-sol"},
       "models": {
-        "token-codex/GPT-6.1-sol": {},
+        "token-codex/gpt-6.2-sol": {},
         "token-codex/GPT-6.1-terra": {},
-        "token-codex/GPT-6-astra": {}
+        "token-codex/gpt-6.2-astra": {}
       }
     }
   },
@@ -87,9 +87,9 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
         "apiKey": "YOUR_TOKEN_CODEX_API_KEY",
         "api": "openai-completions",
         "models": [
-          {"id": "GPT-6.1-sol", "name": "GPT-6.1-sol"},
+          {"id": "gpt-6.2-sol", "name": "gpt-6.2-sol"},
           {"id": "GPT-6.1-terra", "name": "GPT-6.1-terra"},
-          {"id": "GPT-6-astra", "name": "GPT-6-astra"}
+          {"id": "gpt-6.2-astra", "name": "gpt-6.2-astra"}
         ]
       }
     }
@@ -97,7 +97,7 @@ Use this live OpenClaw provider shape. Replace the placeholder only at execution
 }
 ```
 
-After writing the provider, restrict the private config file to the current user where supported, run `openclaw config validate`, restart the gateway, and verify `openclaw models list` contains `token-codex/GPT-6.1-sol`.
+After writing the provider, restrict the private config file to the current user where supported, run `openclaw config validate`, restart the gateway, and verify `openclaw models list` contains `token-codex/gpt-6.2-sol`.
 
 ### Windows
 
@@ -205,7 +205,7 @@ codex login status
 ```
 
 Report the final dashboard link exactly as `http://127.0.0.1:18789/`.
-When Token Codex was configured, also report the Base URL `https://codex.anhlaptrinh.vn/v1` and primary model `token-codex/GPT-6.1-sol`, but never report any part of the API key.
+When Token Codex was configured, also report the Base URL `https://codex.anhlaptrinh.vn/v1` and primary model `token-codex/gpt-6.2-sol`, but never report any part of the API key.
 
 ## Manual Fallbacks
 

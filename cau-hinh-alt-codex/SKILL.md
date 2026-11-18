@@ -64,7 +64,7 @@ Preserve unrelated keys in `CODEX_HOME/config.toml` and use a shape like this:
 
 ```toml
 model_provider = "router"
-model = "GPT-5.6-sol"
+model = "gpt-6.2-sol"
 forced_login_method = "api"
 cli_auth_credentials_store = "file"
 
@@ -76,7 +76,7 @@ wire_api = "responses"
 
 Use only a `base_url` and provider supplied by the user or already present in active configuration. Do not replace a production endpoint by assumption.
 
-Choose the exact model supplied by the user or provider, preserving the active model if no change was requested. The example model is illustrative only. Do not infer available models from a hard-coded list. The provisioning helper accepts `-EnvKey ALT_KEY` only to reference an existing environment variable by name; it neither creates nor prints a credential. Keep an existing `env_key` when required by the provider, and note that it may take precedence over file authentication. Do not add undocumented configuration keys such as `preferred_auth_method`. Check compatibility with the installed Codex build.
+For Token Codex (`https://codex.anhlaptrinh.vn/v1`), use these exact API IDs: `gpt-6.2-sol` (default for new profiles), `GPT-6.1-terra`, or `gpt-6.2-astra`. The helpers accept display casing and spaces, e.g. `GPT 6.2 Astra`, and write the canonical ID. Reject other IDs for this endpoint; never silently substitute a different model. Preserve the active model when no model change was requested. For other providers, use their own exact model ID. The provisioning helper accepts `-EnvKey ALT_KEY` only to reference an existing environment variable by name; it neither creates nor prints a credential. Keep an existing `env_key` when required by the provider, and note that it may take precedence over file authentication. Do not add undocumented configuration keys such as `preferred_auth_method`. Check compatibility with the installed Codex build.
 
 `forced_login_method = "api"` prevents Codex from falling back to ChatGPT login for this profile. If the installed Codex version does not support it, stop and report it; do not delete `auth.json` or replace the customer's credential.
 
@@ -113,7 +113,7 @@ On Windows, use the migration helper:
 pwsh -File .\\scripts\\repair_existing_platforms.ps1 `
   -ProfileId customer-001 `
   -ExistingCodexHome "$env:USERPROFILE\\.codex" `
-  -Model GPT-5.6-sol `
+  -Model gpt-6.2-sol `
   -CustomerChatGPTDataDir "C:\\Path\\To\\Customer\\ChatGPT\\Profile" `
   -BaseUrl https://codex.anhlaptrinh.vn/v1 `
   -ReuseExistingApiKey `
@@ -141,7 +141,7 @@ On Windows, use:
 ```powershell
 pwsh -File .\\scripts\\prepare_isolated_profile.ps1 `
   -ProfileId customer-001 `
-  -Model GPT-5.6-sol `
+  -Model gpt-6.2-sol `
   -BaseUrl https://codex.anhlaptrinh.vn/v1 `
   -SourceCodexHome "$env:USERPROFILE\\.codex"
 ```
@@ -150,7 +150,7 @@ The script creates the persistent directory and new isolated configuration; it r
 
 ## Upstream Model Workflow
 
-Use the exact model ID requested or already configured. Legacy aliases are normalized by the shell helper; other valid IDs are passed through unchanged. For OpenClaw, the requested model must already be registered for its provider; do not invent model metadata. With `--all-agents`, only overrides matching the previous default are changed.
+Use the exact model ID requested or already configured. For Token Codex the shell helper enforces the three IDs above. For other providers it keeps the existing legacy alias handling and passes other valid IDs through unchanged. Reading Codex TOML for a model change requires Python 3.11+ or Python 3.8+ with tomli. For OpenClaw, the requested model must already be registered for its provider; do not invent model metadata. With `--all-agents`, only overrides matching the previous default are changed.
 
 Use the appropriate platform launcher for every Antigravity restart/update, and use `scripts/set_alt_model.sh` for Codex/OpenClaw shell workflows. It must back up before editing, change only the requested model, validate configuration, and restart the gateway only when requested. Never use it to copy credentials.
 

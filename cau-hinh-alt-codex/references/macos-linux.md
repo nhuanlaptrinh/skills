@@ -17,6 +17,8 @@ python3 "$SKILL_DIR/scripts/prepare_isolated_profile.py" \
   --model MODEL_FROM_USER --base-url https://provider.example/v1
 ```
 
+For Token Codex (`https://codex.anhlaptrinh.vn/v1`), omit `--model` for the default `gpt-6.2-sol` or select `GPT-6.1-terra` or `gpt-6.2-astra`. Other endpoints require their own model ID.
+
 The helper prints the destination before writing, creates a private configuration, refuses to overwrite an existing config, and does not configure an API key. It accepts `--provider` and `--env-key NAME` when needed. `--env-key` is the variable's name, never its value; it only references an existing credential and does not verify the key. If using an existing exported environment variable, ensure it is inherited by the actual launched process. Do not persist new keys globally just to launch the app.
 
 If the user authorizes entering a new local API key and the installed CLI supports this method, read it privately in a Bash subshell and pass it to the isolated CLI via standard input. The profile uses file-based authentication; the resulting credential is local to this profile. Do not enter a key in chat or put it in shell history, process arguments, or logs:

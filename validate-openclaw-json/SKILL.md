@@ -7,7 +7,7 @@ description: Kiểm tra, sửa và mở rộng file openclaw.json cho hệ thố
 
 ## Chính sách model — 2026-10-29
 
-- Chỉ dùng đúng ba model hội thoại/suy luận: `GPT-6.1-sol`, `GPT-6.1-terra`, `GPT-6-astra`. Mặc định khi cài mới hoặc không chỉ định model là `GPT-6.1-sol`.
+- Với Token Codex, dùng đúng ba ID API hội thoại/suy luận: `gpt-6.2-sol`, `GPT-6.1-terra`, `gpt-6.2-astra`. Mặc định khi cài mới hoặc không chỉ định model là `gpt-6.2-sol`.
 - Primary, fallback và lựa chọn trong wizard chỉ lấy từ danh sách này; không tự dùng alias/model cũ hoặc bật DeepSeek dù môi trường có key. Giữ provider hiện có và ghép `<provider>/<model-id>` đúng case.
 - Trước khi apply, xác minh model đích trong `/v1/models` của provider thực tế; nếu không có thì dừng, không tự đổi tên hay chọn model ngoài danh sách. Chỉ cấu hình hiểu ảnh khi đã kiểm tra backend hỗ trợ.
 - Đây là chính sách chọn model, không phải quyền tự đổi runtime đang chạy. Không đổi model STT/TTS/tạo ảnh thành model chat; các tính năng media chuyên dụng giữ workflow và kiểm tra riêng.
@@ -272,7 +272,7 @@ Không được báo agent mới đã hoàn tất nếu checklist còn mục ch�
 Xóa khỏi cả 3 chỗ: `agents.list`, `bindings`, `channels.telegram.accounts`.
 
 ### Đổi model
-Sửa `agents.defaults.model.primary` thành `<provider-hien-tai>/<model-id>` với một trong ba ID được phép, mặc định `GPT-6.1-sol`. Nếu được yêu cầu đổi fallback thì chỉ dùng các ID trong cùng danh sách và kiểm tra provider thực tế hỗ trợ. Kiểm tra cả override của agent/session; không thay provider, credential hoặc model media không liên quan.
+Sửa `agents.defaults.model.primary` thành `<provider-hien-tai>/<model-id>` với một trong ba ID được phép, mặc định `gpt-6.2-sol`. Nếu được yêu cầu đổi fallback thì chỉ dùng các ID trong cùng danh sách và kiểm tra provider thực tế hỗ trợ. Kiểm tra cả override của agent/session; không thay provider, credential hoặc model media không liên quan.
 
 ### Đổi port gateway
 Sửa `gateway.port` (phải 1-65535).

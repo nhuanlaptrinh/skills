@@ -6,12 +6,13 @@ import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+from alt_models import is_token_codex, token_model
 
 
 def main():
     parser = argparse.ArgumentParser(description="Create an isolated API-only Codex profile.")
     parser.add_argument("--profile-id", required=True)
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--model", help="Model ID; new Token Codex profiles default to gpt-6.2-sol")
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--provider", default="router")
     parser.add_argument("--env-key", help="Name of an existing environment variable, not its value")
@@ -20,8 +21,6 @@ def main():
 
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.profile_id) or ".." in args.profile_id or args.profile_id.endswith("."):
         parser.error("Invalid profile ID")
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.model):
-        parser.error("Invalid model ID")
     if not re.fullmatch(r"[A-Za-z0-9_-]+", args.provider):
         parser.error("Invalid provider ID")
     if args.env_key and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", args.env_key):
@@ -35,6 +34,13 @@ def main():
         _ = url.port
     except ValueError:
         parser.error("Invalid base URL")
+    if is_token_codex(args.base_url):
+        try:
+            args.model = token_model(args.model)
+        except ValueError as error:
+            parser.error(str(error))
+    elif not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.model or ""):
+        parser.error("A valid model ID is required for this provider")
 
     state_home = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
     root = Path(args.profile_root or Path(state_home) / "your-product" / "codex-profiles").expanduser().resolve()

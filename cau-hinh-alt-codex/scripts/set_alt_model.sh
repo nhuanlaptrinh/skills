@@ -17,7 +17,7 @@ usage() {
   cat <<EOF
 Usage: set_alt_model.sh --model MODEL [options]
 
-MODEL must be the exact model ID supplied by the user or provider.
+Token Codex: gpt-6.2-sol, GPT-6.1-terra, gpt-6.2-astra. Other providers use their own IDs.
 
 Options:
   --all-agents              Update agent overrides matching the previous default
@@ -76,10 +76,17 @@ if [[ -z "$MODEL" ]]; then
   exit 2
 fi
 
-if ! MODEL=$(normalize_model "$MODEL"); then
-  echo "Invalid model ID. Use letters, numbers, dots, underscores or hyphens." >&2
-  exit 2
-fi
+REQUESTED_MODEL=$MODEL
+MODEL_HELPER="$(dirname "${BASH_SOURCE[0]}")/alt_models.py"
+resolve_model() {
+  local scoped
+  scoped=$(python3 "$MODEL_HELPER" --model="$REQUESTED_MODEL" "$@") || return 1
+  if [[ -n "$scoped" ]]; then
+    printf '%s' "$scoped"
+  else
+    normalize_model "$REQUESTED_MODEL" || { echo "Invalid model ID for this provider." >&2; return 1; }
+  fi
+}
 
 if [[ $UPDATE_CODEX -eq 0 && $UPDATE_OPENCLAW -eq 0 ]]; then
   echo "Nothing to update." >&2
@@ -108,11 +115,12 @@ detect_openclaw_provider() {
     fi
   fi
 
-  candidates=$(jq -r --arg model "$MODEL" '
+  candidates=$(jq -r --arg model "$REQUESTED_MODEL" '
+    def alias: ascii_downcase | gsub("^\\s+|\\s+$"; "") | gsub("[\\s_-]+"; "-");
     .models.providers // {}
     | to_entries[]
     | select(any(.value.models[]?;
-        .id == "codex" or .id == $model))
+        .id == "codex" or ((.id // "" | alias) == ($model | alias))))
     | .key
   ' "$OPENCLAW_CONFIG")
   count=$(printf '%s\n' "$candidates" | sed '/^$/d' | wc -l)
@@ -131,10 +139,14 @@ detect_openclaw_provider() {
   return 1
 }
 
+if [[ $UPDATE_CODEX -eq 1 ]]; then
+  CODEX_MODEL=$(resolve_model --codex-config "$CODEX_CONFIG")
+fi
 if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
   [[ -f "$OPENCLAW_CONFIG" ]] || { echo "OpenClaw config not found: $OPENCLAW_CONFIG" >&2; exit 1; }
   detect_openclaw_provider
+  MODEL=$(jq -r --arg p "$OPENCLAW_PROVIDER" '.models.providers[$p].baseUrl // ""' "$OPENCLAW_CONFIG" | resolve_model)
   OPENCLAW_MODEL="$OPENCLAW_PROVIDER/$MODEL"
   if ! jq -e --arg provider "$OPENCLAW_PROVIDER" --arg model "$MODEL" 'any(.models.providers[$provider].models[]?; .id == $model)' "$OPENCLAW_CONFIG" >/dev/null; then
     echo "Model $MODEL is not registered for OpenClaw provider $OPENCLAW_PROVIDER; configure its metadata first." >&2
@@ -142,9 +154,8 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   fi
 fi
 
-echo "Selected model: $MODEL"
 echo "Backup directory: $BACKUP_DIR"
-[[ $UPDATE_CODEX -eq 1 ]] && echo "Codex config: $CODEX_CONFIG"
+[[ $UPDATE_CODEX -eq 1 ]] && echo "Codex config: $CODEX_CONFIG (model: $CODEX_MODEL)"
 if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   echo "OpenClaw config: $OPENCLAW_CONFIG"
   echo "OpenClaw provider: $OPENCLAW_PROVIDER"
@@ -171,7 +182,7 @@ if [[ $UPDATE_CODEX -eq 1 ]]; then
   CODEX_TEMP=$(mktemp "${CODEX_CONFIG}.tmp.XXXXXX")
   trap 'rm -f "${CODEX_TEMP:-}"' EXIT
   cp -p "$CODEX_CONFIG" "$CODEX_TEMP"
-  MODEL_VALUE="$MODEL" perl -0pi -e 'my $pos = /^[ \t]*\[/m ? $-[0] : length($_); my $top = substr($_, 0, $pos); $top =~ s/^model[ \t]*=[ \t]*"[^"]*"/model = "$ENV{MODEL_VALUE}"/m or die "Top-level model key not found\n"; substr($_, 0, $pos, $top)' "$CODEX_TEMP"
+  MODEL_VALUE="$CODEX_MODEL" perl -0pi -e 'my $pos = /^[ \t]*\[/m ? $-[0] : length($_); my $top = substr($_, 0, $pos); $top =~ s/^model[ \t]*=[ \t]*"[^"]*"/model = "$ENV{MODEL_VALUE}"/m or die "Top-level model key not found\n"; substr($_, 0, $pos, $top)' "$CODEX_TEMP"
   mv "$CODEX_TEMP" "$CODEX_CONFIG"
   trap - EXIT
 fi
@@ -225,7 +236,7 @@ if [[ $UPDATE_OPENCLAW -eq 1 ]]; then
   fi
 fi
 
-echo "Updated model to $MODEL."
+echo "Requested model update complete."
 [[ $UPDATE_CODEX -eq 1 ]] && echo "Codex backup: $CODEX_BACKUP"
 [[ $UPDATE_OPENCLAW -eq 1 ]] && echo "OpenClaw backup: $OPENCLAW_BACKUP"
 exit 0

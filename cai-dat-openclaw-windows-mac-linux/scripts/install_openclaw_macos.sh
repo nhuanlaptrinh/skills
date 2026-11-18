@@ -8,12 +8,12 @@ SKIP_CODEX="${SKIP_CODEX:-0}"
 OPENCLAW_VERSION="2026.11.2"
 DASHBOARD_URL="http://127.0.0.1:${PORT}/"
 TOKEN_CODEX_BASE_URL="https://codex.anhlaptrinh.vn/v1"
-TOKEN_CODEX_MODEL_ID="${TOKEN_CODEX_MODEL_ID:-GPT-6.1-sol}"
+TOKEN_CODEX_MODEL_ID="${TOKEN_CODEX_MODEL_ID:-gpt-6.2-sol}"
 TOKEN_CODEX_PROVIDER_ID="token-codex"
 
 case "$TOKEN_CODEX_MODEL_ID" in
-  GPT-6.1-sol|GPT-6.1-terra|GPT-6-astra) ;;
-  *) echo "Unsupported model. Choose GPT-6.1-sol, GPT-6.1-terra, or GPT-6-astra." >&2; exit 2 ;;
+  gpt-6.2-sol|GPT-6.1-terra|gpt-6.2-astra) ;;
+  *) echo "Unsupported model. Choose gpt-6.2-sol, GPT-6.1-terra, or gpt-6.2-astra." >&2; exit 2 ;;
 esac
 
 step() {
@@ -202,7 +202,7 @@ const baseUrl = process.env.TOKEN_CODEX_BASE_URL_RUNTIME;
 const modelId = process.env.TOKEN_CODEX_MODEL_ID_RUNTIME;
 const providerId = process.env.TOKEN_CODEX_PROVIDER_ID_RUNTIME;
 const primaryModel = `${providerId}/${modelId}`;
-const modelIds = ['GPT-6.1-sol', 'GPT-6.1-terra', 'GPT-6-astra'];
+const modelIds = ['gpt-6.2-sol', 'GPT-6.1-terra', 'gpt-6.2-astra'];
 if (!modelIds.includes(modelId)) throw new Error('Unsupported Token Codex model');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 

@@ -6,7 +6,7 @@ Nguồn tham chiếu: `https://github.com/nhuanlaptrinh/cau-hinh-alt-codex_new`
 
 - Danh sách model và quy tắc chuẩn hóa model.
 - Mẫu provider ALT/9Router và `wire_api = "responses"`.
-- Script `scripts/set_alt_model.sh` cho backup, cập nhật model Codex/OpenClaw, validate và restart gateway.
+- Script `scripts/set_alt_model.sh` cho backup, cập nhật model Codex/OpenClaw, validate và chỉ restart gateway khi được yêu cầu.
 
 ## Cố ý không dùng
 

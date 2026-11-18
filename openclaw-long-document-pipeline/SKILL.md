@@ -30,7 +30,7 @@ Use this skill for a long document that could exceed context, timeout, or output
 
 For an inbound DOCX, first use `openclaw-docx-reader` when exact Word extraction is needed. TXT input is accepted for already extracted text.
 
-3. Translate using the same input and job directory. The script reads the protected `TOKEN_CODEX_API_KEY`, resolves the member's configured provider/model, validates each JSON block, and uses at most two concurrent requests:
+3. Translate using the same input and job directory. The script reads the protected `TOKEN_CODEX_API_KEY`, resolves the member's configured provider/model (Token Codex defaults to `gpt-6.2-sol` when no model is configured; the other current request IDs are `GPT-6.1-terra` and `gpt-6.2-astra`), validates each JSON block, and uses at most two concurrent requests:
 
 ```bash
 /root/.openclaw/tools/document-venv/bin/python \

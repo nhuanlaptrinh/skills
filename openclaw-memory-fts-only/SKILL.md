@@ -197,3 +197,26 @@ Chỉ khôi phục `openclaw-agent.sqlite.before-index` khi cần trạng thái 
 Ghi vào `/root/_Second_AI_Brain/06_Nhat_Ky_Thay_Doi.md`: member/agent (không ghi token), nguyên nhân thiếu embedding credential, backup directory, kết quả reindex/status/search và caveat writable-layer nếu có. Skill này phải được đồng bộ vào skill root của OpenClaw nếu agent OpenClaw cần gọi trực tiếp; bản global tại `/root/.agents/skills/openclaw-memory-fts-only/SKILL.md` là bản dùng chung.
 
 Các lệnh trên đã được kiểm tra với OpenClaw 2026.8.2; trên bản khác phải xem `openclaw config --help` và `openclaw memory --help` trước khi apply.
+
+## Deployment: Cat Minh, 2026-10-30
+
+OpenClaw `2026.10.6`, container `user-trolyketoancatminh`, runtime HOME
+`/home/trolyketoancatminh`. Agents `main` and `aictycatminh` returned HTTP 400
+`No credentials for provider: openai` during embedding probes and background
+sync. `ai_catminh` already used FTS-only. Apply only per-agent
+`agents.entries.<id>.memory.search.provider=none` and `fallback=none`; keep
+root memory settings and other search options unchanged.
+
+Config and SQLite Backup API snapshots (quick_check passed) are under
+`/root/_Backups/member_vps/trolyketoancatminh/oom-recovery/20261030T051023Z`.
+The host config is
+`/root/Apps/member_vps/docker-users/data/trolyketoancatminh/.openclaw/openclaw.json`;
+agent databases are under `.openclaw/agents/<id>/agent/openclaw-agent.sqlite`.
+All container CLI calls must use `docker exec -e HOME=/home/trolyketoancatminh`.
+Use the dry-run, apply, force-index, status and search procedure above for each
+target agent; there is no external message delivery or Sheet write.
+
+This accompanies a separate cgroup OOM repair documented in
+`/root/.agents/skills/member-vps-resource-oom-guard/SKILL.md`. FTS-only repairs
+the failed embedding sync, while Docker capacity and concurrency limits address
+the observed OOM/restart loop. Do not attribute all RAM growth to embeddings.

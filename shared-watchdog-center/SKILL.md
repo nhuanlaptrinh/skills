@@ -333,6 +333,14 @@ Resource/OOM guard example:
 
 The resource guard writes only sanitized status and cooldown state to the shared center. It does not change the member container, Gateway, browser profiles, credentials, sessions, or SQLite state.
 
+For `trolyketoancatminh`, the passive resource entry runs every five minutes
+with `--no-notify`, `ai_on_failure=false`, and an explicit member-specific
+`--state-file`. See `/root/.agents/skills/member-vps-resource-oom-guard/SKILL.md`
+for its OOM recovery, dry-run, scheduled command, logs, and rollback. Always
+supply a separate state path when adding another member: the resource script's
+default path belongs to daomac. Resource logging does not itself prevent OOM
+or authorize automatic restarts of active work.
+
 Với session có ít dòng nhưng context lớn do tool output, cấu hình một project `openclaw_session` dùng `MEMBER_HOME`, `SESSION_PATTERN` hẹp và `COMPACTION_MODE=summary`. Chỉ compact khi session idle đủ lâu; luôn backup session index trước lần áp dụng đầu tiên.
 
 Log và state:

@@ -143,12 +143,12 @@ Back up any existing unit and UFW rules first. Allow only the member Docker brid
 
 ## Provider and session recovery
 
-For provider 503/timeouts, back up the config and add only known-good fallbacks at the affected agent entry (and defaults when that is the authored policy). Current Token Codex choices are `GPT-6.1-sol`, `GPT-6.1-terra`, and `GPT-6-astra`; verify the selected IDs in the actual provider catalog first. The example uses provider `9r`; preserve the existing provider prefix and primary when applying:
+For provider 503/timeouts, back up the config and add only known-good fallbacks at the affected agent entry (and defaults when that is the authored policy). Current Token Codex choices are `gpt-6.2-sol`, `GPT-6.1-terra`, and `gpt-6.2-astra`; verify the selected IDs in the actual provider catalog first. The example uses provider `9r`; preserve the existing provider prefix and primary when applying:
 
 ```json
 "model": {
-  "primary": "9r/GPT-6.1-sol",
-  "fallbacks": ["9r/GPT-6.1-terra", "9r/GPT-6-astra"]
+  "primary": "9r/gpt-6.2-sol",
+  "fallbacks": ["9r/GPT-6.1-terra", "9r/gpt-6.2-astra"]
 }
 ```
 
