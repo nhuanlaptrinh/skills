@@ -20,7 +20,7 @@ Verify: `curl $NINEROUTER_URL/api/health` → `{"ok":true}`
 
 ## Discover models
 
-For the local Token Codex service at `https://codex.anhlaptrinh.vn/v1`, the current chat-model choices are `gpt-6.2-sol` (default), `GPT-6.1-terra`, and `gpt-6.2-astra`. Keep these exact case-sensitive IDs in new instructions and configurations, and verify the selected model through `/v1/models`. This list applies to Token Codex; other providers and media capabilities use their own discovered catalogs. Updating this skill does not change existing runtime configuration. The site displays GPT-6.2-sol and GPT-6.2-astra as names; use the lowercase gpt prefix for their request IDs, as returned by the gateway.
+For the local Token Codex service at `https://codex.anhlaptrinh.vn/v1`, the current chat-model choices are `gpt-6.2-sol` (default), `GPT-6.1-terra`, and `gpt-6.2-astra`. Keep these exact case-sensitive IDs in new instructions and configurations, and verify the selected model through `/v1/models`. This list applies to Token Codex; other providers and media capabilities use their own discovered catalogs. Updating this skill does not change existing runtime configuration. The website uses the exact API IDs for display names and copyable examples alike. Label `gpt-6.2-sol` as the default for new installations.
 
 ```bash
 curl $NINEROUTER_URL/v1/models                  # chat/LLM (default)
